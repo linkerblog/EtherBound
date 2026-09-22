@@ -46,11 +46,13 @@ model, commands, measured pitfalls). Until then, `VISION.md` is the only referen
 - **Comments explain the *why*, not the *what*.** If the code is already self-explanatory, do not
   comment it.
 - **Notion.** Every system update must also be reflected in the EtherBound Notion page
-  (`EtherBound — Índice de sistemas`), preserving the existing page format, table structure,
+  (`EtherBound — Systems Index`), preserving the existing page format, table structure,
   separator before the subindexes, and corresponding icon. When a task is completed, add a concise
-  report under its own `Reportes de trabajo` subindex; reports must not be mixed into another
-  subindex. Every update task must also create a new page under the `Dev blog` subindex. Dev blog
-  pages must use a creative, descriptive title and an icon that matches the entry's topic.
+  report under its own `Work Reports` subindex; reports must not be mixed into another subindex.
+  Every update task must also create a new page under the `Dev Blog` subindex. Dev Blog
+  pages must use a technical, descriptive title and an icon that matches the entry's topic. Work
+  report entries must be pages under the `Work Reports` subindex, titled `Report DD/MM/YYYY`, with
+  an icon that matches the report's topic.
 - **Schema changes ship as migrations.** Every change to the database models comes with an Alembic
   migration. Never wipe the savegame to change the schema.
 - **Type contract.** Pydantic models are the source of truth; the TypeScript types in the web client

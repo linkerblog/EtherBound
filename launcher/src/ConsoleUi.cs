@@ -37,11 +37,11 @@ internal sealed class ConsoleUi
         }
     }
 
-    public void Header()
+    public void Header(string version)
     {
         lock (gate)
         {
-            Paint(ConsoleColor.Cyan, $" E T H E R B O U N D  //  DEV LAUNCHER{AppInfo.Version,43}");
+            Paint(ConsoleColor.Cyan, $" E T H E R B O U N D  //  DEV LAUNCHER{version,43}");
             Paint(
                 ConsoleColor.Gray,
                 $" server  http://127.0.0.1:{Services.ServerPort}          web  http://127.0.0.1:{Services.WebPort}");

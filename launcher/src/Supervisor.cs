@@ -17,7 +17,7 @@ internal static class Supervisor
     // process in the job, the launcher included, so it must close only when the process exits.
     private static Job? launcherJob;
 
-    public static async Task<int> RunAsync(string root, Options options, ConsoleUi ui)
+    public static async Task<int> RunAsync(string root, string projectVersion, Options options, ConsoleUi ui)
     {
         using var instance = SingleInstance.TryAcquire(root);
         if (instance is null)
@@ -37,7 +37,7 @@ internal static class Supervisor
         var now = DateTime.Now;
         using var launcherLog = LogFile.Open(logs, "launcher", now, out var launcherLogWarning);
         ui.AttachLog(launcherLog);
-        ui.Header();
+        ui.Header(projectVersion);
         if (launcherLogWarning is not null)
         {
             ui.Warn(launcherLogWarning);
@@ -87,7 +87,7 @@ internal static class Supervisor
         var openPending = options.Open ? 1 : 0;
         void OnStateChanged()
         {
-            ui.SetTitle($"EtherBound {AppInfo.Version} · server {server.StateText} · web {web.StateText}");
+            ui.SetTitle($"EtherBound {projectVersion} · server {server.StateText} · web {web.StateText}");
             if (server.State == ServiceState.Ready && web.State == ServiceState.Ready &&
                 Interlocked.Exchange(ref openPending, 0) == 1)
             {

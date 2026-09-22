@@ -40,6 +40,9 @@ model, commands, measured pitfalls). Until then, `VISION.md` is the only referen
 - **Versions.** `docs/Version.md` lists every module and its version. Every module starts at
   `v0.0.0`; on every modification, bump the affected module's version by `0.0.1` and update
   `docs/Version.md` in the same change. A change that touches several modules bumps each of them.
+  Its overall project version must match the version assigned to the latest commit. The launcher
+  banner and console title display this overall version from `docs/Version.md`, not the launcher's
+  module version; keep both displays in sync whenever the overall version changes.
 - **English only.** Code, comments, prompts, identifiers, docs and player-facing text are English.
   Identifiers are ASCII (no accents, no `ñ`); player-facing text is not bound by that. Never mix two
   languages inside one file.

@@ -39,7 +39,9 @@ internal static class Program
             return 1;
         }
 
-        return options.Mode == Mode.Cleanup ? Cleanup(root, ui) : await Supervisor.RunAsync(root, options, ui);
+        return options.Mode == Mode.Cleanup
+            ? Cleanup(root, ui)
+            : await Supervisor.RunAsync(root, AppInfo.ReadVersion(root), options, ui);
     }
 
     private static int Cleanup(string root, ConsoleUi ui)
@@ -71,10 +73,20 @@ internal static class Program
 
 internal static class AppInfo
 {
-    public static string Version { get; } = Format(typeof(AppInfo).Assembly.GetName().Version);
+    private const string VersionPrefix = "Overall project version: `";
 
-    private static string Format(Version? version) =>
-        version is null ? "v0.0.0" : $"v{version.Major}.{version.Minor}.{version.Build}";
+    public static string ReadVersion(string root)
+    {
+        var versionLine = File.ReadLines(Path.Combine(root, "docs", "Version.md"))
+            .FirstOrDefault(line => line.StartsWith(VersionPrefix, StringComparison.Ordinal) && line.EndsWith('`'));
+        var version = versionLine is null ? null : versionLine[VersionPrefix.Length..^1];
+        if (version is null || !version.StartsWith('v') || !Version.TryParse(version[1..], out _))
+        {
+            throw new InvalidDataException("docs/Version.md has no valid overall project version");
+        }
+
+        return version;
+    }
 }
 
 internal static class Wait

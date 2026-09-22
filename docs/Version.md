@@ -1,7 +1,10 @@
 # Versions
 
+Overall project version: `v0.3.0`
+
 Every module and its current version. Modules start at `v0.0.0`; each modification bumps its
-version by `0.0.1`, and the bump ships in the same change.
+version by `0.0.1`, and the bump ships in the same change. The overall project version tracks the
+version assigned to the latest commit.
 
 | Module | Path | Version |
 |---|---|---|
@@ -16,5 +19,5 @@ version by `0.0.1`, and the bump ships in the same change.
 | web.game | `web/src/game/` | v0.0.6 |
 | web.net | `web/src/net/` | v0.0.3 |
 | web.ui | `web/src/ui/` | v0.0.5 |
-| launcher | `launcher/` | v0.0.1 |
+| launcher | `launcher/` | v0.0.2 |
 | tooling | root config: `package.json`, `global.json`, `.gitignore`, `.env.example` | v0.0.8 |

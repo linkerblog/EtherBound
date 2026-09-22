@@ -1,24 +1,32 @@
 import asyncio
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from math import floor
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from etherbound.db.models import Actor, WorldMeta
 from etherbound.db.models import Chunk as ChunkRow
 from etherbound.db.models import ChunkLevel as ChunkLevelRow
+from etherbound.db.models import Event as EventRow
 from etherbound.db.models import Material as MaterialRow
 from etherbound.engine.actions import Action, ActionResult
-from etherbound.engine.movement import move_in_world
+from etherbound.engine.verbs import ActionContext, handler_for
+from etherbound.events.bus import EventBus
+from etherbound.events.models import (
+    ActorSpawned,
+    ClockChanged,
+    ClockTicked,
+    Event,
+    TilePos,
+    WorldGenerated,
+)
 from etherbound.world.chunk import CHUNK_SIZE, Chunk, ChunkLevel
 from etherbound.world.gen.testworld import GEN_VERSION, SPAWN_POINT, TestWorld, generate_test_world
 from etherbound.world.grid import WorldGrid
 from etherbound.world.materials import MaterialRegistry
 
 PLAYER_ID = "niko"
-WALKING_SPEED_METRES_PER_SECOND = 4.0
 CHUNK_RADIUS = 2
 
 
@@ -74,18 +82,44 @@ class WorldEngine:
     """The only component allowed to validate and commit world state changes."""
 
     def __init__(
-        self, sessions: sessionmaker[Session], registry: MaterialRegistry | None = None
+        self,
+        sessions: sessionmaker[Session],
+        registry: MaterialRegistry | None = None,
+        bus: EventBus | None = None,
     ) -> None:
         self.sessions = sessions
         self.registry = registry or MaterialRegistry.load()
         self.grid = WorldGrid(registry=self.registry)
         self._lock = asyncio.Lock()
-        self._clock_listener: Callable[[int, int, bool], Awaitable[None] | None] | None = None
+        self.bus = bus or EventBus()
+        self._next_seq = 1
 
-    def set_clock_listener(
-        self, listener: Callable[[int, int, bool], Awaitable[None] | None]
-    ) -> None:
-        self._clock_listener = listener
+    def _stamp_and_store(
+        self,
+        session: Session,
+        world: WorldMeta,
+        events: list[Event],
+        *,
+        first_seq: int | None = None,
+    ) -> int:
+        next_seq = self._next_seq if first_seq is None else first_seq
+        for event in events:
+            event.seq = next_seq
+            event.game_minute = world.game_minute
+            next_seq += 1
+            if event.logged:
+                session.add(
+                    EventRow(
+                        seq=event.seq,
+                        game_minute=event.game_minute,
+                        type=event.type,
+                        actor_id=event.actor_id,
+                        data=event.model_dump(
+                            mode="json", exclude={"seq", "game_minute", "type", "actor_id"}
+                        ),
+                    )
+                )
+        return next_seq
 
     def _sync_materials(self, session: Session) -> None:
         existing_rows = list(session.scalars(select(MaterialRow)))
@@ -181,6 +215,7 @@ class WorldEngine:
         return session.scalar(select(ChunkRow.cx).limit(1)) is not None
 
     def ensure_world(self, seed: int = 0) -> None:
+        events: list[Event] = []
         with self.sessions() as session:
             meta = session.get(WorldMeta, 1)
             if meta is None:
@@ -198,10 +233,17 @@ class WorldEngine:
                 world = generate_test_world(meta.seed, self.registry)
                 self._commit_world(session, world)
                 meta.gen_version = world.gen_version
+                events.append(WorldGenerated(seed=meta.seed, gen_version=world.gen_version))
             chunks, levels = self._load_grid(session)
+            self.grid = WorldGrid(chunks, levels, self.registry)
+            actor_event = self._ensure_actor(session)
+            if actor_event is not None:
+                events.append(actor_event)
+            self._next_seq = (session.scalar(select(func.max(EventRow.seq))) or 0) + 1
+            next_seq = self._stamp_and_store(session, meta, events)
             session.commit()
-        self.grid = WorldGrid(chunks, levels, self.registry)
-        self._ensure_actor()
+        self._next_seq = next_seq
+        self.bus.enqueue(events)
 
     def _spawn_point(self) -> tuple[float, float, int]:
         spawn_x, spawn_y = SPAWN_POINT
@@ -232,24 +274,32 @@ class WorldEngine:
             abs(surface.h - h) <= 1 for surface in self.grid.standing_surfaces(floor(x), floor(y))
         )
 
-    def _ensure_actor(self) -> None:
+    def _ensure_actor(self, session: Session) -> ActorSpawned | None:
         spawn_x, spawn_y, spawn_h = self._spawn_point()
-        with self.sessions() as session:
-            actor = session.get(Actor, PLAYER_ID)
-            if actor is None:
-                session.add(
-                    Actor(
-                        id=PLAYER_ID,
-                        kind="player",
-                        x=spawn_x,
-                        y=spawn_y,
-                        h=spawn_h,
-                        z=spawn_h // 6,
-                    )
-                )
-            elif not self._stands(actor.x, actor.y, actor.h):
-                actor.x, actor.y, actor.h, actor.z = spawn_x, spawn_y, spawn_h, spawn_h // 6
-            session.commit()
+        actor = session.get(Actor, PLAYER_ID)
+        reason: str | None = None
+        if actor is None:
+            actor = Actor(
+                id=PLAYER_ID,
+                kind="player",
+                x=spawn_x,
+                y=spawn_y,
+                h=spawn_h,
+                z=spawn_h // 6,
+            )
+            session.add(actor)
+            reason = "created"
+        elif not self._stands(actor.x, actor.y, actor.h):
+            actor.x, actor.y, actor.h, actor.z = spawn_x, spawn_y, spawn_h, spawn_h // 6
+            reason = "relocated"
+        if reason is None:
+            return None
+        return ActorSpawned(
+            actor_id=actor.id,
+            kind=actor.kind,
+            tile=TilePos(x=floor(actor.x), y=floor(actor.y), h=actor.h),
+            reason=reason,
+        )
 
     def _world_row(self, session: Session) -> WorldMeta:
         world = session.get(WorldMeta, 1)
@@ -315,6 +365,7 @@ class WorldEngine:
     async def new_game(self, seed: int) -> WorldState:
         async with self._lock:
             with self.sessions() as session:
+                session.query(EventRow).delete()
                 session.query(ChunkLevelRow).delete()
                 session.query(ChunkRow).delete()
                 session.query(Actor).delete()
@@ -326,21 +377,26 @@ class WorldEngine:
                 generated = generate_test_world(seed, self.registry)
                 self._commit_world(session, generated)
                 world.gen_version = GEN_VERSION
+                self.grid = WorldGrid(
+                    generated.chunks.values(), generated.levels.values(), self.registry
+                )
+                events: list[Event] = [WorldGenerated(seed=seed, gen_version=world.gen_version)]
+                actor_event = self._ensure_actor(session)
+                if actor_event is not None:
+                    events.append(actor_event)
+                events.append(ClockChanged(speed=world.speed, paused=world.paused))
+                next_seq = self._stamp_and_store(session, world, events, first_seq=1)
                 session.commit()
-            self.grid = WorldGrid(
-                generated.chunks.values(), generated.levels.values(), self.registry
-            )
-            self._ensure_actor()
+            self._next_seq = next_seq
+            self.bus.enqueue(events)
             state = self.get_state()
-        if self._clock_listener is not None:
-            result = self._clock_listener(state.game_minute, state.speed, state.paused)
-            if asyncio.iscoroutine(result):
-                await result
+        await self.bus.drain()
         return state
 
     async def submit(
         self, actor_id: str, action: Action, delta_seconds: float = 1 / 20
     ) -> ActionResult:
+        events: list[Event] = []
         async with self._lock:
             with self.sessions() as session:
                 world = self._world_row(session)
@@ -358,18 +414,26 @@ class WorldEngine:
                         h=actor.h,
                         reason="paused",
                     )
-                actor.x, actor.y, actor.h = move_in_world(
-                    actor.x,
-                    actor.y,
-                    actor.h,
-                    action.dx,
-                    action.dy,
-                    WALKING_SPEED_METRES_PER_SECOND * delta_seconds,
-                    self.grid,
-                )
-                actor.z = actor.h // 6
+                handler = handler_for(action.verb)
+                ctx = ActionContext(session, world, actor, self.grid, delta_seconds)
+                reason = handler.validate(ctx, action)
+                if reason is not None:
+                    return ActionResult(
+                        accepted=False,
+                        actor_id=actor_id,
+                        action=action,
+                        x=actor.x,
+                        y=actor.y,
+                        z=actor.z,
+                        h=actor.h,
+                        reason=reason,
+                    )
+                events = handler.resolve(ctx, action)
+                next_seq = self._stamp_and_store(session, world, events)
                 session.commit()
-                return ActionResult(
+                self._next_seq = next_seq
+                self.bus.enqueue(events)
+                result = ActionResult(
                     accepted=True,
                     actor_id=actor_id,
                     action=action,
@@ -378,37 +442,61 @@ class WorldEngine:
                     z=actor.z,
                     h=actor.h,
                 )
+        await self.bus.drain()
+        return result
 
     async def advance_time(self) -> WorldState:
+        events: list[Event] = []
         async with self._lock:
             with self.sessions() as session:
                 world = self._world_row(session)
                 if not world.paused:
                     world.game_minute += 1
+                    events.append(ClockTicked())
+                    next_seq = self._stamp_and_store(session, world, events)
                     session.commit()
+                    self._next_seq = next_seq
+                    self.bus.enqueue(events)
             state = self.get_state()
-        if self._clock_listener is not None:
-            result = self._clock_listener(state.game_minute, state.speed, state.paused)
-            if asyncio.iscoroutine(result):
-                await result
+        await self.bus.drain()
         return state
 
     async def set_clock(
         self, *, paused: bool | None = None, speed: int | None = None
     ) -> WorldState:
+        events: list[Event] = []
         async with self._lock:
             with self.sessions() as session:
                 world = self._world_row(session)
+                old_speed, old_paused = world.speed, world.paused
                 if paused is not None:
                     world.paused = paused
                 if speed is not None:
                     if speed not in (1, 3, 10):
                         raise ValueError("speed must be 1, 3, or 10")
                     world.speed = speed
-                session.commit()
+                if (world.speed, world.paused) != (old_speed, old_paused):
+                    events.append(ClockChanged(speed=world.speed, paused=world.paused))
+                    next_seq = self._stamp_and_store(session, world, events)
+                    session.commit()
+                    self._next_seq = next_seq
+                    self.bus.enqueue(events)
             state = self.get_state()
-        if self._clock_listener is not None:
-            result = self._clock_listener(state.game_minute, state.speed, state.paused)
-            if asyncio.iscoroutine(result):
-                await result
+        await self.bus.drain()
         return state
+
+    def read_events(
+        self,
+        after_seq: int = 0,
+        limit: int = 100,
+        event_type: str | None = None,
+        actor_id: str | None = None,
+    ) -> list[EventRow]:
+        statement = select(EventRow).where(EventRow.seq > after_seq).order_by(EventRow.seq)
+        if event_type is not None:
+            statement = statement.where(EventRow.type == event_type)
+        if actor_id is not None:
+            statement = statement.where(EventRow.actor_id == actor_id)
+        statement = statement.limit(limit)
+        with self.sessions() as session:
+            return list(session.scalars(statement))

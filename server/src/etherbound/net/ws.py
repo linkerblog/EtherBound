@@ -6,6 +6,7 @@ from pydantic import TypeAdapter, ValidationError
 
 from etherbound.engine.actions import MoveAction
 from etherbound.engine.world import PLAYER_ID, ChunkPayload, WorldEngine, WorldInfo, WorldState
+from etherbound.events.models import ClockChanged, ClockTicked, WorldGenerated
 from etherbound.net.messages import (
     AckMessage,
     ActorSnapshot,
@@ -142,6 +143,15 @@ class WebSocketHub:
         for connection in stale:
             self.disconnect(connection)
 
+    async def on_clock(self, event: ClockTicked | ClockChanged) -> None:
+        del event
+        await self.broadcast(tick(self.engine.get_state(), self.engine.world_info()))
+
+    async def on_world_generated(self, event: WorldGenerated) -> None:
+        del event
+        await self.broadcast(snapshot(self.engine.get_state(), self.engine.world_info()))
+        await self.reset_world()
+
     async def handle(self, websocket: WebSocket, message_data: object) -> None:
         try:
             message = client_message_adapter.validate_python(message_data)
@@ -168,8 +178,7 @@ class WebSocketHub:
             if self._known_centres.get(websocket) != centre:
                 await self._push_chunks(websocket, centre)
             return
-        state = await self.engine.set_clock(paused=message.paused, speed=message.speed)
-        await self.broadcast(tick(state, self.engine.world_info()))
+        await self.engine.set_clock(paused=message.paused, speed=message.speed)
 
     async def broadcast_to_one(self, websocket: WebSocket, message: ServerMessage) -> None:
         await websocket.send_json(message.model_dump(mode="json"))

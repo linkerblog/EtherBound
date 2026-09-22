@@ -1,3 +1,5 @@
+from typing import Any
+
 from sqlalchemy import JSON, BigInteger, Boolean, Float, Integer, LargeBinary, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -72,3 +74,13 @@ class ChunkLevel(Base):
     wall_w: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     edge_flags: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     flags: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+
+
+class Event(Base):
+    __tablename__ = "event"
+
+    seq: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    game_minute: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    actor_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    data: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)

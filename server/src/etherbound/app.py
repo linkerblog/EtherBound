@@ -8,8 +8,9 @@ from etherbound.config import Settings, get_settings
 from etherbound.db.migrate import upgrade
 from etherbound.db.session import make_engine, make_session_factory
 from etherbound.engine.world import WorldEngine
+from etherbound.events import ClockChanged, ClockTicked, EventBus, WorldGenerated
 from etherbound.net.schema import export_schema
-from etherbound.net.ws import WebSocketHub, tick
+from etherbound.net.ws import WebSocketHub
 from etherbound.routes.api import router
 
 
@@ -18,24 +19,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     database_url = config.resolved_database_url()
     database_engine = make_engine(database_url)
     sessions = make_session_factory(database_engine)
-    world_engine = WorldEngine(sessions)
+    bus = EventBus()
+    world_engine = WorldEngine(sessions, bus=bus)
     hub = WebSocketHub(world_engine)
 
-    async def on_engine_state_change(_: int, speed: int, paused: bool) -> None:
-        clock.load(speed=speed, paused=paused)
-
-    world_engine.set_clock_listener(on_engine_state_change)
-
     async def on_tick() -> None:
-        state = await world_engine.advance_time()
-        await hub.broadcast(tick(state, world_engine.world_info()))
+        await world_engine.advance_time()
 
     clock = Clock(config.time_scale, on_tick=on_tick)
+    bus.subscribe(
+        ClockChanged,
+        lambda event: clock.load(speed=event.speed, paused=event.paused),
+        name="clock",
+    )
+    bus.subscribe(ClockTicked, hub.on_clock, name="websocket.clock_ticked")
+    bus.subscribe(ClockChanged, hub.on_clock, name="websocket.clock_changed")
+    bus.subscribe(WorldGenerated, hub.on_world_generated, name="websocket.world_generated")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         upgrade(database_url)
         world_engine.ensure_world()
+        await world_engine.bus.drain()
         _, speed, paused = world_engine.clock_state()
         clock.load(speed=speed, paused=paused)
         app.state.engine = world_engine

@@ -65,8 +65,9 @@ out of how the world is built, and the world reacts in ways that are correct but
 
 - **World engine** is the only writer of state. It validates preconditions, resolves rolls and
   physics, advances time and emits events.
-- **Systems never call each other.** They subscribe to events and emit new ones. A new system is a
-  new subscriber; if it needs to change the core, stop and rethink.
+- **Systems never call each other.** They subscribe to events and request changes through the
+  engine; only the engine enqueues events. A new system is a new subscriber; if it needs to change
+  the core, stop and rethink.
 - **Clock:** the server owns a 1 Hz logic tick (one game minute). Phaser interpolates between
   snapshots. WASD movement uses client prediction with server correction.
 - **Async LLM:** the world does not wait for a model. An Agent keeps executing its current plan
@@ -283,7 +284,8 @@ enforced by the engine as verb preconditions, not only in prompts:
 - [x] World model: chunks, heightmap, floors, underground levels, materials
 - [ ] The eight primitives as data models
 - [ ] Verb vocabulary and action API; generated context menus
-- [ ] Event bus, witnesses, knowledge, rumor propagation
+- [x] Event bus and action pipeline
+- [ ] Witnesses, knowledge, rumor propagation
 - [ ] Tile physics: impulse, knockback, breakable walls
 - [ ] Seeded RNG streams and the decision log
 

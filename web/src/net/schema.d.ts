@@ -55,6 +55,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Events */
+        get: operations["events_api_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/materials": {
         parameters: {
             query?: never;
@@ -156,6 +173,26 @@ export interface components {
             surface_mat: number[];
             /** Levels */
             levels: components["schemas"]["ChunkLevelResponse"][];
+        };
+        /** EventRecord */
+        EventRecord: {
+            /** Seq */
+            seq: number;
+            /** Game Minute */
+            game_minute: number;
+            /** Type */
+            type: string;
+            /** Actor Id */
+            actor_id: string | null;
+            /** Data */
+            data: {
+                [key: string]: unknown;
+            };
+        };
+        /** EventsResponse */
+        EventsResponse: {
+            /** Events */
+            events: components["schemas"]["EventRecord"][];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -478,6 +515,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StateResponse"];
+                };
+            };
+        };
+    };
+    events_api_events_get: {
+        parameters: {
+            query?: {
+                after_seq?: number;
+                limit?: number;
+                type?: string | null;
+                actor_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

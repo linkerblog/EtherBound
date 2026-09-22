@@ -1,10 +1,10 @@
 from math import floor
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from etherbound.engine.world import WorldEngine
-from etherbound.net.ws import WebSocketHub, snapshot
 
 router = APIRouter(prefix="/api")
 
@@ -80,12 +80,20 @@ class MenuResponse(BaseModel):
     verbs: list[str]
 
 
+class EventRecord(BaseModel):
+    seq: int
+    game_minute: int
+    type: str
+    actor_id: str | None
+    data: dict[str, Any]
+
+
+class EventsResponse(BaseModel):
+    events: list[EventRecord]
+
+
 def get_engine(request: Request) -> WorldEngine:
     return request.app.state.engine
-
-
-def get_hub(request: Request) -> WebSocketHub:
-    return request.app.state.hub
 
 
 def state_response(engine: WorldEngine) -> StateResponse:
@@ -111,17 +119,36 @@ def health(engine: WorldEngine = Depends(get_engine)) -> HealthResponse:  # noqa
 async def new_game(
     body: NewGameRequest,
     engine: WorldEngine = Depends(get_engine),  # noqa: B008
-    hub: WebSocketHub = Depends(get_hub),  # noqa: B008
 ) -> StateResponse:
-    state = await engine.new_game(body.seed)
-    await hub.broadcast(snapshot(state, engine.world_info()))
-    await hub.reset_world()
+    await engine.new_game(body.seed)
     return state_response(engine)
 
 
 @router.get("/game/state", response_model=StateResponse)
 def game_state(engine: WorldEngine = Depends(get_engine)) -> StateResponse:  # noqa: B008
     return state_response(engine)
+
+
+@router.get("/events", response_model=EventsResponse)
+def events(
+    after_seq: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    event_type: str | None = Query(None, alias="type"),
+    actor_id: str | None = Query(None),
+    engine: WorldEngine = Depends(get_engine),  # noqa: B008
+) -> EventsResponse:
+    return EventsResponse(
+        events=[
+            EventRecord(
+                seq=row.seq,
+                game_minute=row.game_minute,
+                type=row.type,
+                actor_id=row.actor_id,
+                data=row.data,
+            )
+            for row in engine.read_events(after_seq, limit, event_type, actor_id)
+        ]
+    )
 
 
 @router.get("/materials", response_model=list[MaterialResponse])

@@ -13,8 +13,8 @@ version by `0.0.1`, and the bump ships in the same change.
 | server.rng | `server/src/etherbound/rng.py` | v0.0.1 |
 | server.world | `server/src/etherbound/world/` | v0.0.2 |
 | web.world | `web/src/world/` | v0.0.2 |
-| web.game | `web/src/game/` | v0.0.5 |
+| web.game | `web/src/game/` | v0.0.6 |
 | web.net | `web/src/net/` | v0.0.3 |
-| web.ui | `web/src/ui/` | v0.0.4 |
+| web.ui | `web/src/ui/` | v0.0.5 |
 | launcher | `launcher/` | v0.0.1 |
 | tooling | root config: `package.json`, `global.json`, `.gitignore`, `.env.example` | v0.0.8 |

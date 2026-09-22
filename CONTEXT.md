@@ -17,7 +17,7 @@ here, and `Dev-003` the native launcher.
 | server.db | `server/src/etherbound/db/`, `server/alembic/` | SQLAlchemy models, engine/session factory, Alembic upgrade on start |
 | server.rng | `server/src/etherbound/rng.py` | `RNGStreams.stream(system)` — one seeded stream per system (`worldgen` drives generation) |
 | web.world | `web/src/world/` | `ChunkStore`, `rules.ts` (prediction mirror of the standing rule), `materials.ts` |
-| web.game | `web/src/game/` | Phaser scene: chunk rendering (shading, cliffs, edge walls, openings, cutaway), camera bounds, WASD, right-click with data-driven `z` |
+| web.game | `web/src/game/` | Phaser scene: chunk rendering (shading, cliffs, edge walls, openings, cutaway), camera bounds, integer zoom x1–x4 (wheel, `+`/`-`/`0`, saved per browser), WASD, right-click with data-driven `z` |
 | web.net | `web/src/net/` | WS client, prediction/reconciliation with `h`, generated `schema.d.ts`, protocol types |
 | web.ui | `web/src/ui/` | React overlay: clock, speeds, pills, meters, feed, input, context menu with server `target` line |
 | launcher | `launcher/` | `EtherBound.exe`, the dev launcher (C#, .NET 10, Native AOT): starts server + web without shells, each in its own job inside a kill-on-close launcher job, health checks, hot reload by restart, leftover and port handling, UTF-8 logs |

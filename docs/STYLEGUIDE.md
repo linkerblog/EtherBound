@@ -107,8 +107,8 @@ body {
 canvas { image-rendering: pixelated; }
 ```
 
-Pixel art: the camera zooms in integer steps only (x2, x3, x4), never fractional, so tiles stay
-crisp.
+Pixel art: the camera zooms in integer steps only (x1 to x4; wheel and `+`/`-`/`0`), never
+fractional, so tiles stay crisp.
 
 ---
 

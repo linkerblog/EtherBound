@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactElement } from "react";
 import { createGame, type ContextTarget, type Telemetry } from "../game/MapScene";
+import type { ZoomLevel } from "../game/zoom";
 import { WebSocketClient } from "../net/client";
 import type { ConnectionState } from "../net/protocol";
 import type { MenuVerb, WorldState } from "../net/protocol";
@@ -57,6 +58,7 @@ export function App(): ReactElement {
   const [input, setInput] = useState("");
   const [echoes, setEchoes] = useState<string[]>([]);
   const [telemetry, setTelemetry] = useState<Telemetry | null>(null);
+  const [zoom, setZoom] = useState<ZoomLevel | null>(null);
   const menuRequest = useRef(0);
 
   useEffect(() => {
@@ -70,7 +72,7 @@ export function App(): ReactElement {
       removeConnection();
       client.disconnect();
     };
-    const game = createGame(hostRef.current, client, (target) => void openMenu(target), setTelemetry);
+    const game = createGame(hostRef.current, client, (target) => void openMenu(target), setTelemetry, setZoom);
     return () => {
       game.destroy(true);
       removeState();
@@ -132,9 +134,10 @@ export function App(): ReactElement {
         <button className="mini" aria-label="Pause" onClick={() => setClock(!world.paused)}>II</button>
         {[1, 3, 10].map((speed) => <button key={speed} className={`mini ${!world.paused && world.speed === speed ? "active" : ""}`} onClick={() => setClock(false, speed)}>x{speed}</button>)}
       </div>
-      {telemetry && <div className="hud-panel telemetry" aria-label="Position and speed">
+      {telemetry && <div className="hud-panel telemetry" aria-label="Position, speed and zoom">
         <div className="readout"><span className="label">POS</span><span>{formatPosition(telemetry)}</span></div>
         <div className="readout"><span className="label">SPD</span><span>{telemetry.speed.toFixed(2)} m/s</span></div>
+        {zoom !== null && <div className="readout"><span className="label">ZOOM</span><span>x{zoom}</span></div>}
       </div>}
       <div className="hud-panel status" onClick={(event) => event.stopPropagation()}>
         <span className={`pill ${connection === "open" ? "ok" : "warn"}`}>{statusLabel(connection)}</span>

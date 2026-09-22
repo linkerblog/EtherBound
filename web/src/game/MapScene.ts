@@ -5,6 +5,7 @@ import { WebSocketClient } from "../net/client";
 import { ChunkStore } from "../world/ChunkStore";
 import { loadMaterials } from "../world/materials";
 import type { components } from "../net/schema";
+import { defaultZoom, loadZoom, saveZoom, stepZoom, WheelAccumulator, type ZoomLevel } from "./zoom";
 type Material = components["schemas"]["MaterialResponse"];
 type WorldChunk = components["schemas"]["ChunkResponse"];
 import { EDGE_N_DOORWAY, EDGE_N_WINDOW, EDGE_W_DOORWAY, EDGE_W_WINDOW, LEVEL_H } from "../world/rules";
@@ -23,6 +24,7 @@ type MapSceneOptions = {
   client: WebSocketClient;
   onContextMenu: (target: ContextTarget) => void;
   onTelemetry: (telemetry: Telemetry) => void;
+  onZoom: (level: ZoomLevel) => void;
 };
 
 type ChunkLayers = { ground: Phaser.GameObjects.Graphics; levels: Phaser.GameObjects.Graphics };
@@ -38,6 +40,8 @@ export class MapScene extends Phaser.Scene {
   private viewerH = 0;
   private generation: number | undefined;
   private paused = false;
+  private zoom: ZoomLevel | null = null;
+  private readonly wheelAccumulator = new WheelAccumulator();
   private keys!: Record<"up" | "down" | "left" | "right", Phaser.Input.Keyboard.Key>;
   private lastDirection: Direction = { x: 0, y: 0 };
   private telemetryOrigin: { x: number; y: number } | null = null;
@@ -63,7 +67,6 @@ export class MapScene extends Phaser.Scene {
     this.niko.setStrokeStyle(2, 0xffffff);
     this.niko.setDepth(1000);
     this.cameras.main.startFollow(this.niko, true, 0.12, 0.12);
-    this.cameras.main.setZoom(this.integerZoom());
 
     this.keys = {
       up: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.W),
@@ -71,6 +74,28 @@ export class MapScene extends Phaser.Scene {
       left: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A),
       right: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.D),
     };
+
+    this.input.on("wheel", (pointer: Phaser.Input.Pointer, _objects: unknown[], _deltaX: number, deltaY: number) => {
+      const event = pointer.event as WheelEvent;
+      if (event.ctrlKey || event.metaKey) return;
+      const steps = this.wheelAccumulator.push(deltaY, event.deltaMode, performance.now());
+      if (steps !== 0 && this.zoom !== null) this.applyZoom(stepZoom(this.zoom, steps));
+    });
+    this.input.keyboard!.on("keydown", (event: KeyboardEvent) => {
+      if (document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement) return;
+      if (event.ctrlKey || event.metaKey || event.altKey || this.zoom === null) return;
+
+      if (event.key === "+" || event.key === "=") {
+        event.preventDefault();
+        this.applyZoom(stepZoom(this.zoom, 1));
+      } else if (event.key === "-") {
+        event.preventDefault();
+        this.applyZoom(stepZoom(this.zoom, -1));
+      } else if (event.key === "0") {
+        event.preventDefault();
+        this.applyZoom(defaultZoom(window.devicePixelRatio));
+      }
+    });
 
     this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       if (!pointer.rightButtonDown()) return;
@@ -85,6 +110,7 @@ export class MapScene extends Phaser.Scene {
       });
     });
     this.input.mouse?.disableContextMenu();
+    this.applyZoom(loadZoom(defaultZoom(window.devicePixelRatio)));
 
     this.removeStateListener = this.options.client.onState((state) => {
       this.paused = state.paused;
@@ -163,6 +189,14 @@ export class MapScene extends Phaser.Scene {
       x: Number(this.keys.right.isDown) - Number(this.keys.left.isDown),
       y: Number(this.keys.down.isDown) - Number(this.keys.up.isDown),
     };
+  }
+
+  private applyZoom(level: ZoomLevel): void {
+    if (level === this.zoom) return;
+    this.cameras.main.setZoom(level);
+    this.zoom = level;
+    saveZoom(level);
+    this.options.onZoom(level);
   }
 
   private applyCameraBounds(bounds: number[]): void {
@@ -312,9 +346,6 @@ export class MapScene extends Phaser.Scene {
     gfx.lineBetween(x1, y1, x2, y2);
   }
 
-  private integerZoom(): number {
-    return Math.max(2, Math.min(4, Math.floor(window.devicePixelRatio || 2)));
-  }
 }
 
 export function createGame(
@@ -322,6 +353,7 @@ export function createGame(
   client: WebSocketClient,
   onContextMenu: (target: ContextTarget) => void,
   onTelemetry: (telemetry: Telemetry) => void,
+  onZoom: (level: ZoomLevel) => void,
 ): Phaser.Game {
   return new Phaser.Game({
     type: Phaser.AUTO,
@@ -332,6 +364,6 @@ export function createGame(
     pixelArt: true,
     render: { antialias: false, roundPixels: true },
     scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
-    scene: new MapScene({ client, onContextMenu, onTelemetry }),
+    scene: new MapScene({ client, onContextMenu, onTelemetry, onZoom }),
   });
 }

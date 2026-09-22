@@ -273,7 +273,7 @@ enforced by the engine as verb preconditions, not only in prompts:
 ## 15. Roadmap
 
 ### Phase 0: Skeleton
-- [x] Create the repo, `AGENTS.md`, `CONTEXT.md`, `docs/Version.md`
+- [x] Create the repo, `AGENTS.md`, `CONTEXT.md`, `docs/utils/VERSION.md`
 - [x] FastAPI app with WebSocket, 1 Hz clock, pause and speeds
 - [x] SQLite + Alembic, first migration
 - [x] Phaser client: top-down map, WASD with prediction, right-click menu stub, HTML overlay

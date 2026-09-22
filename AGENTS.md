@@ -1,11 +1,11 @@
 # AGENTS.md
 
-**Read [`docs/VISION.md`](docs/VISION.md) before touching this repository.** It holds the pillars,
+**Read [`docs/utils/VISION.md`](docs/utils/VISION.md) before touching this repository.** It holds the pillars,
 the architecture, the primitives and the build order. Several rules below look arbitrary until you
 read why they are there.
 
 Once code exists, `CONTEXT.md` in the root records the current technical context (modules, data
-model, commands, measured pitfalls). Until then, `VISION.md` is the only reference.
+model, commands, measured pitfalls). Until then, `docs/utils/VISION.md` is the only reference.
 
 ## The minimum you must not break
 
@@ -31,17 +31,17 @@ model, commands, measured pitfalls). Until then, `VISION.md` is the only referen
 
 - **Docs.** `AGENTS.md`, `CLAUDE.md` and `CONTEXT.md` are the root entry points. Every other `.md`
   goes in `docs/`, never in the root nor in code subdirectories. Living guides use `UPPER_CASE.md`
-  (`docs/VISION.md`); versioned work docs use `Dev-XYZ.md` (`Dev-001`, `Dev-002`, etc., according to
+  (`docs/utils/VISION.md`, `docs/utils/VERSION.md`, `docs/utils/STYLEGUIDE.md`); versioned work docs use `Dev-XYZ.md` (`Dev-001`, `Dev-002`, etc., according to
   the development version); reviews use `FixNN.md`. A versioned doc in `docs/` is in progress; once
   its content is implemented it moves to `docs/done/`. `docs/done/` is an archive: not maintained,
   not consulted as a living reference. Before creating any `.md` file, check whether it already
   exists and update or reuse it instead of creating a duplicate.
-- **Vision changes go to `VISION.md` first.** If a decision changes, update the doc, then the code.
-- **Versions.** `docs/Version.md` lists every module and its version. Every module starts at
+- **Vision changes go to `docs/utils/VISION.md` first.** If a decision changes, update the doc, then the code.
+- **Versions.** `docs/utils/VERSION.md` lists every module and its version. Every module starts at
   `v0.0.0`; on every modification, bump the affected module's version by `0.0.1` and update
-  `docs/Version.md` in the same change. A change that touches several modules bumps each of them.
+  `docs/utils/VERSION.md` in the same change. A change that touches several modules bumps each of them.
   Its overall project version must match the version assigned to the latest commit. The launcher
-  banner and console title display this overall version from `docs/Version.md`, not the launcher's
+  banner and console title display this overall version from `docs/utils/VERSION.md`, not the launcher's
   module version; keep both displays in sync whenever the overall version changes.
 - **English only.** Code, comments, prompts, identifiers, docs and player-facing text are English.
   Identifiers are ASCII (no accents, no `ñ`); player-facing text is not bound by that. Never mix two

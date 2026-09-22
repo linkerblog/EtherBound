@@ -1,7 +1,7 @@
 # CONTEXT.md
 
 Current technical context of EtherBound. It records what exists, how it runs and which pitfalls
-have been measured. Design lives in `docs/VISION.md`; `Dev-001` (archived in `docs/done/`)
+have been measured. Design lives in `docs/utils/VISION.md`; `Dev-001` (archived in `docs/done/`)
 specifies the Phase 0 skeleton, `Dev-002` (archived in `docs/done/`) the world model described
 here, and `Dev-003` (archived in `docs/done/`) the native launcher.
 

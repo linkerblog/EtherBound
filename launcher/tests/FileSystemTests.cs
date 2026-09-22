@@ -105,8 +105,8 @@ public sealed class AppInfoTests : IDisposable
     [Fact]
     public void Reads_the_overall_project_version_from_version_md()
     {
-        var docs = Directory.CreateDirectory(Path.Combine(root, "docs"));
-        File.WriteAllText(Path.Combine(docs.FullName, "Version.md"), "# Versions\n\nOverall project version: `v0.3.0`\n");
+        var docs = Directory.CreateDirectory(Path.Combine(root, "docs", "utils"));
+        File.WriteAllText(Path.Combine(docs.FullName, "VERSION.md"), "# Versions\n\nOverall project version: `v0.3.0`\n");
 
         Assert.Equal("v0.3.0", AppInfo.ReadVersion(root));
     }
@@ -114,8 +114,8 @@ public sealed class AppInfoTests : IDisposable
     [Fact]
     public void Rejects_a_missing_overall_project_version()
     {
-        var docs = Directory.CreateDirectory(Path.Combine(root, "docs"));
-        File.WriteAllText(Path.Combine(docs.FullName, "Version.md"), "# Versions\n");
+        var docs = Directory.CreateDirectory(Path.Combine(root, "docs", "utils"));
+        File.WriteAllText(Path.Combine(docs.FullName, "VERSION.md"), "# Versions\n");
 
         Assert.Throws<InvalidDataException>(() => AppInfo.ReadVersion(root));
     }

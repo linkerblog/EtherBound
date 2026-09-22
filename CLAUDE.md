@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Start with [`AGENTS.md`](AGENTS.md) and [`docs/VISION.md`](docs/VISION.md), plus
+Start with [`AGENTS.md`](AGENTS.md) and [`docs/utils/VISION.md`](docs/utils/VISION.md), plus
 [`CONTEXT.md`](CONTEXT.md) once it exists. They still apply in full.
 
 ## The plan is written before it is executed
@@ -15,7 +15,7 @@ do not "start with the easy part" while the plan is still on the table.
   which primitives or systems it touches, and what must not break.
 - Only after the document is approved does implementation begin, and it follows the
   document. If reality turns out to be different, update the `.md` first, then keep going.
-- A plan that contradicts `docs/VISION.md` updates the vision first, with approval.
+- A plan that contradicts `docs/utils/VISION.md` updates the vision first, with approval.
 - Once the content is implemented, the doc moves to `docs/done/`.
 
 This applies to anything with more than one moving part. A one-line fix, a typo or an

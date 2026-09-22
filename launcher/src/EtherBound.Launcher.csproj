@@ -6,8 +6,8 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <AssemblyName>EtherBound</AssemblyName>
     <RootNamespace>EtherBound.Launcher</RootNamespace>
-    <!-- The launcher module version: it moves together with docs/Version.md. -->
-    <Version>0.0.2</Version>
+    <!-- The launcher module version: it moves together with docs/utils/VERSION.md. -->
+    <Version>0.0.3</Version>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>

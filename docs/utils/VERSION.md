@@ -19,5 +19,5 @@ version assigned to the latest commit.
 | web.game | `web/src/game/` | v0.0.6 |
 | web.net | `web/src/net/` | v0.0.3 |
 | web.ui | `web/src/ui/` | v0.0.5 |
-| launcher | `launcher/` | v0.0.2 |
+| launcher | `launcher/` | v0.0.3 |
 | tooling | root config: `package.json`, `global.json`, `.gitignore`, `.env.example` | v0.0.8 |

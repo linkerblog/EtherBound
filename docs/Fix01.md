@@ -22,7 +22,7 @@ generator deviates from it.
 | Test building | The generator has basement (`h = 6`), ground floor (`h = 12`) and roof (`h = 18`). Dev-002 [Sec. 4.4] asks for ground floor **+ first floor** + roof, and a basement exposed on the downhill side | Add the first floor at `h = 18` and move the roof to `h = 24`, with the stairs running ground → first → roof; give the basement a second flight or an exposed side |
 | Body radius | Dev-002 [Sec. 3] asks for the `r = 0.3` body circle and walls as segments 0.1 m thick; the code collides the centre point only, which is a regression from the deleted `TestMap` | Restore the radius: no body centre closer than 0.3 m to a blocked edge |
 
-A decision that changes the model updates `VISION.md` [Sec. 5] first, as always.
+A decision that changes the model updates `utils/VISION.md` [Sec. 5] first, as always.
 
 ## 2. Blocking defects
 
@@ -170,8 +170,8 @@ per [Sec. 1].
 - `ChunkStore.topmostZ` includes the `NO_FLOOR` sentinel among its candidates.
 - `StandingSurface.z` comes from the level the slab is stored in, while the actor's `z` is
   `h // 6`; the top stair step reports `z = 2` and the actor standing on it reports `z = 3`.
-- `docs/Version.md` still lists `server.testmap`; Dev-002 [Sec. 6] removes the row.
-- `VISION.md` [Sec. 5] still describes pathfinding as "per-level A* plus vertical edges", while
+- `docs/utils/VERSION.md` still lists `server.testmap`; Dev-002 [Sec. 6] removes the row.
+- `utils/VISION.md` [Sec. 5] still describes pathfinding as "per-level A* plus vertical edges", while
   `nav.py` searches standing spots.
 - The Notion updates required by `AGENTS.md` were not verified in this review.
 
@@ -223,7 +223,7 @@ per [Sec. 1].
 
 ### Decisions
 - [ ] Approve [Sec. 1] (cutaway rule, building layout, body radius) and write the outcome into
-      `VISION.md` [Sec. 5] if the model changes
+      `utils/VISION.md` [Sec. 5] if the model changes
 
 ### Blocking
 - [x] B1: `h` changes only when the body changes tile
@@ -247,14 +247,14 @@ per [Sec. 1].
 - [x] `web/src/world/types.ts` replaced by the generated types
 - [x] `ruff format` on the migration
 - [ ] Hub uses the position `submit` returns
-- [ ] Dead code, `topmostZ` sentinel, `StandingSurface.z`, `Version.md` row, `VISION.md` A* line
+- [ ] Dead code, `topmostZ` sentinel, `StandingSurface.z`, `VERSION.md` row, `VISION.md` A* line
 
 ### Tests
 - [ ] Every item in [Sec. 6]
 
 ### Closing
 - [ ] `CONTEXT.md`: corrected pitfalls (slope movement, material ids, chunk invalidation)
-- [ ] `docs/Version.md` per [Sec. 8]
+- [ ] `docs/utils/VERSION.md` per [Sec. 8]
 - [ ] Re-run the acceptance list of Dev-002 [Sec. 9] against seed 0, not only seed 123
 - [ ] Notion: Systems Index, Work Report for the date, Dev Blog page
 - [ ] Move this doc to `docs/done/`

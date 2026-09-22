@@ -1,7 +1,7 @@
 # Pending
 
 Open decisions and loose ends. When one is settled, record the decision where it belongs
-(`VISION.md` or the relevant `Dev-XYZ.md`) and delete it from here.
+(`utils/VISION.md` or the relevant `Dev-XYZ.md`) and delete it from here.
 
 ## Open design questions
 
@@ -10,7 +10,7 @@ Open decisions and loose ends. When one is settled, record the decision where it
 - [ ] **City authoring.** Procedural from seed, hand-made in Tiled, or authored landmarks on a
       procedural base.
 - [ ] **Carry-over from NikoStory.** Whether Halverton, the authored NPCs and the prompts come
-      along. The roll formula already does (`VISION.md` [Sec. 3]).
+      along. The roll formula already does (`utils/VISION.md` [Sec. 3]).
 
 ## Loose ends
 

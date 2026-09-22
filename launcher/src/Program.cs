@@ -77,12 +77,12 @@ internal static class AppInfo
 
     public static string ReadVersion(string root)
     {
-        var versionLine = File.ReadLines(Path.Combine(root, "docs", "Version.md"))
+        var versionLine = File.ReadLines(Path.Combine(root, "docs", "utils", "VERSION.md"))
             .FirstOrDefault(line => line.StartsWith(VersionPrefix, StringComparison.Ordinal) && line.EndsWith('`'));
         var version = versionLine is null ? null : versionLine[VersionPrefix.Length..^1];
         if (version is null || !version.StartsWith('v') || !Version.TryParse(version[1..], out _))
         {
-            throw new InvalidDataException("docs/Version.md has no valid overall project version");
+            throw new InvalidDataException("docs/utils/VERSION.md has no valid overall project version");
         }
 
         return version;

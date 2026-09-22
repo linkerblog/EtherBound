@@ -52,7 +52,10 @@ model, commands, measured pitfalls). Until then, `VISION.md` is the only referen
   Every update task must also create a new page under the `Dev Blog` subindex. Dev Blog
   pages must use a technical, descriptive title and an icon that matches the entry's topic. Work
   report entries must be pages under the `Work Reports` subindex, titled `Report DD/MM/YYYY`, with
-  an icon that matches the report's topic.
+  an icon that matches the report's topic. Work Reports are consolidated by date: before creating a
+  report, search for that date and update the existing page. There must be only one Work Report page
+  per date, containing all completed work for that day. Inside the daily page, separate updates by
+  modification time using `HH:MM` headings, ordered chronologically.
 - **Schema changes ship as migrations.** Every change to the database models comes with an Alembic
   migration. Never wipe the savegame to change the schema.
 - **Type contract.** Pydantic models are the source of truth; the TypeScript types in the web client

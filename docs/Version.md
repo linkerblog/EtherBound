@@ -15,4 +15,4 @@ version by `0.0.1`, and the bump ships in the same change.
 | web.game | `web/src/game/` | v0.0.1 |
 | web.net | `web/src/net/` | v0.0.1 |
 | web.ui | `web/src/ui/` | v0.0.1 |
-| tooling | `scripts/`, `start.bat`, `stop.bat`, root config | v0.0.1 |
+| tooling | `scripts/`, `start.bat`, `cleanup.bat`, root config | v0.0.6 |

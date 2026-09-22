@@ -18,7 +18,7 @@ specifies the Phase 0 skeleton this file describes.
 | web.game | `web/src/game/` | Phaser map scene, placeholder Niko, camera, WASD, right-click targeting |
 | web.net | `web/src/net/` | WS client, prediction/reconciliation, generated `schema.d.ts`, protocol types |
 | web.ui | `web/src/ui/` | React overlay: clock, speeds, pills, meters, feed, input, context menu |
-| tooling | `scripts/`, `start.bat`, `stop.bat` | Dev launcher and teardown, Windows-safe |
+| tooling | `scripts/`, `start.bat`, `cleanup.bat` | Dev launcher and teardown, Windows-safe |
 
 ## Data model
 
@@ -53,12 +53,12 @@ The only current actor is `niko`, starting at `(2.0, 2.0, z=0)`.
 
 ```text
 # Run everything (one launcher window, logs in logs/)
-start.bat          # server + web, background, output to logs\server.log and logs\web.log
-stop.bat           # kills the whole process tree, including the uvicorn reloader child
+start.bat          # supervises server + web, output to logs\server.log and logs\web.log
+cleanup.bat        # kills the whole process tree, including the uvicorn reloader child
 
 # Or from the root
 npm run dev        # spawns server + web in this terminal
-npm run stop
+npm run stop        # legacy Node launcher teardown
 
 # Schema and types
 cd server && uv run etherbound-schema      # writes server/schema.json

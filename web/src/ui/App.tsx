@@ -110,7 +110,7 @@ export function App(): ReactElement {
     setInput("");
   }
 
-  return <main className="shell" onClick={() => menu && setMenu(null)}>
+  return <main className="shell" onClick={() => menu && setMenu(null)} onContextMenu={(event) => event.preventDefault()}>
     <div ref={hostRef} className="world" aria-label="EtherBound world" />
     <section className="hud" aria-label="Niko HUD">
       <div className={`hud-panel clock ${world.paused ? "paused" : ""}`} onClick={(event) => event.stopPropagation()}>

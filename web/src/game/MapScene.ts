@@ -14,7 +14,7 @@ type MapSceneOptions = {
 
 export class MapScene extends Phaser.Scene {
   private readonly options: MapSceneOptions;
-  private niko!: Phaser.GameObjects.Rectangle;
+  private niko!: Phaser.GameObjects.Arc;
   private prediction = new ClientPrediction(EMPTY_POSITION);
   private hasAuthoritativePosition = false;
   private paused = false;
@@ -30,8 +30,8 @@ export class MapScene extends Phaser.Scene {
 
   create(): void {
     this.drawPlaceholderMap();
-    this.niko = this.add.rectangle(32 * TILE_SIZE + TILE_SIZE / 2, 32 * TILE_SIZE + TILE_SIZE / 2, 20, 20, 0xff6ac1);
-    this.niko.setStrokeStyle(2, 0xffd2eb);
+    this.niko = this.add.circle(32 * TILE_SIZE + TILE_SIZE / 2, 32 * TILE_SIZE + TILE_SIZE / 2, 10, 0x2583ff);
+    this.niko.setStrokeStyle(2, 0xffffff);
     this.cameras.main.setBounds(0, 0, 64 * TILE_SIZE, 64 * TILE_SIZE);
     this.cameras.main.startFollow(this.niko, true, 0.12, 0.12);
     this.cameras.main.setZoom(this.integerZoom());

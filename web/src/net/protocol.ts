@@ -4,6 +4,7 @@ export type Position = {
   x: number;
   y: number;
   z: number;
+  h?: number;
 };
 
 export type ActorState = Position & {
@@ -16,6 +17,8 @@ export type WorldState = {
   paused: boolean;
   speed: number;
   actors: Record<string, ActorState>;
+  world?: { chunk_size: number; level_h: number; bounds: number[] };
+  genVersion?: number;
 };
 
 export type MenuVerb = {
@@ -49,6 +52,7 @@ export function readPosition(value: unknown, fallback = EMPTY_POSITION): Positio
     x: numberValue(record?.x, record?.position && asRecord(record.position)?.x) ?? fallback.x,
     y: numberValue(record?.y, record?.position && asRecord(record.position)?.y) ?? fallback.y,
     z: numberValue(record?.z, record?.position && asRecord(record.position)?.z) ?? fallback.z,
+    h: numberValue(record?.h, record?.position && asRecord(record.position)?.h) ?? fallback.h,
   };
 }
 
@@ -88,6 +92,8 @@ export function readWorldState(message: ServerMessage, previous: WorldState): Wo
     paused: typeof payload.paused === "boolean" ? payload.paused : typeof clock?.paused === "boolean" ? clock.paused : previous.paused,
     speed: numberValue(payload.speed, clock?.speed) ?? previous.speed,
     actors: Object.keys(actorMap).length > 0 ? actorMap : previous.actors,
+    world: (asRecord(payload.world) as WorldState["world"]) ?? previous.world,
+    genVersion: numberValue(payload.gen_version, payload.genVersion) ?? previous.genVersion,
   };
 }
 

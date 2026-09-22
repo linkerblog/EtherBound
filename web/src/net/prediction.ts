@@ -1,3 +1,5 @@
+import type { ChunkStore } from "../world/ChunkStore";
+import { canEnter, slopeMultiplier } from "../world/rules";
 import type { Direction, Position } from "./protocol";
 
 export const WALK_SPEED = 4;
@@ -9,13 +11,9 @@ function normalize(direction: Direction): Direction {
   return length > 1 ? { x: direction.x / length, y: direction.y / length } : direction;
 }
 
-function advance(position: Position, direction: Direction, seconds: number, speed: number): Position {
-  const vector = normalize(direction);
-  return { ...position, x: position.x + vector.x * speed * seconds, y: position.y + vector.y * speed * seconds };
-}
-
 /** Keeps the local avatar responsive while the server remains authoritative. */
 export class ClientPrediction {
+  private store: ChunkStore | null = null;
   private authoritative: Position;
   private predicted: Position;
   private pending: PendingInput[] = [];
@@ -31,14 +29,57 @@ export class ClientPrediction {
     return this.predicted;
   }
 
+  attachStore(store: ChunkStore): void {
+    this.store = store;
+  }
+
   setDirection(direction: Direction, sequence: number): void {
     this.direction = normalize(direction);
     this.pending.push({ sequence, direction: this.direction });
   }
 
   step(seconds: number, paused: boolean): Position {
-    if (!paused && seconds > 0) this.predicted = advance(this.predicted, this.direction, seconds, WALK_SPEED);
+    if (!paused && seconds > 0) this.advance(seconds);
     return this.predicted;
+  }
+
+  private advance(seconds: number): void {
+    const store = this.store;
+    if (!store) {
+      this.predicted = {
+        ...this.predicted,
+        x: this.predicted.x + this.direction.x * WALK_SPEED * seconds,
+        y: this.predicted.y + this.direction.y * WALK_SPEED * seconds,
+      };
+      return;
+    }
+    let remaining = seconds * WALK_SPEED;
+    const substep = 0.05;
+    while (remaining > 0) {
+      const step = Math.min(substep, remaining);
+      const nextX = this.predicted.x + this.direction.x * step;
+      const nextY = this.predicted.y + this.direction.y * step;
+      const h = this.predicted.h ?? 0;
+      const sourceX = this.predicted.x;
+      const sourceY = this.predicted.y;
+      if (canEnter(store, this.predicted.x, this.predicted.y, nextX, this.predicted.y, h)) {
+        this.predicted.x = nextX;
+      }
+      if (canEnter(store, this.predicted.x, this.predicted.y, this.predicted.x, nextY, h)) {
+        this.predicted.y = nextY;
+      }
+      const standing = store.standingH(Math.floor(this.predicted.x), Math.floor(this.predicted.y), h);
+      if (standing !== undefined) {
+        const delta = standing - h;
+        if (Math.floor(this.predicted.x) !== Math.floor(sourceX) || Math.floor(this.predicted.y) !== Math.floor(sourceY)) {
+          this.predicted.h = standing;
+          this.predicted.z = Math.floor(standing / 6);
+        }
+        remaining -= step / slopeMultiplier(delta);
+      } else {
+        remaining -= step;
+      }
+    }
   }
 
   reconcile(serverPosition: Position, acknowledgedSequence?: number): Position {
@@ -48,8 +89,8 @@ export class ClientPrediction {
     }
     this.predicted = { ...this.authoritative };
     const elapsed = Math.min((performance.now() - this.lastServerUpdate) / 1000, 0.25);
-    this.predicted = advance(this.predicted, this.direction, elapsed, WALK_SPEED);
     this.lastServerUpdate = performance.now();
+    if (elapsed > 0) this.advance(elapsed);
     return this.predicted;
   }
 

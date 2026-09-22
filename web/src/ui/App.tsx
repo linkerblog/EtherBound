@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactElement } from "react";
-import { createGame, type ContextTarget } from "../game/MapScene";
+import { createGame, type ContextTarget, type Telemetry } from "../game/MapScene";
 import { WebSocketClient } from "../net/client";
 import type { ConnectionState } from "../net/protocol";
 import type { MenuVerb, WorldState } from "../net/protocol";
 
-type MenuState = { target: ContextTarget; verbs: MenuVerb[]; error?: string } | null;
+type MenuState = { target: ContextTarget; targetLabel?: string; verbs: MenuVerb[]; error?: string } | null;
 type ResolvedMenuState = Exclude<MenuState, null>;
 
 const initialWorld: WorldState = { gameMinute: 0, paused: false, speed: 1, actors: {} };
@@ -37,6 +37,11 @@ function readVerbs(value: unknown): MenuVerb[] {
   });
 }
 
+function formatPosition({ x, y, z, h }: Telemetry): string {
+  const altitude = h === undefined ? "" : ` (${(h / 2).toFixed(1)} m)`;
+  return `X ${x.toFixed(2)} · Y ${y.toFixed(2)} · Z ${z}${altitude}`;
+}
+
 function meter(value: number, cells = 12): string {
   const filled = Math.round(Math.max(0, Math.min(100, value)) / 100 * cells);
   return "█".repeat(filled) + "░".repeat(cells - filled);
@@ -51,6 +56,8 @@ export function App(): ReactElement {
   const [menu, setMenu] = useState<MenuState>(null);
   const [input, setInput] = useState("");
   const [echoes, setEchoes] = useState<string[]>([]);
+  const [telemetry, setTelemetry] = useState<Telemetry | null>(null);
+  const menuRequest = useRef(0);
 
   useEffect(() => {
     const client = new WebSocketClient();
@@ -63,7 +70,7 @@ export function App(): ReactElement {
       removeConnection();
       client.disconnect();
     };
-    const game = createGame(hostRef.current, client, (target) => void openMenu(target));
+    const game = createGame(hostRef.current, client, (target) => void openMenu(target), setTelemetry);
     return () => {
       game.destroy(true);
       removeState();
@@ -85,14 +92,21 @@ export function App(): ReactElement {
   }, []);
 
   async function openMenu(target: ContextTarget): Promise<void> {
+    const token = ++menuRequest.current;
     setMenu({ target, verbs: [] });
     const query = new URLSearchParams({ x: String(target.x), y: String(target.y), z: String(target.z) });
     try {
       const response = await fetch(`/api/menu?${query}`);
       if (!response.ok) throw new Error(`menu request ${response.status}`);
       const payload = await response.json() as Record<string, unknown>;
-      setMenu({ target, verbs: readVerbs(payload.verbs ?? (payload.data as Record<string, unknown> | undefined)?.verbs) });
+      if (token !== menuRequest.current) return;
+      setMenu({
+        target,
+        targetLabel: typeof payload.target === "string" ? payload.target : undefined,
+        verbs: readVerbs(payload.verbs ?? (payload.data as Record<string, unknown> | undefined)?.verbs),
+      });
     } catch {
+      if (token !== menuRequest.current) return;
       setMenu({ target, verbs: [], error: "SERVER MENU UNAVAILABLE" });
     }
   }
@@ -118,6 +132,10 @@ export function App(): ReactElement {
         <button className="mini" aria-label="Pause" onClick={() => setClock(!world.paused)}>II</button>
         {[1, 3, 10].map((speed) => <button key={speed} className={`mini ${!world.paused && world.speed === speed ? "active" : ""}`} onClick={() => setClock(false, speed)}>x{speed}</button>)}
       </div>
+      {telemetry && <div className="hud-panel telemetry" aria-label="Position and speed">
+        <div className="readout"><span className="label">POS</span><span>{formatPosition(telemetry)}</span></div>
+        <div className="readout"><span className="label">SPD</span><span>{telemetry.speed.toFixed(2)} m/s</span></div>
+      </div>}
       <div className="hud-panel status" onClick={(event) => event.stopPropagation()}>
         <span className={`pill ${connection === "open" ? "ok" : "warn"}`}>{statusLabel(connection)}</span>
         <span className="pill ether">ETHER: 00%</span>

@@ -1,3 +1,5 @@
+from math import floor
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
@@ -22,6 +24,7 @@ class ActorResponse(BaseModel):
     x: float
     y: float
     z: int
+    h: int
 
 
 class StateResponse(BaseModel):
@@ -32,10 +35,48 @@ class StateResponse(BaseModel):
     actors: list[ActorResponse]
 
 
+class MaterialResponse(BaseModel):
+    id: int
+    key: str
+    name: str
+    color: str
+    walkable: bool
+    walk_cost: float
+    solid: bool
+    blocks_sight: bool
+    diggable: bool
+    dig_cost: float
+    flammable: bool
+    density: float
+    resistance: float
+    liquid: bool
+    tags: list[str]
+
+
+class ChunkLevelResponse(BaseModel):
+    z: int
+    floor_h: list[int]
+    floor_mat: list[int]
+    wall_n: list[int]
+    wall_w: list[int]
+    edge_flags: list[int]
+    flags: list[int]
+
+
+class ChunkResponse(BaseModel):
+    cx: int
+    cy: int
+    revision: int
+    ground_h: list[int]
+    surface_mat: list[int]
+    levels: list[ChunkLevelResponse]
+
+
 class MenuResponse(BaseModel):
     x: float
     y: float
     z: int
+    target: str
     verbs: list[str]
 
 
@@ -55,7 +96,7 @@ def state_response(engine: WorldEngine) -> StateResponse:
         speed=state.speed,
         paused=state.paused,
         actors=[
-            ActorResponse(id=actor.id, kind=actor.kind, x=actor.x, y=actor.y, z=actor.z)
+            ActorResponse(id=actor.id, kind=actor.kind, x=actor.x, y=actor.y, z=actor.z, h=actor.h)
             for actor in state.actors
         ],
     )
@@ -73,13 +114,68 @@ async def new_game(
     hub: WebSocketHub = Depends(get_hub),  # noqa: B008
 ) -> StateResponse:
     state = await engine.new_game(body.seed)
-    await hub.broadcast(snapshot(state))
+    await hub.broadcast(snapshot(state, engine.world_info()))
+    await hub.reset_world()
     return state_response(engine)
 
 
 @router.get("/game/state", response_model=StateResponse)
 def game_state(engine: WorldEngine = Depends(get_engine)) -> StateResponse:  # noqa: B008
     return state_response(engine)
+
+
+@router.get("/materials", response_model=list[MaterialResponse])
+def materials(engine: WorldEngine = Depends(get_engine)) -> list[MaterialResponse]:  # noqa: B008
+    return [
+        MaterialResponse(
+            id=material.id,
+            key=material.key,
+            name=material.name,
+            color=material.color,
+            walkable=material.walkable,
+            walk_cost=material.walk_cost,
+            solid=material.solid,
+            blocks_sight=material.blocks_sight,
+            diggable=material.diggable,
+            dig_cost=material.dig_cost,
+            flammable=material.flammable,
+            density=material.density,
+            resistance=material.resistance,
+            liquid=material.liquid,
+            tags=list(material.tags),
+        )
+        for material in engine.registry
+    ]
+
+
+@router.get("/world/chunk", response_model=ChunkResponse)
+def world_chunk(
+    cx: int = Query(...),
+    cy: int = Query(...),
+    engine: WorldEngine = Depends(get_engine),  # noqa: B008
+) -> ChunkResponse:
+    payload = engine.chunk_payload(cx, cy)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="chunk does not exist")
+    return ChunkResponse(
+        cx=payload.cx,
+        cy=payload.cy,
+        revision=payload.revision,
+        ground_h=list(payload.ground_h),
+        surface_mat=list(payload.surface_mat),
+        levels=[
+            ChunkLevelResponse(
+                z=level.z,
+                floor_h=list(level.floor_h),
+                floor_mat=list(level.floor_mat),
+                wall_n=list(level.wall_n),
+                wall_w=list(level.wall_w),
+                edge_flags=list(level.edge_flags),
+                flags=list(level.flags),
+            )
+            for level in payload.levels
+        ],
+    )
 
 
 @router.get("/menu", response_model=MenuResponse)
@@ -89,6 +185,15 @@ def menu(
     z: int = Query(0),
     engine: WorldEngine = Depends(get_engine),  # noqa: B008
 ) -> MenuResponse:
-    if z != 0:
-        raise HTTPException(status_code=400, detail="only z=0 exists in phase 0")
-    return MenuResponse(x=x, y=y, z=z, verbs=["inspect"])
+    tile_x, tile_y = floor(x), floor(y)
+    surfaces = engine.grid.standing_surfaces(tile_x, tile_y)
+    visible = [surface for surface in surfaces if surface.z == z] or surfaces
+    if visible:
+        surface = min(visible, key=lambda item: abs(item.z * 6 - z * 6))
+        material = engine.registry.get(surface.material_id)
+        name = material.name if material is not None else "unknown"
+        metres = surface.h * 0.5
+        target = f"{name} · {metres:.1f} m".replace(".0 m", " m")
+    else:
+        target = "nothing"
+    return MenuResponse(x=x, y=y, z=z, target=target, verbs=["inspect"])

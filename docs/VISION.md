@@ -75,14 +75,25 @@ out of how the world is built, and the world reacts in ways that are correct but
 
 ## 5. World model
 
+Phase 1 fixes the spatial units used by the world engine: one metre tiles are grouped in 32×32
+metre chunks, surface elevation is an integer number of half-metres, and `z` is an absolute three
+metre band (`floor(h / 6)`). Every walkable spot has a standing elevation. A body may step to a
+neighbouring tile when the difference is at most 0.5 m, it has 2 m of headroom, and no wall blocks
+the shared edge. Stairs and ramps are therefore ordinary graded tiles; ladders are the only current
+vertical link for a rise above 0.5 m.
+
 - **Grid:** 1 m tiles in chunks. Only existing levels are stored (sparse).
 - **Surface:** heightmap in fine steps (about 0.5 m). Slopes cost movement time and energy, block
   line of sight, and give view from the top. Rendered as terraces with cliff edges, ramps and height
   shading.
 - **Buildings:** sit on a levelled base; floors are about 3 m, relative to that base. A building on
-  a slope can have a basement exposed on one side. Rendered one floor at a time with roof cutaway.
+  a slope can have a basement exposed on one side. Rendered one floor at a time with roof cutaway;
+  slabs are hidden above Niko only when another slab is between Niko and the slab.
 - **Underground:** discrete z-levels of material layers (soil, rock, pipes, water) that can be
   excavated. A dug hole is a space: it shelters, floods, collapses.
+- **Storage:** below the surface, untouched space is implicit solid material from per-chunk strata;
+  only excavated voids and constructed levels are stored. Walls occupy tile edges, while doorways
+  and windows are edge openings.
 - **Vertical links:** stairs, lifts, fire escapes, sewers, ramps. Pathfinding is a per-level A*
   plus vertical edges. Flight is a movement mode over the same world.
 - **Beyond the city:** forest, river, hills, simulated at lower detail.
@@ -269,7 +280,7 @@ enforced by the engine as verb preconditions, not only in prompts:
 - [x] OpenAPI → TypeScript type generation in the build
 
 ### Phase 1: Core (no LLM)
-- [ ] World model: chunks, heightmap, floors, underground levels, materials
+- [x] World model: chunks, heightmap, floors, underground levels, materials
 - [ ] The eight primitives as data models
 - [ ] Verb vocabulary and action API; generated context menus
 - [ ] Event bus, witnesses, knowledge, rumor propagation

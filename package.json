@@ -4,8 +4,8 @@
   "version": "0.0.1",
   "description": "EtherBound development launcher",
   "scripts": {
-    "dev": "node scripts/dev.mjs",
-    "stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop.ps1",
+    "launcher:build": "set \"PATH=%PATH%;%ProgramFiles(x86)%\\Microsoft Visual Studio\\Installer\" && dotnet publish launcher/src -c Release",
+    "check:launcher": "dotnet build launcher/src -c Release && dotnet test launcher/tests",
     "check:server": "cd server && uv run ruff check && uv run ruff format --check && uv run pyright && uv run pytest",
     "check:web": "cd web && npm run gen:types && npm run build"
   }

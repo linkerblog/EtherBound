@@ -28,7 +28,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     async def on_tick() -> None:
         state = await world_engine.advance_time()
-        await hub.broadcast(tick(state))
+        await hub.broadcast(tick(state, world_engine.world_info()))
 
     clock = Clock(config.time_scale, on_tick=on_tick)
 

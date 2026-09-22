@@ -19,4 +19,5 @@ class ActionResult(BaseModel):
     x: float
     y: float
     z: int
+    h: int = 0
     reason: str | None = None

@@ -1,13 +1,16 @@
 from collections.abc import Iterable
+from math import floor
 
 from fastapi import WebSocket
 from pydantic import TypeAdapter, ValidationError
 
 from etherbound.engine.actions import MoveAction
-from etherbound.engine.world import PLAYER_ID, WorldEngine, WorldState
+from etherbound.engine.world import PLAYER_ID, ChunkPayload, WorldEngine, WorldInfo, WorldState
 from etherbound.net.messages import (
     AckMessage,
     ActorSnapshot,
+    ChunkLevelMessage,
+    ChunkMessage,
     ClientMessage,
     ErrorMessage,
     InputMessage,
@@ -15,18 +18,27 @@ from etherbound.net.messages import (
     SnapshotMessage,
     TickMessage,
 )
+from etherbound.net.messages import (
+    WorldInfo as WorldInfoMessage,
+)
 
 client_message_adapter: TypeAdapter[ClientMessage] = TypeAdapter(ClientMessage)
 
 
 def _actors(state: WorldState) -> list[ActorSnapshot]:
     return [
-        ActorSnapshot(id=actor.id, kind=actor.kind, x=actor.x, y=actor.y, z=actor.z)
+        ActorSnapshot(id=actor.id, kind=actor.kind, x=actor.x, y=actor.y, z=actor.z, h=actor.h)
         for actor in state.actors
     ]
 
 
-def snapshot(state: WorldState) -> SnapshotMessage:
+def _world(info: WorldInfo) -> WorldInfoMessage:
+    return WorldInfoMessage(
+        chunk_size=info.chunk_size, level_h=info.level_h, bounds=list(info.bounds)
+    )
+
+
+def snapshot(state: WorldState, world: WorldInfo) -> SnapshotMessage:
     return SnapshotMessage(
         type="snapshot",
         seed=state.seed,
@@ -34,16 +46,43 @@ def snapshot(state: WorldState) -> SnapshotMessage:
         speed=state.speed,
         paused=state.paused,
         actors=_actors(state),
+        world=_world(world),
+        gen_version=state.gen_version,
     )
 
 
-def tick(state: WorldState) -> TickMessage:
+def tick(state: WorldState, world: WorldInfo) -> TickMessage:
     return TickMessage(
         type="tick",
         game_minute=state.game_minute,
         speed=state.speed,
         paused=state.paused,
         actors=_actors(state),
+        world=_world(world),
+        gen_version=state.gen_version,
+    )
+
+
+def chunk_message(payload: ChunkPayload) -> ChunkMessage:
+    return ChunkMessage(
+        type="chunk",
+        cx=payload.cx,
+        cy=payload.cy,
+        revision=payload.revision,
+        ground_h=list(payload.ground_h),
+        surface_mat=list(payload.surface_mat),
+        levels=[
+            ChunkLevelMessage(
+                z=level.z,
+                floor_h=list(level.floor_h),
+                floor_mat=list(level.floor_mat),
+                wall_n=list(level.wall_n),
+                wall_w=list(level.wall_w),
+                edge_flags=list(level.edge_flags),
+                flags=list(level.flags),
+            )
+            for level in payload.levels
+        ],
     )
 
 
@@ -51,14 +90,46 @@ class WebSocketHub:
     def __init__(self, engine: WorldEngine) -> None:
         self.engine = engine
         self.connections: set[WebSocket] = set()
+        self._known_chunks: dict[WebSocket, dict[tuple[int, int], int]] = {}
+        self._known_centres: dict[WebSocket, tuple[int, int]] = {}
+
+    def _player_chunk(self) -> tuple[int, int]:
+        for actor in self.engine.get_state().actors:
+            if actor.id == PLAYER_ID:
+                return floor(actor.x) // self.engine.world_info().chunk_size, floor(
+                    actor.y
+                ) // self.engine.world_info().chunk_size
+        return 0, 0
+
+    async def _push_chunks(
+        self, websocket: WebSocket, centre: tuple[int, int], radius: int = 2
+    ) -> None:
+        known = self._known_chunks.setdefault(websocket, {})
+        for payload in self.engine.chunks_near(centre[0], centre[1], radius):
+            key = (payload.cx, payload.cy)
+            if known.get(key) == payload.revision:
+                continue
+            await websocket.send_json(chunk_message(payload).model_dump(mode="json"))
+            known[key] = payload.revision
+        self._known_centres[websocket] = centre
+
+    async def reset_world(self) -> None:
+        for websocket in tuple(self.connections):
+            self._known_chunks[websocket] = {}
+            await self._push_chunks(websocket, self._player_chunk())
 
     async def connect(self, websocket: WebSocket) -> None:
         await websocket.accept()
         self.connections.add(websocket)
-        await websocket.send_json(snapshot(self.engine.get_state()).model_dump(mode="json"))
+        await websocket.send_json(
+            snapshot(self.engine.get_state(), self.engine.world_info()).model_dump(mode="json")
+        )
+        await self._push_chunks(websocket, self._player_chunk())
 
     def disconnect(self, websocket: WebSocket) -> None:
         self.connections.discard(websocket)
+        self._known_chunks.pop(websocket, None)
+        self._known_centres.pop(websocket, None)
 
     async def broadcast(self, message: ServerMessage) -> None:
         payload = message.model_dump(mode="json")
@@ -89,12 +160,16 @@ class WebSocketHub:
                     x=result.x,
                     y=result.y,
                     z=result.z,
+                    h=result.h,
                     reason=result.reason,
                 ),
             )
+            centre = self._player_chunk()
+            if self._known_centres.get(websocket) != centre:
+                await self._push_chunks(websocket, centre)
             return
         state = await self.engine.set_clock(paused=message.paused, speed=message.speed)
-        await self.broadcast(tick(state))
+        await self.broadcast(tick(state, self.engine.world_info()))
 
     async def broadcast_to_one(self, websocket: WebSocket, message: ServerMessage) -> None:
         await websocket.send_json(message.model_dump(mode="json"))

@@ -25,6 +25,33 @@ class ActorSnapshot(BaseModel):
     x: float
     y: float
     z: int
+    h: int = 0
+
+
+class WorldInfo(BaseModel):
+    chunk_size: int = 32
+    level_h: int = 6
+    bounds: list[int] = Field(default_factory=lambda: [0, 0, 256, 256])
+
+
+class ChunkLevelMessage(BaseModel):
+    z: int
+    floor_h: list[int]
+    floor_mat: list[int]
+    wall_n: list[int]
+    wall_w: list[int]
+    edge_flags: list[int]
+    flags: list[int]
+
+
+class ChunkMessage(BaseModel):
+    type: Literal["chunk"]
+    cx: int
+    cy: int
+    revision: int
+    ground_h: list[int]
+    surface_mat: list[int]
+    levels: list[ChunkLevelMessage]
 
 
 class SnapshotMessage(BaseModel):
@@ -34,6 +61,8 @@ class SnapshotMessage(BaseModel):
     speed: int
     paused: bool
     actors: list[ActorSnapshot]
+    world: WorldInfo = Field(default_factory=WorldInfo)
+    gen_version: int = 0
 
 
 class TickMessage(BaseModel):
@@ -42,6 +71,8 @@ class TickMessage(BaseModel):
     speed: int
     paused: bool
     actors: list[ActorSnapshot]
+    world: WorldInfo = Field(default_factory=WorldInfo)
+    gen_version: int = 0
 
 
 class AckMessage(BaseModel):
@@ -52,6 +83,7 @@ class AckMessage(BaseModel):
     x: float
     y: float
     z: int
+    h: int = 0
     reason: str | None = None
 
 
@@ -60,4 +92,4 @@ class ErrorMessage(BaseModel):
     message: str
 
 
-ServerMessage = SnapshotMessage | TickMessage | AckMessage | ErrorMessage
+ServerMessage = SnapshotMessage | TickMessage | AckMessage | ChunkMessage | ErrorMessage

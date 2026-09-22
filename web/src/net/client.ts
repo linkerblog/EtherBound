@@ -9,10 +9,29 @@ import {
   type ServerMessage,
   type WorldState,
 } from "./protocol";
+import type { components } from "./schema";
+type WorldChunk = components["schemas"]["ChunkResponse"];
 
 type Listener = (state: WorldState) => void;
 type ConnectionListener = (state: ConnectionState) => void;
 type AckListener = (position: Position | undefined, sequence?: number) => void;
+type ChunkListener = (chunk: WorldChunk) => void;
+
+function asChunk(value: ServerMessage): WorldChunk | null {
+  const numeric = (field: unknown): field is number[] =>
+    Array.isArray(field) && field.every((entry) => typeof entry === "number");
+  if (
+    typeof value.cx !== "number" ||
+    typeof value.cy !== "number" ||
+    typeof value.revision !== "number" ||
+    !numeric(value.ground_h) ||
+    !numeric(value.surface_mat) ||
+    !Array.isArray(value.levels)
+  ) {
+    return null;
+  }
+  return value as unknown as WorldChunk;
+}
 
 const initialWorld: WorldState = { gameMinute: 0, paused: false, speed: 1, actors: {} };
 
@@ -34,6 +53,7 @@ export class WebSocketClient {
   private readonly listeners = new Set<Listener>();
   private readonly connectionListeners = new Set<ConnectionListener>();
   private readonly ackListeners = new Set<AckListener>();
+  private readonly chunkListeners = new Set<ChunkListener>();
 
   connect(url = defaultSocketUrl()): void {
     this.emitConnection("connecting");
@@ -83,6 +103,11 @@ export class WebSocketClient {
     return () => this.ackListeners.delete(listener);
   }
 
+  onChunk(listener: ChunkListener): () => void {
+    this.chunkListeners.add(listener);
+    return () => this.chunkListeners.delete(listener);
+  }
+
   private send(message: Record<string, unknown>): void {
     if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(message));
   }
@@ -104,6 +129,10 @@ export class WebSocketClient {
       const sequence = sequenceOf(message);
       const position = readActorPosition(message, "player") ?? this.world.actors.player;
       this.ackListeners.forEach((listener) => listener(position, sequence));
+    }
+    if (message.type === "chunk") {
+      const chunk = asChunk(message);
+      if (chunk) this.chunkListeners.forEach((listener) => listener(chunk));
     }
   }
 

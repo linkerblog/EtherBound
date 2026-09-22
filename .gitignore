@@ -11,3 +11,6 @@ __pycache__/
 .pyright/
 *.pyc
 .kilo/
+/EtherBound.exe
+launcher/**/bin/
+launcher/**/obj/

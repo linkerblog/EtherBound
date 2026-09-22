@@ -55,6 +55,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/materials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Materials */
+        get: operations["materials_api_materials_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/world/chunk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** World Chunk */
+        get: operations["world_chunk_api_world_chunk_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/menu": {
         parameters: {
             query?: never;
@@ -88,6 +122,40 @@ export interface components {
             y: number;
             /** Z */
             z: number;
+            /** H */
+            h: number;
+        };
+        /** ChunkLevelResponse */
+        ChunkLevelResponse: {
+            /** Z */
+            z: number;
+            /** Floor H */
+            floor_h: number[];
+            /** Floor Mat */
+            floor_mat: number[];
+            /** Wall N */
+            wall_n: number[];
+            /** Wall W */
+            wall_w: number[];
+            /** Edge Flags */
+            edge_flags: number[];
+            /** Flags */
+            flags: number[];
+        };
+        /** ChunkResponse */
+        ChunkResponse: {
+            /** Cx */
+            cx: number;
+            /** Cy */
+            cy: number;
+            /** Revision */
+            revision: number;
+            /** Ground H */
+            ground_h: number[];
+            /** Surface Mat */
+            surface_mat: number[];
+            /** Levels */
+            levels: components["schemas"]["ChunkLevelResponse"][];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -101,6 +169,39 @@ export interface components {
             /** Game Minute */
             game_minute: number;
         };
+        /** MaterialResponse */
+        MaterialResponse: {
+            /** Id */
+            id: number;
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Color */
+            color: string;
+            /** Walkable */
+            walkable: boolean;
+            /** Walk Cost */
+            walk_cost: number;
+            /** Solid */
+            solid: boolean;
+            /** Blocks Sight */
+            blocks_sight: boolean;
+            /** Diggable */
+            diggable: boolean;
+            /** Dig Cost */
+            dig_cost: number;
+            /** Flammable */
+            flammable: boolean;
+            /** Density */
+            density: number;
+            /** Resistance */
+            resistance: number;
+            /** Liquid */
+            liquid: boolean;
+            /** Tags */
+            tags: string[];
+        };
         /** MenuResponse */
         MenuResponse: {
             /** X */
@@ -109,6 +210,8 @@ export interface components {
             y: number;
             /** Z */
             z: number;
+            /** Target */
+            target: string;
             /** Verbs */
             verbs: string[];
         };
@@ -198,6 +301,11 @@ export interface components {
             /** Z */
             z: number;
             /**
+             * H
+             * @default 0
+             */
+            h: number;
+            /**
              * Reason
              * @default null
              */
@@ -225,6 +333,26 @@ export interface components {
             y: number;
             /** Z */
             z: number;
+            /**
+             * H
+             * @default 0
+             */
+            h: number;
+        };
+        /** WorldInfo */
+        WorldInfo: {
+            /**
+             * Chunk Size
+             * @default 32
+             */
+            chunk_size: number;
+            /**
+             * Level H
+             * @default 6
+             */
+            level_h: number;
+            /** Bounds */
+            bounds?: number[];
         };
         /** SnapshotMessage */
         SnapshotMessage: {
@@ -243,6 +371,12 @@ export interface components {
             paused: boolean;
             /** Actors */
             actors: components["schemas"]["ActorSnapshot"][];
+            world?: components["schemas"]["WorldInfo"];
+            /**
+             * Gen Version
+             * @default 0
+             */
+            gen_version: number;
         };
         /** TickMessage */
         TickMessage: {
@@ -259,6 +393,12 @@ export interface components {
             paused: boolean;
             /** Actors */
             actors: components["schemas"]["ActorSnapshot"][];
+            world?: components["schemas"]["WorldInfo"];
+            /**
+             * Gen Version
+             * @default 0
+             */
+            gen_version: number;
         };
     };
     responses: never;
@@ -338,6 +478,58 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StateResponse"];
+                };
+            };
+        };
+    };
+    materials_api_materials_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaterialResponse"][];
+                };
+            };
+        };
+    };
+    world_chunk_api_world_chunk_get: {
+        parameters: {
+            query: {
+                cx: number;
+                cy: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChunkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

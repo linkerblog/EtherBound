@@ -1,0 +1,13 @@
+data/
+server/schema.json
+logs/*.log
+.venv/
+node_modules/
+dist/
+.env
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.pyright/
+*.pyc
+.kilo/

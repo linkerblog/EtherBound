@@ -1,0 +1,74 @@
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+
+from etherbound.clock import Clock
+from etherbound.config import Settings, get_settings
+from etherbound.db.migrate import upgrade
+from etherbound.db.session import make_engine, make_session_factory
+from etherbound.engine.world import WorldEngine
+from etherbound.net.schema import export_schema
+from etherbound.net.ws import WebSocketHub, tick
+from etherbound.routes.api import router
+
+
+def create_app(settings: Settings | None = None) -> FastAPI:
+    config = settings or get_settings()
+    database_url = config.resolved_database_url()
+    database_engine = make_engine(database_url)
+    sessions = make_session_factory(database_engine)
+    world_engine = WorldEngine(sessions)
+    hub = WebSocketHub(world_engine)
+
+    async def on_engine_state_change(_: int, speed: int, paused: bool) -> None:
+        clock.load(speed=speed, paused=paused)
+
+    world_engine.set_clock_listener(on_engine_state_change)
+
+    async def on_tick() -> None:
+        state = await world_engine.advance_time()
+        await hub.broadcast(tick(state))
+
+    clock = Clock(config.time_scale, on_tick=on_tick)
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        upgrade(database_url)
+        world_engine.ensure_world()
+        _, speed, paused = world_engine.clock_state()
+        clock.load(speed=speed, paused=paused)
+        app.state.engine = world_engine
+        app.state.clock = clock
+        app.state.hub = hub
+        export_schema(app, _schema_path(config.schema_path))
+        await clock.start()
+        try:
+            yield
+        finally:
+            await clock.stop()
+            await hub.close_all()
+            database_engine.dispose()
+
+    app = FastAPI(title="EtherBound", version="0.0.1", lifespan=lifespan)
+    app.include_router(router)
+
+    @app.websocket("/ws")
+    async def websocket_endpoint(websocket: WebSocket) -> None:
+        await hub.connect(websocket)
+        try:
+            while True:
+                await hub.handle(websocket, await websocket.receive_json())
+        except WebSocketDisconnect:
+            hub.disconnect(websocket)
+
+    return app
+
+
+def _schema_path(path: Path) -> Path:
+    if path.is_absolute():
+        return path
+    return Path(__file__).resolve().parents[2] / path
+
+
+app = create_app()

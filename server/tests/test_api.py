@@ -58,7 +58,11 @@ def test_event_filters_and_new_game_websocket_refresh(tmp_path: Path) -> None:
             assert websocket.receive_json()["type"] == "chunk"
 
         initial = client.get("/api/events").json()["events"]
-        assert len(initial) == 2
+        assert [(event["seq"], event["type"]) for event in initial] == [
+            (1, "world.generated"),
+            (2, "actor.spawned"),
+            (3, "clock.changed"),
+        ]
         assert (
             client.get("/api/events", params={"after_seq": 1, "actor_id": "niko"}).json()["events"][
                 0
@@ -107,10 +111,13 @@ def test_websocket_clock_change_is_broadcast_by_subscriber_once(
             await broadcast(message)
 
         monkeypatch.setattr(hub, "broadcast", track_broadcast)
+        changed_before = client.get("/api/events", params={"type": "clock.changed"}).json()[
+            "events"
+        ]
         websocket.send_json({"type": "clock", "paused": True})
         tick = websocket.receive_json()
         assert tick["type"] == "tick"
         assert tick["paused"] is True
         changed = client.get("/api/events", params={"type": "clock.changed"}).json()["events"]
-        assert len(changed) == 1
+        assert len(changed) == len(changed_before) + 1
         assert len(tick_broadcasts) == 1

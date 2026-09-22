@@ -13,7 +13,7 @@ class Event(BaseModel):
     logged: ClassVar[bool] = True
     seq: int = 0
     game_minute: int = 0
-    type: Any
+    type: Any  # Subclasses narrow this field to a Literal.
     actor_id: str | None = None
 
 

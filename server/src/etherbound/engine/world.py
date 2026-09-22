@@ -229,7 +229,8 @@ class WorldEngine:
                 self.registry = MaterialRegistry.load(existing_ids=saved_ids)
                 self.grid.registry = self.registry
             self._sync_materials(session)
-            if not self._has_chunks(session):
+            generated_world = not self._has_chunks(session)
+            if generated_world:
                 world = generate_test_world(meta.seed, self.registry)
                 self._commit_world(session, world)
                 meta.gen_version = world.gen_version
@@ -239,6 +240,8 @@ class WorldEngine:
             actor_event = self._ensure_actor(session)
             if actor_event is not None:
                 events.append(actor_event)
+            if generated_world:
+                events.append(ClockChanged(speed=meta.speed, paused=meta.paused))
             self._next_seq = (session.scalar(select(func.max(EventRow.seq))) or 0) + 1
             next_seq = self._stamp_and_store(session, meta, events)
             session.commit()

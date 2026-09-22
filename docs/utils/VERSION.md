@@ -1,6 +1,6 @@
 # Versions
 
-Overall project version: `v0.3.0`
+Overall project version: `v0.4.1`
 
 Every module and its current version. Modules start at `v0.0.0`; each modification bumps its
 version by `0.0.1`, and the bump ships in the same change. The overall project version tracks the
@@ -10,8 +10,8 @@ version assigned to the latest commit.
 |---|---|---|
 | server.app | `server/src/etherbound/app.py`, `config.py`, `routes/` | v0.0.4 |
 | server.clock | `server/src/etherbound/clock.py` | v0.0.1 |
-| server.engine | `server/src/etherbound/engine/` | v0.0.4 |
-| server.events | `server/src/etherbound/events/` | v0.0.1 |
+| server.engine | `server/src/etherbound/engine/` | v0.0.5 |
+| server.events | `server/src/etherbound/events/` | v0.0.2 |
 | server.net | `server/src/etherbound/net/` | v0.0.4 |
 | server.db | `server/src/etherbound/db/`, `server/alembic/` | v0.0.4 |
 | server.rng | `server/src/etherbound/rng.py` | v0.0.1 |

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 import pytest
@@ -55,6 +56,31 @@ async def test_bus_drains_reentrant_actions_fifo_without_nesting() -> None:
         "last:clock.changed",
         "last:clock.ticked",
     ]
+
+
+async def test_concurrent_drain_returns_while_active_drain_dispatches_fifo() -> None:
+    bus = EventBus()
+    handler_started = asyncio.Event()
+    release_handler = asyncio.Event()
+    dispatched: list[int] = []
+
+    async def block_first(event: ClockTicked) -> None:
+        if event.seq == 1:
+            handler_started.set()
+            await release_handler.wait()
+
+    bus.subscribe(ClockTicked, block_first, name="block-first")
+    bus.subscribe(Event, lambda event: dispatched.append(event.seq), name="capture")
+    bus.enqueue([ClockTicked(seq=1), ClockTicked(seq=2)])
+    active_drain = asyncio.create_task(bus.drain())
+    await handler_started.wait()
+
+    bus.enqueue([ClockTicked(seq=3)])
+    await asyncio.wait_for(bus.drain(), timeout=2)
+    release_handler.set()
+    await active_drain
+
+    assert dispatched == [1, 2, 3]
 
 
 async def test_bus_logs_handler_errors_and_continues(caplog: pytest.LogCaptureFixture) -> None:
@@ -137,6 +163,31 @@ async def test_new_game_restarts_log_with_initial_events(engine: WorldEngine) ->
     ]
 
 
+async def test_submit_from_clock_handler_dispatches_after_clock_event(
+    engine: WorldEngine,
+) -> None:
+    await engine.bus.drain()
+    dispatched: list[Event] = []
+    submissions = []
+
+    async def move_on_clock_change(_: ClockChanged) -> None:
+        submissions.append(
+            await engine.submit(PLAYER_ID, MoveAction(dx=1, dy=0), delta_seconds=0.2)
+        )
+
+    engine.bus.subscribe(ClockChanged, move_on_clock_change, name="test.submit-on-clock")
+    engine.bus.subscribe(Event, dispatched.append, name="test.capture")
+
+    await asyncio.wait_for(engine.set_clock(speed=3), timeout=2)
+
+    assert len(submissions) == 1
+    assert submissions[0].accepted
+    assert [event.type for event in dispatched] == ["clock.changed", "actor.moved"]
+    assert dispatched[1].seq == dispatched[0].seq + 1
+    moved = engine.read_events(event_type="actor.moved")
+    assert moved[-1].seq == dispatched[1].seq
+
+
 async def test_ticks_dispatch_but_are_not_persisted(engine: WorldEngine) -> None:
     await engine.bus.drain()
     seen: list[Event] = []
@@ -164,7 +215,9 @@ async def test_sequence_continues_after_engine_restart(engine: WorldEngine) -> N
     await engine.submit(PLAYER_ID, MoveAction(dx=1, dy=0), delta_seconds=0.2)
     last_seq = engine.read_events()[-1].seq
     restarted = WorldEngine(engine.sessions)
+    event_count = len(restarted.read_events())
     restarted.ensure_world()
+    assert len(restarted.read_events()) == event_count
 
     await restarted.submit(PLAYER_ID, MoveAction(dx=1, dy=0), delta_seconds=0.2)
 

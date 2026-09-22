@@ -27,6 +27,8 @@ class EventBus:
 
     async def drain(self) -> None:
         if self._draining:
+            # A nested drain would dispatch recursively; waiting here could deadlock a handler
+            # that submits an action whose drain is already being handled by this task.
             return
         self._draining = True
         try:

@@ -54,9 +54,13 @@ and regenerates from the seed; `ensure_world` fills an existing Phase 0 save wit
   initial registered handler; WASD becomes this action over the WebSocket.
 - **Event bus.** Only `WorldEngine` stamps/enqueues events. Logged events share the state
   transaction; `clock.ticked` dispatches but is not stored. `new_game` resets the log and sequence
-  to 1. Handlers run in subscription order; reentrant drain returns immediately and the active
-  drain continues breadth-first. Handler failures are logged and isolated; a cascade is capped at
-  10,000 events.
+  to 1. A fresh world logs `world.generated`, `actor.spawned`, `clock.changed`; opening an existing
+  save emits nothing. `drain()` called while another task is draining returns immediately; the
+  active task dispatches the caller's events in `seq` order, possibly after the caller has returned.
+  Nothing guarantees subscribers have run when `submit`, `set_clock` or `new_game` returns.
+  Handlers run in subscription order; reentrant events append to the active FIFO drain. Handler
+  failures are logged and isolated; a cascade is capped at 10,000 events. `seq` is unique among
+  stored events; a transient event's `seq` may be reused after a restart, so never key state on it.
 - **REST.** `GET /api/health`, `POST /api/game/new {seed}`, `GET /api/game/state`,
   `GET /api/materials`, `GET /api/world/chunk?cx&cy`, `GET /api/menu?x&y&z` (any `z`; returns a
   `target` line like `Asphalt · 1 m` and `["inspect"]`; the client renders, never adds),
@@ -130,7 +134,7 @@ its process to stop it, and its job takes the services with it. The logs are
 - **`schema.json` is not committed.** It is generated (`uv run etherbound-schema`); `gen:types`
   fails if the file is missing. Only `schema.d.ts` is committed.
 - **Pytest warnings are third-party** (FastAPI/Starlette/pytest-asyncio deprecations), not project
-  issues. `pytest` is 39 tests, all passing.
+  issues. `pytest` is 41 tests, all passing.
 
 ## Not yet present
 

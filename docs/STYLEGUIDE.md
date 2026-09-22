@@ -266,7 +266,7 @@ While the input has focus, WASD types instead of moving.
 - Niko's thoughts are the lines that start with `...`; the renderer wraps them in `.thought`.
 - Each option shows its hotkey (`1`–`9`) and, when it involves a roll, the skill and risk in
   `.roll` ("OBSERVE · MEDIUM"). Options are mechanics; the UI shows that honestly.
-- The free-text input (§9) sits under the options.
+- The free-text input [Sec. 9] sits under the options.
 
 ### "Narrator thinking" line
 
@@ -369,7 +369,7 @@ function meter(pct, cells = 16) {
 .list .row .meta { font-size: 11px; color: var(--dim); }
 ```
 
-Relationship rows show each axis as a short meter (§12), not a single number.
+Relationship rows show each axis as a short meter [Sec. 12], not a single number.
 
 ---
 

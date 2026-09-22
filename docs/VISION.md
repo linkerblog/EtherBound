@@ -47,7 +47,7 @@ out of how the world is built, and the world reacts in ways that are correct but
 | LLM | OpenRouter (strategy, prose) + TypeSafe `choice` a.k.a. Jev (gates, tactics, interpretation) |
 | Protagonist | Always Niko. Cannot die, only be incapacitated. Infinite progression |
 | Ether | Only Niko has it |
-| Adult content | Explicitly allowed (§12) |
+| Adult content | Explicitly allowed [Sec. 12] |
 | Game length | Endless |
 
 ## 4. Architecture
@@ -103,7 +103,7 @@ Everything in the game is built from these eight:
 4. **Organizations as actors:** businesses, police, government, gangs, factions. They have goals,
    money, territory, reputation and delegate tasks.
 5. **Tasks and contracts:** "do X, get Y". Jobs, errands, favors and crimes for hire are all this.
-6. **Ownership and law:** who owns what, what is forbidden where. Laws are data (§9).
+6. **Ownership and law:** who owns what, what is forbidden where. Laws are data [Sec. 9].
 7. **Knowledge and channels:** perceive, tell, call, post. Internet is a channel with mass reach.
 8. **Generic verbs:** 40 to 60 verbs shared by every actor.
 
@@ -262,11 +262,11 @@ enforced by the engine as verb preconditions, not only in prompts:
 ## 15. Roadmap
 
 ### Phase 0: Skeleton
-- [ ] Create the repo, `AGENTS.md`, `CONTEXT.md`, `docs/Version.md`
-- [ ] FastAPI app with WebSocket, 1 Hz clock, pause and speeds
-- [ ] SQLite + Alembic, first migration
-- [ ] Phaser client: top-down map, WASD with prediction, right-click menu stub, HTML overlay
-- [ ] OpenAPI → TypeScript type generation in the build
+- [x] Create the repo, `AGENTS.md`, `CONTEXT.md`, `docs/Version.md`
+- [x] FastAPI app with WebSocket, 1 Hz clock, pause and speeds
+- [x] SQLite + Alembic, first migration
+- [x] Phaser client: top-down map, WASD with prediction, right-click menu stub, HTML overlay
+- [x] OpenAPI → TypeScript type generation in the build
 
 ### Phase 1: Core (no LLM)
 - [ ] World model: chunks, heightmap, floors, underground levels, materials

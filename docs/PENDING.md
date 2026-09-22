@@ -10,7 +10,7 @@ Open decisions and loose ends. When one is settled, record the decision where it
 - [ ] **City authoring.** Procedural from seed, hand-made in Tiled, or authored landmarks on a
       procedural base.
 - [ ] **Carry-over from NikoStory.** Whether Halverton, the authored NPCs and the prompts come
-      along. The roll formula already does (`VISION.md` §3).
+      along. The roll formula already does (`VISION.md` [Sec. 3]).
 
 ## Loose ends
 

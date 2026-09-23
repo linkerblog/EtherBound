@@ -59,6 +59,10 @@ Open decisions and loose ends. When one is settled, record the decision where it
       F2 step 0 was confirmed headlessly, with no GUI available: at seed 1895070486 the interior
       column's solid top is 6 and its S/E fill faces run from the surrounding terrain (h 1–3) up
       to 6 along x 159|160 and y 159|160.
+      On 23/09/2026 the user's screenshot at x1 (Niko at `X 137.84 · Y 148.77 · Z 2 (6.0 m)`)
+      confirmed 1 (soil sides with the grass lip on the top unit only), 2 (stone slab edges match
+      their tops; the light grey bands are gone) and 6 for the south-west base (no black gaps;
+      the east side was out of frame). Still open: 3, 4, 5, 7, 8, the east side of 6, seed 7 and x4.
 
 - [ ] **Fix03 walking:** acceptance 1 (no jump at start or stop) was confirmed by the user on
       22/09/2026 ("walking feels smooth"), and 5 (releasing the keys after `DIG` does not

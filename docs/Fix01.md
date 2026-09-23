@@ -261,7 +261,7 @@ per [Sec. 1].
 
 ## 10. Out of scope
 
-The Dev-002 exclusions still hold: objects, doors as objects, verbs beyond `move`, the event bus,
+The Dev-002 exclusions still hold: objects, doors as objects, ops beyond `move`, the event bus,
 line of sight, physics, water simulation, LimeZu art, the city generator, lifts, NPCs. This doc
 adds no feature; it only makes Dev-002 true.
 

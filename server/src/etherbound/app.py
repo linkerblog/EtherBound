@@ -8,7 +8,14 @@ from etherbound.config import Settings, get_settings
 from etherbound.db.migrate import upgrade
 from etherbound.db.session import make_engine, make_session_factory
 from etherbound.engine.world import WorldEngine
-from etherbound.events import ClockChanged, ClockTicked, EventBus, WorldGenerated
+from etherbound.events import (
+    ActivityFinished,
+    ChunkChanged,
+    ClockChanged,
+    ClockTicked,
+    EventBus,
+    WorldGenerated,
+)
 from etherbound.net.schema import export_schema
 from etherbound.net.ws import WebSocketHub
 from etherbound.routes.api import router
@@ -35,6 +42,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     bus.subscribe(ClockTicked, hub.on_clock, name="websocket.clock_ticked")
     bus.subscribe(ClockChanged, hub.on_clock, name="websocket.clock_changed")
     bus.subscribe(WorldGenerated, hub.on_world_generated, name="websocket.world_generated")
+    bus.subscribe(ChunkChanged, hub.on_chunk_changed, name="websocket.chunk_changed")
+    bus.subscribe(ActivityFinished, hub.on_activity_finished, name="websocket.activity_finished")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):

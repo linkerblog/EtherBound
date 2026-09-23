@@ -174,6 +174,24 @@ export interface components {
             /** Levels */
             levels: components["schemas"]["ChunkLevelResponse"][];
         };
+        /** ClimbAction */
+        ClimbAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "climb";
+            target: components["schemas"]["TileTarget"];
+        };
+        /** DigAction */
+        DigAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "dig";
+            target: components["schemas"]["TileTarget"];
+        };
         /** EventRecord */
         EventRecord: {
             /** Seq */
@@ -205,6 +223,15 @@ export interface components {
             status: string;
             /** Game Minute */
             game_minute: number;
+        };
+        /** InspectAction */
+        InspectAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "inspect";
+            target: components["schemas"]["TileTarget"];
         };
         /** MaterialResponse */
         MaterialResponse: {
@@ -239,6 +266,21 @@ export interface components {
             /** Tags */
             tags: string[];
         };
+        /** MenuEntry */
+        MenuEntry: {
+            /** Op */
+            op: string;
+            /** Label */
+            label: string;
+            /** Tags */
+            tags: string[];
+            /** Available */
+            available: boolean;
+            /** Reason */
+            reason?: string | null;
+            /** Action */
+            action: components["schemas"]["MoveAction"] | components["schemas"]["InspectAction"] | components["schemas"]["WaitAction"] | components["schemas"]["DigAction"] | components["schemas"]["ClimbAction"];
+        };
         /** MenuResponse */
         MenuResponse: {
             /** X */
@@ -249,8 +291,20 @@ export interface components {
             z: number;
             /** Target */
             target: string;
-            /** Verbs */
-            verbs: string[];
+            /** Ops */
+            ops: components["schemas"]["MenuEntry"][];
+        };
+        /** MoveAction */
+        MoveAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "move";
+            /** Dx */
+            dx: number;
+            /** Dy */
+            dy: number;
         };
         /** NewGameRequest */
         NewGameRequest: {
@@ -259,6 +313,15 @@ export interface components {
              * @default 0
              */
             seed: number;
+        };
+        /** SelfTarget */
+        SelfTarget: {
+            /**
+             * Kind
+             * @default self
+             * @constant
+             */
+            kind: "self";
         };
         /** StateResponse */
         StateResponse: {
@@ -273,6 +336,21 @@ export interface components {
             /** Actors */
             actors: components["schemas"]["ActorResponse"][];
         };
+        /** TileTarget */
+        TileTarget: {
+            /**
+             * Kind
+             * @default tile
+             * @constant
+             */
+            kind: "tile";
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+            /** H */
+            h: number;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -285,6 +363,15 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** WaitAction */
+        WaitAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "wait";
+            target?: components["schemas"]["SelfTarget"];
         };
         /** InputMessage */
         InputMessage: {
@@ -318,6 +405,18 @@ export interface components {
              */
             speed: (1 | 3 | 10) | null;
         };
+        /** ActionMessage */
+        ActionMessage: {
+            /**
+             * Type
+             * @constant
+             */
+            type: "action";
+            /** Sequence */
+            sequence: number;
+            /** Action */
+            action: components["schemas"]["MoveAction"] | components["schemas"]["InspectAction"] | components["schemas"]["WaitAction"] | components["schemas"]["DigAction"] | components["schemas"]["ClimbAction"];
+        };
         /** AckMessage */
         AckMessage: {
             /**
@@ -342,6 +441,61 @@ export interface components {
              * @default 0
              */
             h: number;
+            /**
+             * Reason
+             * @default null
+             */
+            reason: string | null;
+        };
+        /** ActivitySnapshot */
+        ActivitySnapshot: {
+            /** Op */
+            op: string;
+            /** Started Minute */
+            started_minute: number;
+            /** Ends Minute */
+            ends_minute: number;
+        };
+        /** ResultMessage */
+        ResultMessage: {
+            /**
+             * Type
+             * @constant
+             */
+            type: "result";
+            /** Sequence */
+            sequence: number;
+            /** Accepted */
+            accepted: boolean;
+            /**
+             * Reason
+             * @default null
+             */
+            reason: string | null;
+            /**
+             * Text
+             * @default null
+             */
+            text: string | null;
+            /** @default null */
+            activity: components["schemas"]["ActivitySnapshot"] | null;
+        };
+        /** ActivityMessage */
+        ActivityMessage: {
+            /**
+             * Type
+             * @constant
+             */
+            type: "activity";
+            /** Actor Id */
+            actor_id: string;
+            /** Op */
+            op: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "completed" | "interrupted" | "failed";
             /**
              * Reason
              * @default null
@@ -375,6 +529,8 @@ export interface components {
              * @default 0
              */
             h: number;
+            /** @default null */
+            activity: components["schemas"]["ActivitySnapshot"] | null;
         };
         /** WorldInfo */
         WorldInfo: {

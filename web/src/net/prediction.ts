@@ -38,6 +38,11 @@ export class ClientPrediction {
     this.pending.push({ sequence, direction: this.direction });
   }
 
+  /** No key held and every input acknowledged, so the server position is the whole truth. */
+  idle(): boolean {
+    return this.direction.x === 0 && this.direction.y === 0 && this.pending.length === 0;
+  }
+
   step(seconds: number, paused: boolean): Position {
     if (!paused && seconds > 0) this.advance(seconds);
     return this.predicted;

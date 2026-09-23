@@ -82,10 +82,16 @@ class Chunk:
     strata: tuple[tuple[int, str], ...] = ()
     revision: int = 0
     gen_version: int = 1
+    # Half-metres dug out of each tile's original ground; strata depth is measured from there.
+    dug: tuple[int, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "ground_h", _cells(self.ground_h, "ground_h"))
         object.__setattr__(self, "surface_mat", _cells(self.surface_mat, "surface_mat"))
+        dug = _cells(self.dug, "dug") if self.dug else (0,) * CELL_COUNT
+        if any(not 0 <= value <= 255 for value in dug):
+            raise ValueError("dug values must fit in a byte")
+        object.__setattr__(self, "dug", dug)
         if any(depth < 0 for depth, _ in self.strata):
             raise ValueError("strata depths must be non-negative")
 
@@ -118,6 +124,10 @@ class Chunk:
     def surface_blob(self) -> bytes:
         return encode_uint16(self.surface_mat)
 
+    @property
+    def dug_blob(self) -> bytes:
+        return encode_uint8(self.dug)
+
     @classmethod
     def from_blobs(
         cls,
@@ -128,6 +138,7 @@ class Chunk:
         strata: Iterable[tuple[int, str]] = (),
         revision: int = 0,
         gen_version: int = 1,
+        dug_blob: bytes | None = None,
     ) -> Chunk:
         return cls(
             cx,
@@ -137,6 +148,7 @@ class Chunk:
             tuple(strata),
             revision,
             gen_version,
+            decode_uint8(dug_blob) if dug_blob is not None else (),
         )
 
 

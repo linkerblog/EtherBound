@@ -2,6 +2,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
+from etherbound.engine.actions import Action
+
 
 class InputMessage(BaseModel):
     type: Literal["input"]
@@ -16,7 +18,19 @@ class ClockMessage(BaseModel):
     speed: Literal[1, 3, 10] | None = None
 
 
-ClientMessage = Annotated[InputMessage | ClockMessage, Field(discriminator="type")]
+class ActionMessage(BaseModel):
+    type: Literal["action"]
+    sequence: int = Field(ge=0)
+    action: Action
+
+
+ClientMessage = Annotated[InputMessage | ClockMessage | ActionMessage, Field(discriminator="type")]
+
+
+class ActivitySnapshot(BaseModel):
+    op: str
+    started_minute: int
+    ends_minute: int
 
 
 class ActorSnapshot(BaseModel):
@@ -26,6 +40,7 @@ class ActorSnapshot(BaseModel):
     y: float
     z: int
     h: int = 0
+    activity: ActivitySnapshot | None = None
 
 
 class WorldInfo(BaseModel):
@@ -87,9 +102,34 @@ class AckMessage(BaseModel):
     reason: str | None = None
 
 
+class ResultMessage(BaseModel):
+    type: Literal["result"]
+    sequence: int
+    accepted: bool
+    reason: str | None = None
+    text: str | None = None
+    activity: ActivitySnapshot | None = None
+
+
+class ActivityMessage(BaseModel):
+    type: Literal["activity"]
+    actor_id: str
+    op: str
+    outcome: Literal["completed", "interrupted", "failed"]
+    reason: str | None = None
+
+
 class ErrorMessage(BaseModel):
     type: Literal["error"]
     message: str
 
 
-ServerMessage = SnapshotMessage | TickMessage | AckMessage | ChunkMessage | ErrorMessage
+ServerMessage = (
+    SnapshotMessage
+    | TickMessage
+    | AckMessage
+    | ResultMessage
+    | ActivityMessage
+    | ChunkMessage
+    | ErrorMessage
+)

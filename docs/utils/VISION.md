@@ -55,7 +55,7 @@ out of how the world is built, and the world reacts in ways that are correct but
 ```text
   Decision sources            Action API             World engine              Event bus
  ┌──────────────────┐     ┌────────────────┐     ┌──────────────────┐     ┌────────────────────┐
- │ Player (WASD/UI) │     │ verb + target  │     │ validate         │     │ Storyteller        │
+ │ Player (WASD/UI) │     │ op + target    │     │ validate         │     │ Storyteller        │
  │ Agent (LLM/Jev)  │ ──► │ + modifiers    │ ──► │ resolve (dice)   │ ──► │ NPC minds          │
  │ Extra (rules)    │     │ (one API)      │     │ physics, time    │     │ Knowledge/rumors   │
  └──────────────────┘     └────────────────┘     │ commit to state  │     │ Economy, law, orgs │
@@ -80,8 +80,8 @@ Phase 1 fixes the spatial units used by the world engine: one metre tiles are gr
 metre chunks, surface elevation is an integer number of half-metres, and `z` is an absolute three
 metre band (`floor(h / 6)`). Every walkable spot has a standing elevation. A body may step to a
 neighbouring tile when the difference is at most 0.5 m, it has 2 m of headroom, and no wall blocks
-the shared edge. Stairs and ramps are therefore ordinary graded tiles; ladders are the only current
-vertical link for a rise above 0.5 m.
+the shared edge. Stairs and ramps are therefore ordinary graded tiles. A rise of 1 m or 1.5 m to an
+orthogonal neighbour takes the `climb` op; anything higher needs a ladder or another vertical link.
 
 - **Grid:** 1 m tiles in chunks. Only existing levels are stored (sparse).
 - **Surface:** heightmap in fine steps (about 0.5 m). Slopes cost movement time and energy, block
@@ -91,7 +91,9 @@ vertical link for a rise above 0.5 m.
   a slope can have a basement exposed on one side. Rendered one floor at a time with roof cutaway;
   slabs are hidden above Niko only when another slab is between Niko and the slab.
 - **Underground:** discrete z-levels of material layers (soil, rock, pipes, water) that can be
-  excavated. A dug hole is a space: it shelters, floods, collapses.
+  excavated. A dug hole is a space: it shelters, floods, collapses. Digging from the surface
+  lowers the heightmap and records a per-tile `dug` depth, so the strata stay anchored to the
+  original ground instead of sinking with it.
 - **Storage:** below the surface, untouched space is implicit solid material from per-chunk strata;
   only excavated voids and constructed levels are stored. Walls occupy tile edges, while doorways
   and windows are edge openings.
@@ -117,18 +119,24 @@ Everything in the game is built from these eight:
 5. **Tasks and contracts:** "do X, get Y". Jobs, errands, favors and crimes for hire are all this.
 6. **Ownership and law:** who owns what, what is forbidden where. Laws are data [Sec. 9].
 7. **Knowledge and channels:** perceive, tell, call, post. Internet is a channel with mass reach.
-8. **Generic verbs:** 40 to 60 verbs shared by every actor.
+8. **Generic ops:** 40 to 60 ops shared by every actor [Sec. 7].
 
 **Litmus test for any new idea:** can it be done with data and properties on these primitives?
 
 ## 7. Actions and player interaction
 
-- **Verbs × properties.** No authored "burn Marco's shop": there is `ignite`, and wood is
+An **op** (operation) is one entry of the shared vocabulary (`dig`, `take`, `talk`). An **action**
+is one submitted use of an op: the op, its target and its modifiers. Actors never act outside the
+ops. The vocabulary is data (`server/src/etherbound/engine/ops.toml`); a code handler gives an op
+its behaviour, and an op without one is never offered. An op that takes game time runs as an
+**activity** on the actor, advanced by clock ticks and interrupted by the actor's next action.
+
+- **Ops × properties.** No authored "burn Marco's shop": there is `ignite`, and wood is
   flammable.
-- **Right-click menu is generated**, never authored: the server returns the verbs applicable to the
+- **Right-click menu is generated**, never authored: the server returns the ops applicable to the
   target given its properties, the situation and what Niko carries (a locked door offers `open`,
   `knock`, `force`, and `break` with enough strength).
-- **Free text (Enter):** Jev maps it to verb + target + modifiers. If nothing fits, the action is
+- **Free text (Enter):** Jev maps it to op + target + modifiers. If nothing fits, the action is
   narrative-only (no mechanical effect) or a generic attempt resolved by a roll with consequences
   from a fixed table. The LLM interprets intent; it never invents rules.
 - **Scenes:** dialogue and CYOA moments autopause the world, show generated options plus free text.
@@ -176,7 +184,7 @@ Everything in the game is built from these eight:
 | Broken precondition | Target is no longer there | Jev: alternate step within the plan |
 | Semantic surprise | Target shows up with armed friends | LLM: rethink the goal (queued if not available) |
 
-- A plan is a list of verbs from the shared vocabulary with a goal, never prose.
+- A plan is a list of ops from the shared vocabulary with a goal, never prose.
 - Anti-loop: after N failures on the same step, drop or change the goal.
 - Replanning is triggered (plan done, semantic failure, relevant event, long periodic refresh),
   never every tick.
@@ -221,7 +229,7 @@ Everything in the game is built from these eight:
   from aggregated member traits. Factions are organizations; they grow, split, merge, dissolve.
   War appears when opposing goals compete for the same territory or resource.
 - **Laws:** there are no hybrid laws at start. A law is a data row
-  `{verb/tag, context, applies to, penalty}`. Incidents move public opinion; pressure past a
+  `{op/tag, context, applies to, penalty}`. Incidents move public opinion; pressure past a
   threshold makes politicians (with traits) propose laws; utility + Jev decide; police enforce;
   people react. Laws can be repealed. Different seeds end with different legal systems.
 
@@ -246,9 +254,9 @@ It also runs long arcs (a gang growing, a neighborhood gentrifying) and grants r
 ## 12. Content policy
 
 Adult and sexual content is explicitly allowed and not limited by prose filters. Two rules are
-enforced by the engine as verb preconditions, not only in prompts:
+enforced by the engine as op preconditions, not only in prompts:
 
-- **Adults only.** The life cycle creates children; they are excluded from every sexual verb by
+- **Adults only.** The life cycle creates children; they are excluded from every sexual op by
   code.
 - **Consent from every party**, evaluated from traits, relationship and state. Niko only consents if
   the player chooses so.
@@ -283,7 +291,7 @@ enforced by the engine as verb preconditions, not only in prompts:
 ### Phase 1: Core (no LLM)
 - [x] World model: chunks, heightmap, floors, underground levels, materials
 - [ ] The eight primitives as data models
-- [ ] Verb vocabulary and action API; generated context menus
+- [x] Op vocabulary and action API; generated context menus
 - [x] Event bus and action pipeline
 - [ ] Witnesses, knowledge, rumor propagation
 - [ ] Tile physics: impulse, knockback, breakable walls
@@ -321,7 +329,7 @@ Tracked in [`PENDING.md`](PENDING.md).
 
 EtherBound is an endless top-down life sandbox (Zomboid + RimWorld + LLM) where Niko, the only
 Ether bearer, lives in a city of hybrids. FastAPI + Phaser, SQLite with migrations, 1 s = 1 min
-with pause. Eight primitives and one shared verb API make jobs, factions, laws and consequences
+with pause. Eight primitives and one shared op API make jobs, factions, laws and consequences
 emerge instead of being scripted. Extras run on rules, Agents on LLM (strategy) + Jev (tactics),
 the storyteller proposes and the world engine alone commits. Build order: skeleton → core without
 LLM → one-block vertical slice that must produce unprogrammed behavior → minds → scale.

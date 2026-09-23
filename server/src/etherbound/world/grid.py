@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from etherbound.world.chunk import (
     CHUNK_SIZE,
@@ -93,8 +93,7 @@ class WorldGrid:
     def _material(self, material_id: int):
         return self.registry.get(material_id)
 
-    def _underground_material(self, chunk: Chunk, h: int, ground_h: int) -> int:
-        depth = ground_h - h
+    def _stratum(self, chunk: Chunk, depth: int) -> int:
         selected = "rock"
         for boundary, key in sorted(chunk.strata):
             if depth >= boundary:
@@ -103,6 +102,56 @@ class WorldGrid:
                 break
         material = self.registry.get(selected)
         return material.id if material is not None else 0
+
+    def _underground_material(self, chunk: Chunk, index: int, h: int) -> int:
+        # Depth counts from the original ground, or a dug surface would drag the strata down.
+        return self._stratum(chunk, chunk.ground_h[index] + chunk.dug[index] - h)
+
+    def stratum_at(self, x: int, y: int, depth_from_original: int) -> int:
+        """Material id of the volume ``depth_from_original`` half-metres below the original ground."""
+        cell = self._cell(x, y)
+        if cell is None:
+            return 0
+        return self._stratum(cell[0], depth_from_original)
+
+    def ground_at(self, x: int, y: int) -> tuple[int, int, int] | None:
+        """``(ground_h, surface_mat, dug)`` of a tile, or None outside the loaded world."""
+        cell = self._cell(x, y)
+        if cell is None:
+            return None
+        chunk, _, _, index = cell
+        return chunk.ground_h[index], chunk.surface_mat[index], chunk.dug[index]
+
+    def floors_at(self, x: int, y: int) -> tuple[int, ...]:
+        """Floor heights of every level slab on a tile."""
+        return tuple(
+            level.floor_h[index]
+            for level, index in self._levels_at(x, y)
+            if level.floor_h[index] != NO_FLOOR
+        )
+
+    def lower_ground(self, x: int, y: int) -> Chunk:
+        """Dig 0.5 m out of a tile's ground. Only the world engine calls this."""
+        cell = self._cell(x, y)
+        if cell is None:
+            raise KeyError(f"no chunk at tile {x},{y}")
+        chunk, _, _, index = cell
+        ground_h = list(chunk.ground_h)
+        surface_mat = list(chunk.surface_mat)
+        dug = list(chunk.dug)
+        ground_h[index] -= 1
+        dug[index] += 1
+        # The new surface is the top of the volume below the removed one.
+        surface_mat[index] = self._stratum(chunk, dug[index] + 1)
+        lowered = replace(
+            chunk,
+            ground_h=tuple(ground_h),
+            surface_mat=tuple(surface_mat),
+            dug=tuple(dug),
+            revision=chunk.revision + 1,
+        )
+        self.add_chunk(lowered)
+        return lowered
 
     def solid_at(self, x: int, y: int, h: int) -> bool:
         """Return whether a half-metre volume is occupied by implicit ground."""
@@ -119,7 +168,7 @@ class WorldGrid:
         ground_h = chunk.ground_h[index]
         if h >= ground_h or self._void_at(x, y, h):
             return False
-        material_id = self._underground_material(chunk, h, ground_h)
+        material_id = self._underground_material(chunk, index, h)
         material = self._material(material_id)
         return material is None or material.solid
 

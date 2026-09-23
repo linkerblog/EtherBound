@@ -1,12 +1,17 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactElement } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type ReactElement } from "react";
 import { createGame, type ContextTarget, type Telemetry } from "../game/MapScene";
 import type { ZoomLevel } from "../game/zoom";
-import { WebSocketClient } from "../net/client";
-import type { ConnectionState } from "../net/protocol";
-import type { MenuVerb, WorldState } from "../net/protocol";
+import { requestNewGame, WebSocketClient } from "../net/client";
+import type { ConnectionState, MenuEntry, MenuResponse, WorldState } from "../net/protocol";
 
-type MenuState = { target: ContextTarget; targetLabel?: string; verbs: MenuVerb[]; error?: string } | null;
+type MenuState = { target: ContextTarget; targetLabel?: string; entries: MenuEntry[]; error?: string } | null;
 type ResolvedMenuState = Exclude<MenuState, null>;
+/** `seen` is what Niko perceives; `act`, `warn` and `fail` report his own actions. */
+type FeedKind = "echo" | "seen" | "act" | "warn" | "fail";
+type FeedItem = { text: string; kind: FeedKind; minute: number };
+
+const PLAYER_ID = "niko";
+const FEED_LENGTH = 6;
 
 const initialWorld: WorldState = { gameMinute: 0, paused: false, speed: 1, actors: {} };
 
@@ -20,22 +25,6 @@ function formatGameTime(minutes: number): string {
 
 function statusLabel(state: ConnectionState): string {
   return state === "open" ? "LINKED" : state === "connecting" ? "CONNECTING" : "OFFLINE";
-}
-
-function readVerbs(value: unknown): MenuVerb[] {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap((entry) => {
-    if (typeof entry === "string") return [{ verb: entry }];
-    if (typeof entry !== "object" || entry === null) return [];
-    const item = entry as Record<string, unknown>;
-    return typeof item.verb === "string" ? [{
-      verb: item.verb,
-      label: typeof item.label === "string" ? item.label : undefined,
-      available: typeof item.available === "boolean" ? item.available : undefined,
-      reason: typeof item.reason === "string" ? item.reason : undefined,
-      tag: typeof item.tag === "string" ? item.tag : undefined,
-    }] : [];
-  });
 }
 
 function formatPosition({ x, y, z, h }: Telemetry): string {
@@ -56,34 +45,63 @@ export function App(): ReactElement {
   const [connection, setConnection] = useState<ConnectionState>("connecting");
   const [menu, setMenu] = useState<MenuState>(null);
   const [input, setInput] = useState("");
-  const [echoes, setEchoes] = useState<string[]>([]);
+  const [feed, setFeed] = useState<FeedItem[]>([]);
   const [telemetry, setTelemetry] = useState<Telemetry | null>(null);
   const [zoom, setZoom] = useState<ZoomLevel | null>(null);
+  const [newGameOpen, setNewGameOpen] = useState(false);
   const menuRequest = useRef(0);
+  const gameMinute = useRef(0);
+  // Results carry only a sequence, so remember which op each sent action was.
+  const sentOps = useRef(new Map<number, string>());
+
+  function pushFeed(text: string, kind: FeedKind): void {
+    setFeed((current) => [...current.slice(-(FEED_LENGTH - 1)), { text, kind, minute: gameMinute.current }]);
+  }
 
   useEffect(() => {
     const client = new WebSocketClient();
     clientRef.current = client;
-    const removeState = client.onState(setWorld);
+    const removeState = client.onState((state) => {
+      gameMinute.current = state.gameMinute;
+      setWorld(state);
+    });
     const removeConnection = client.onConnection(setConnection);
+    const removeResult = client.onResult((result) => {
+      const op = sentOps.current.get(result.sequence) ?? "ACTION";
+      sentOps.current.delete(result.sequence);
+      if (!result.accepted) {
+        pushFeed(`CAN'T ${op} · ${result.reason ?? "not now"}`, "warn");
+        return;
+      }
+      if (result.text) pushFeed(result.text, "seen");
+      if (result.activity) pushFeed(`${op} · ${result.activity.ends_minute - result.activity.started_minute} MIN`, "act");
+    });
+    const removeActivity = client.onActivity((activity) => {
+      // An interruption is something the player just did; it needs no notice.
+      if (activity.actor_id !== PLAYER_ID || activity.outcome === "interrupted") return;
+      const op = activity.op.toUpperCase();
+      if (activity.outcome === "completed") pushFeed(`${op} DONE`, "act");
+      else pushFeed(`${op} FAILED · ${activity.reason ?? "unknown"}`, "fail");
+    });
     client.connect();
-    if (!hostRef.current) return () => {
+    const removeAll = () => {
       removeState();
       removeConnection();
+      removeResult();
+      removeActivity();
       client.disconnect();
     };
+    if (!hostRef.current) return removeAll;
     const game = createGame(hostRef.current, client, (target) => void openMenu(target), setTelemetry, setZoom);
     return () => {
       game.destroy(true);
-      removeState();
-      removeConnection();
-      client.disconnect();
+      removeAll();
     };
   }, []);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Enter" && document.activeElement !== inputRef.current) {
+      if (event.key === "Enter" && !document.querySelector("#new-game-dialog") && document.activeElement !== inputRef.current) {
         event.preventDefault();
         inputRef.current?.focus();
       }
@@ -95,22 +113,26 @@ export function App(): ReactElement {
 
   async function openMenu(target: ContextTarget): Promise<void> {
     const token = ++menuRequest.current;
-    setMenu({ target, verbs: [] });
+    setMenu({ target, entries: [] });
     const query = new URLSearchParams({ x: String(target.x), y: String(target.y), z: String(target.z) });
     try {
       const response = await fetch(`/api/menu?${query}`);
       if (!response.ok) throw new Error(`menu request ${response.status}`);
-      const payload = await response.json() as Record<string, unknown>;
+      const payload = await response.json() as MenuResponse;
       if (token !== menuRequest.current) return;
-      setMenu({
-        target,
-        targetLabel: typeof payload.target === "string" ? payload.target : undefined,
-        verbs: readVerbs(payload.verbs ?? (payload.data as Record<string, unknown> | undefined)?.verbs),
-      });
+      setMenu({ target, targetLabel: payload.target, entries: payload.ops });
     } catch {
       if (token !== menuRequest.current) return;
-      setMenu({ target, verbs: [], error: "SERVER MENU UNAVAILABLE" });
+      setMenu({ target, entries: [], error: "SERVER MENU UNAVAILABLE" });
     }
+  }
+
+  function pickEntry(entry: MenuEntry): void {
+    const client = clientRef.current;
+    if (!client || !entry.available) return;
+    // The server built this action; sending it back unchanged is the whole contract.
+    sentOps.current.set(client.sendAction(entry.action), entry.label.toUpperCase());
+    setMenu(null);
   }
 
   function setClock(paused: boolean, speed = world.speed): void {
@@ -122,30 +144,43 @@ export function App(): ReactElement {
     event.preventDefault();
     const value = input.trim();
     if (!value) return;
-    setEchoes((current) => [...current.slice(-3), value]);
+    pushFeed(value, "echo");
     setInput("");
   }
 
-  return <main className="shell" onClick={() => menu && setMenu(null)} onContextMenu={(event) => event.preventDefault()}>
+  const activity = (world.actors[PLAYER_ID] ?? world.actors.player)?.activity;
+
+  return <main className="shell" onClick={() => { setMenu(null); setNewGameOpen(false); }} onContextMenu={(event) => event.preventDefault()}>
     <div ref={hostRef} className="world" aria-label="EtherBound world" />
     <section className="hud" aria-label="Niko HUD">
       <div className={`hud-panel clock ${world.paused ? "paused" : ""}`} onClick={(event) => event.stopPropagation()}>
         <span className="time">{formatGameTime(world.gameMinute)}</span>
         <button className="mini" aria-label="Pause" onClick={() => setClock(!world.paused)}>II</button>
         {[1, 3, 10].map((speed) => <button key={speed} className={`mini ${!world.paused && world.speed === speed ? "active" : ""}`} onClick={() => setClock(false, speed)}>x{speed}</button>)}
+        <span className="sep" aria-hidden="true" />
+        <button className="mini" aria-haspopup="dialog" aria-expanded={newGameOpen} aria-controls="new-game-dialog" onClick={() => setNewGameOpen(true)}>NEW</button>
       </div>
+      {newGameOpen && <NewGamePopover
+        seed={world.seed ?? 0}
+        onClose={() => setNewGameOpen(false)}
+        onSuccess={(seed) => {
+          pushFeed(`NEW GAME · SEED ${seed}`, "echo");
+          setNewGameOpen(false);
+        }}
+      />}
       {telemetry && <div className="hud-panel telemetry" aria-label="Position, speed and zoom">
         <div className="readout"><span className="label">POS</span><span>{formatPosition(telemetry)}</span></div>
         <div className="readout"><span className="label">SPD</span><span>{telemetry.speed.toFixed(2)} m/s</span></div>
         {zoom !== null && <div className="readout"><span className="label">ZOOM</span><span>x{zoom}</span></div>}
+        {activity && <div className="readout"><span className="label">ACT</span><span>{activity.op.toUpperCase()} · {Math.max(0, activity.ends_minute - world.gameMinute)} MIN</span></div>}
       </div>}
       <div className="hud-panel status" onClick={(event) => event.stopPropagation()}>
         <span className={`pill ${connection === "open" ? "ok" : "warn"}`}>{statusLabel(connection)}</span>
         <span className="pill ether">ETHER: 00%</span>
       </div>
       <div className="hud-panel feed" aria-live="polite" onClick={(event) => event.stopPropagation()}>
-        <div className="feed-label">▍INPUT ECHO</div>
-        {echoes.map((echo, index) => <div className="feed-item" key={`${echo}-${index}`}><span className="time">{formatGameTime(world.gameMinute)}</span>{echo}</div>)}
+        <div className="feed-label">▍FEED</div>
+        {feed.map((item, index) => <div className={`feed-item ${item.kind}`} key={`${item.minute}-${index}-${item.text}`}><span className="time">{formatGameTime(item.minute)}</span>{item.text}</div>)}
       </div>
       <div className="hud-panel meters" onClick={(event) => event.stopPropagation()}>
         <div className="meter"><span className="label">HEALTH</span><span>{meter(100)}</span></div>
@@ -157,15 +192,129 @@ export function App(): ReactElement {
         <input ref={inputRef} value={input} onChange={(event) => setInput(event.target.value)} placeholder="say or try anything" aria-label="Free text action" />
       </form>
     </section>
-    {menu && <ContextMenu state={menu} onClose={() => setMenu(null)} />}
+    {menu && <ContextMenu state={menu} onPick={pickEntry} onClose={() => setMenu(null)} />}
   </main>;
 }
 
-function ContextMenu({ state, onClose }: { state: ResolvedMenuState; onClose: () => void }): ReactElement {
+function NewGamePopover({
+  seed: initialSeed,
+  onClose,
+  onSuccess,
+}: {
+  seed: number;
+  onClose: () => void;
+  onSuccess: (seed: number) => void;
+}): ReactElement {
+  const [seedText, setSeedText] = useState(String(initialSeed));
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
+  const pendingRef = useRef(false);
+  const seedRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    seedRef.current?.focus();
+    seedRef.current?.select();
+  }, []);
+
+  async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    if (pendingRef.current) return;
+    if (!/^\d+$/.test(seedText)) {
+      setError("SEED MUST BE A WHOLE NUMBER FROM 0 TO 2147483647");
+      return;
+    }
+    const seed = Number(seedText);
+    if (!Number.isSafeInteger(seed) || seed < 0 || seed > 2147483647) {
+      setError("SEED MUST BE A WHOLE NUMBER FROM 0 TO 2147483647");
+      return;
+    }
+
+    pendingRef.current = true;
+    setPending(true);
+    setError("");
+    try {
+      await requestNewGame(seed);
+      onSuccess(seed);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message.toUpperCase() : "NEW GAME REQUEST FAILED");
+    } finally {
+      pendingRef.current = false;
+      setPending(false);
+    }
+  }
+
+  function randomizeSeed(): void {
+    const values = new Uint32Array(1);
+    let seed: number;
+    do {
+      window.crypto.getRandomValues(values);
+      seed = values[0]! & 0x7fffffff;
+    } while (seed === Number(seedText));
+    setSeedText(String(seed));
+    setError("");
+  }
+
+  function handleKeyDown(event: ReactKeyboardEvent<HTMLFormElement>): void {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (!pendingRef.current) onClose();
+  }
+
+  return <form id="new-game-dialog" role="dialog" aria-label="New game" aria-modal="false" className="hud-panel confirm" noValidate onSubmit={(event) => void submit(event)} onClick={(event) => event.stopPropagation()} onKeyDown={handleKeyDown}>
+    <h3>NEW GAME</h3>
+    <p>Wipes the city, Niko and the event log. This cannot be undone.</p>
+    <div className="seed">
+      <label className="label" htmlFor="new-game-seed">SEED</label>
+      <input ref={seedRef} id="new-game-seed" type="number" min="0" max="2147483647" step="1" value={seedText} aria-invalid={Boolean(error)} aria-describedby={error ? "new-game-error" : undefined} onChange={(event) => { setSeedText(event.target.value); setError(""); }} />
+      <button className="mini" type="button" disabled={pending} onClick={randomizeSeed}>RANDOM</button>
+    </div>
+    {error && <p id="new-game-error" className="error" role="alert">{error}</p>}
+    <div className="actions">
+      <button type="button" disabled={pending} onClick={onClose}>CANCEL</button>
+      <button className="danger" type="submit" disabled={pending}>{pending ? "WORKING" : "REGENERATE"}</button>
+    </div>
+  </form>;
+}
+
+function ContextMenu({ state, onPick, onClose }: { state: ResolvedMenuState; onPick: (entry: MenuEntry) => void; onClose: () => void }): ReactElement {
+  const entries = state.entries;
+  const [focus, setFocus] = useState(0);
+
+  useEffect(() => {
+    const first = entries.findIndex((entry) => entry.available);
+    setFocus(first === -1 ? 0 : first);
+  }, [entries]);
+
+  useEffect(() => {
+    // Capture phase, so Enter picks here instead of focusing the input line.
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (entries.length === 0) return;
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        const step = event.key === "ArrowDown" ? 1 : -1;
+        setFocus((current) => (current + step + entries.length) % entries.length);
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        const entry = entries[focus];
+        if (entry) onPick(entry);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [entries, focus, onPick]);
+
   return <div className="menu" style={{ left: Math.min(state.target.screenX, window.innerWidth - 220), top: Math.min(state.target.screenY, window.innerHeight - 180) }} onClick={(event) => event.stopPropagation()}>
-    <div className="target">TILE {state.target.x},{state.target.y},{state.target.z}</div>
-    {state.error ? <div className="menu-empty">{state.error}</div> : state.verbs.length === 0 ? <div className="menu-empty">NO ACTIONS RETURNED</div> : state.verbs.map((verb) => <button key={verb.verb} className={`verb ${verb.tag === "ether" ? "ether" : ""} ${verb.available === false ? "off" : ""}`} disabled={verb.available === false} onClick={onClose}>
-      <span>{verb.label ?? verb.verb}</span>{verb.reason && <small>{verb.reason}</small>}
+    <div className="target">TILE {state.target.x},{state.target.y},{state.target.z}{state.targetLabel ? ` · ${state.targetLabel}` : ""}</div>
+    {state.error ? <div className="menu-empty">{state.error}</div> : entries.length === 0 ? <div className="menu-empty">NO ACTIONS RETURNED</div> : entries.map((entry, index) => <button
+      key={`${entry.op}-${index}`}
+      className={["op", index === focus ? "focus" : "", entry.tags.includes("ether") ? "ether" : "", entry.tags.includes("illegal") ? "illegal" : "", entry.available ? "" : "off"].filter(Boolean).join(" ")}
+      disabled={!entry.available}
+      onMouseEnter={() => setFocus(index)}
+      onClick={() => (entry.available ? onPick(entry) : onClose())}>
+      <span>{entry.label}</span>{entry.reason && <small className="why">{entry.reason}</small>}
     </button>)}
   </div>;
 }

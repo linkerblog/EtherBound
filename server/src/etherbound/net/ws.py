@@ -4,17 +4,27 @@ from math import floor
 from fastapi import WebSocket
 from pydantic import TypeAdapter, ValidationError
 
-from etherbound.engine.actions import MoveAction
+from etherbound.engine.actions import ActivityState, MoveAction
 from etherbound.engine.world import PLAYER_ID, ChunkPayload, WorldEngine, WorldInfo, WorldState
-from etherbound.events.models import ClockChanged, ClockTicked, WorldGenerated
+from etherbound.events.models import (
+    ActivityFinished,
+    ChunkChanged,
+    ClockChanged,
+    ClockTicked,
+    WorldGenerated,
+)
 from etherbound.net.messages import (
     AckMessage,
+    ActionMessage,
+    ActivityMessage,
+    ActivitySnapshot,
     ActorSnapshot,
     ChunkLevelMessage,
     ChunkMessage,
     ClientMessage,
     ErrorMessage,
     InputMessage,
+    ResultMessage,
     ServerMessage,
     SnapshotMessage,
     TickMessage,
@@ -26,9 +36,27 @@ from etherbound.net.messages import (
 client_message_adapter: TypeAdapter[ClientMessage] = TypeAdapter(ClientMessage)
 
 
+def _activity(activity: ActivityState | None) -> ActivitySnapshot | None:
+    if activity is None:
+        return None
+    return ActivitySnapshot(
+        op=activity.op,
+        started_minute=activity.started_minute,
+        ends_minute=activity.ends_minute,
+    )
+
+
 def _actors(state: WorldState) -> list[ActorSnapshot]:
     return [
-        ActorSnapshot(id=actor.id, kind=actor.kind, x=actor.x, y=actor.y, z=actor.z, h=actor.h)
+        ActorSnapshot(
+            id=actor.id,
+            kind=actor.kind,
+            x=actor.x,
+            y=actor.y,
+            z=actor.z,
+            h=actor.h,
+            activity=_activity(actor.activity),
+        )
         for actor in state.actors
     ]
 
@@ -152,6 +180,37 @@ class WebSocketHub:
         await self.broadcast(snapshot(self.engine.get_state(), self.engine.world_info()))
         await self.reset_world()
 
+    async def on_chunk_changed(self, event: ChunkChanged) -> None:
+        payload = self.engine.chunk_payload(event.cx, event.cy)
+        if payload is None:
+            return
+        key = (event.cx, event.cy)
+        for websocket in tuple(self.connections):
+            known = self._known_chunks.get(websocket, {})
+            # Only connections that already hold the chunk; the rest get it when they walk near,
+            # and a revision a connection knows is never replaced by an older one.
+            if key not in known or known[key] >= payload.revision:
+                continue
+            try:
+                await websocket.send_json(chunk_message(payload).model_dump(mode="json"))
+            except Exception:
+                self.disconnect(websocket)
+                continue
+            known[key] = payload.revision
+
+    async def on_activity_finished(self, event: ActivityFinished) -> None:
+        if event.actor_id != PLAYER_ID:
+            return
+        await self.broadcast(
+            ActivityMessage(
+                type="activity",
+                actor_id=event.actor_id,
+                op=event.op,
+                outcome=event.outcome,
+                reason=event.reason,
+            )
+        )
+
     async def handle(self, websocket: WebSocket, message_data: object) -> None:
         try:
             message = client_message_adapter.validate_python(message_data)
@@ -177,6 +236,20 @@ class WebSocketHub:
             centre = self._player_chunk()
             if self._known_centres.get(websocket) != centre:
                 await self._push_chunks(websocket, centre)
+            return
+        if isinstance(message, ActionMessage):
+            result = await self.engine.submit(PLAYER_ID, message.action)
+            await self.broadcast_to_one(
+                websocket,
+                ResultMessage(
+                    type="result",
+                    sequence=message.sequence,
+                    accepted=result.accepted,
+                    reason=result.reason,
+                    text=result.text,
+                    activity=_activity(result.activity),
+                ),
+            )
             return
         await self.engine.set_clock(paused=message.paused, speed=message.speed)
 

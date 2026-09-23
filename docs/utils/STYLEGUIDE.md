@@ -85,7 +85,7 @@ Niko has. Text selection uses cyan instead.
 | Danger, harm, illegal, wanted, critical need | `--red` |
 | Unavailable, unknown, dimmed | `--line-hi` (+ `opacity: .55–.65`) |
 
-A verb that is possible but illegal where Niko stands is shown in `--red`, not hidden: the world
+An op that is possible but illegal where Niko stands is shown in `--red`, not hidden: the world
 lets him do it and tells him it matters.
 
 ---
@@ -195,7 +195,7 @@ button:disabled { opacity: .35; cursor: not-allowed; }
 
 ## 8. Context menu (right-click)
 
-The menu is built from the verbs the server returns. The client never adds or removes verbs; it
+The menu is built from the ops the server returns. The client never adds or removes ops; it
 only renders them.
 
 ```css
@@ -205,18 +205,18 @@ only renders them.
   padding: 4px 0; box-shadow: 0 6px 24px rgba(0,0,0,.6);
 }
 .menu .target { padding: 2px 12px 6px; color: var(--dim); font-size: 11px; border-bottom: 1px solid var(--line); }
-.menu .verb { display: flex; gap: 8px; padding: 3px 12px; cursor: pointer; }
-.menu .verb::before { content: "›"; color: var(--dim); }
-.menu .verb:hover, .menu .verb.focus { background: var(--cyan); color: var(--bg); }
-.menu .verb:hover::before, .menu .verb.focus::before { color: var(--bg); }
-.menu .verb.illegal { color: var(--red); }
-.menu .verb.ether { color: var(--magenta); }
-.menu .verb.off { color: var(--line-hi); cursor: not-allowed; }
-.menu .verb .why { margin-left: auto; color: var(--dim); font-size: 10px; }
+.menu .op { display: flex; gap: 8px; padding: 3px 12px; cursor: pointer; }
+.menu .op::before { content: "›"; color: var(--dim); }
+.menu .op:hover, .menu .op.focus { background: var(--cyan); color: var(--bg); }
+.menu .op:hover::before, .menu .op.focus::before { color: var(--bg); }
+.menu .op.illegal { color: var(--red); }
+.menu .op.ether { color: var(--magenta); }
+.menu .op.off { color: var(--line-hi); cursor: not-allowed; }
+.menu .op .why { margin-left: auto; color: var(--dim); font-size: 10px; }
 ```
 
 - Arrow keys move `.focus`, Enter picks, Esc closes.
-- A verb that exists but cannot be done now (`.off`) shows why in `.why` ("locked", "too heavy").
+- An op that exists but cannot be done now (`.off`) shows why in `.why` ("locked", "too heavy").
 
 ---
 
@@ -299,13 +299,18 @@ What Niko perceives or hears, newest at the bottom, fading out after a while.
 .feed .item.rumor  { border-left-color: var(--yellow); font-style: italic; }
 .feed .item.harm   { border-left-color: var(--red); }
 .feed .item.ether  { border-left-color: var(--magenta); }
+.feed .item.act    { border-left-color: var(--line-hi); }                  /* DIG · 24 MIN, DIG DONE */
+.feed .item.warn   { border-left-color: var(--yellow); color: var(--yellow); } /* CAN'T DIG · reason */
+.feed .item.fail   { border-left-color: var(--red); color: var(--red); }       /* DIG FAILED · reason */
 .feed .item .time  { color: var(--dim); font-size: 10px; margin-right: 6px; }
 .feed .item.enter  { animation: glitch-in .42s steps(4) both; }
 .feed .item.old    { opacity: .45; transition: opacity 2s; }
 ```
 
 The difference between `.seen` and `.rumor` matters: the feed shows Niko's knowledge, not the
-truth.
+truth. `.act`, `.warn` and `.fail` report Niko's own actions: a start with its length, a result, a
+refusal with its reason, a failure with its reason. An interruption the player caused shows
+nothing. The words carry the meaning (`CAN'T`, `FAILED`), never only the colour.
 
 ---
 
@@ -467,7 +472,15 @@ const hit = (el) => retrigger(el, "rgb-hit", 450);
 
 - Desktop first; minimum supported viewport 1280×720. No phone layout.
 - Every HUD action has a keyboard path (hotkeys for speeds, options, menu navigation).
-- Colour is never the only signal: illegal verbs, rumors and Ether also carry a marker or style.
+- Colour is never the only signal: illegal ops, rumors and Ether also carry a marker or style.
+
+---
+
+## 17. Confirmations
+
+Destructive actions open a confirmation popover anchored to the control that opened it, never
+centred over the world. Use a `danger` confirm button and a `CANCEL` button. Open with focus inside;
+Enter confirms and Esc cancels. Do not add a global hotkey for a destructive action.
 
 ---
 
@@ -476,4 +489,5 @@ const hit = (el) => retrigger(el, "rgb-hit", 450);
 The overlay is Niko's HUD: LiraMind's retro-terminal palette and components, translucent panels
 anchored to the edges over pixel art that stays untouched. Monospace for interface, IBM Plex Serif
 for prose. Magenta means Ether and nothing else. Menus come from the server, the feed shows what
-Niko knows (seen vs rumor), and glitch/CRT effects fire only when something happens to Niko.
+Niko knows (seen vs rumor), destructive actions use anchored confirmations, and glitch/CRT effects
+fire only when something happens to Niko.

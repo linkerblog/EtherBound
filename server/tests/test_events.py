@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from etherbound.db.models import Base
 from etherbound.engine.actions import MoveAction
-from etherbound.engine.verbs import register
-from etherbound.engine.verbs.move import MoveHandler
+from etherbound.engine.ops import register
+from etherbound.engine.ops.move import MoveHandler
 from etherbound.engine.world import PLAYER_ID, WorldEngine
 from etherbound.events import ClockChanged, ClockTicked, Event, EventBus
 

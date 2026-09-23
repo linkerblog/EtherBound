@@ -14,6 +14,10 @@ export const TILE_SIZE = 32;
 const CLIFF_H = 2;
 // Speed is averaged over this window so reconcile snaps do not read as spikes.
 const TELEMETRY_INTERVAL = 0.2;
+// The server moves Niko one 1/20 s step per input, so a held key repeats at 20 Hz.
+const INPUT_INTERVAL = 0.05;
+// Below this the prediction and the server agree; above it, an idle Niko is resynced.
+const RESYNC_METRES = 0.05;
 
 export type ContextTarget = { x: number; y: number; z: number; screenX: number; screenY: number };
 
@@ -38,15 +42,16 @@ export class MapScene extends Phaser.Scene {
   private prediction = new ClientPrediction(EMPTY_POSITION);
   private hasAuthoritativePosition = false;
   private viewerH = 0;
-  private generation: number | undefined;
   private paused = false;
   private zoom: ZoomLevel | null = null;
   private readonly wheelAccumulator = new WheelAccumulator();
   private keys!: Record<"up" | "down" | "left" | "right", Phaser.Input.Keyboard.Key>;
   private lastDirection: Direction = { x: 0, y: 0 };
+  private inputElapsed = 0;
   private telemetryOrigin: { x: number; y: number } | null = null;
   private telemetryElapsed = 0;
   private removeStateListener?: () => void;
+  private removeSnapshotListener?: () => void;
   private removeAckListener?: () => void;
   private removeChunkListener?: () => void;
 
@@ -112,16 +117,17 @@ export class MapScene extends Phaser.Scene {
     this.input.mouse?.disableContextMenu();
     this.applyZoom(loadZoom(defaultZoom(window.devicePixelRatio)));
 
+    this.removeSnapshotListener = this.options.client.onSnapshot(() => {
+      this.chunkLayers.forEach((layers) => { layers.ground.destroy(); layers.levels.destroy(); });
+      this.chunkLayers.clear();
+      this.chunks.clear();
+      this.hasAuthoritativePosition = false;
+      this.telemetryOrigin = null;
+      this.telemetryElapsed = 0;
+    });
     this.removeStateListener = this.options.client.onState((state) => {
       this.paused = state.paused;
       if (state.world) {
-        if (state.genVersion !== undefined && this.generation !== undefined && state.genVersion !== this.generation) {
-          this.chunks.clear();
-          this.chunkLayers.forEach((layers) => { layers.ground.destroy(); layers.levels.destroy(); });
-          this.chunkLayers.clear();
-          this.hasAuthoritativePosition = false;
-        }
-        this.generation = state.genVersion;
         this.chunks.setWorldInfo(state.world.chunk_size, state.world.bounds);
         this.applyCameraBounds(state.world.bounds);
       }
@@ -131,6 +137,16 @@ export class MapScene extends Phaser.Scene {
         this.viewerH = player.h ?? player.z * 6;
         this.hasAuthoritativePosition = true;
         this.telemetryOrigin = null;
+      } else if (player && this.prediction.idle()) {
+        // Climbing and being lowered by a dig move Niko with no ack to reconcile against.
+        const predicted = this.prediction.position;
+        const drift = Math.hypot(player.x - predicted.x, player.y - predicted.y);
+        if (drift > RESYNC_METRES || (player.h !== undefined && player.h !== predicted.h)) {
+          this.prediction.reset(player);
+          const previousH = this.viewerH;
+          this.viewerH = player.h ?? previousH;
+          if (this.viewerH !== previousH) this.redrawLevels();
+        }
       }
     });
     this.removeAckListener = this.options.client.onAck((position, sequence) => {
@@ -141,19 +157,32 @@ export class MapScene extends Phaser.Scene {
       if (this.viewerH !== previousH) this.redrawLevels();
     });
     this.removeChunkListener = this.options.client.onChunk((chunk) => {
+      const known = this.chunks.get(chunk.cx, chunk.cy) !== undefined;
       if (!this.chunks.set(chunk)) return;
       this.drawChunk(chunk);
+      if (!known) return;
+      // A changed border tile moves the cliff lines its neighbours draw along their edges.
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+        const neighbour = this.chunks.get(chunk.cx + dx, chunk.cy + dy);
+        if (neighbour) this.drawChunk(neighbour);
+      }
     });
   }
 
   update(_: number, delta: number): void {
     const seconds = Math.min(delta / 1000, 0.1);
     const direction = this.readDirection();
-    if (direction.x !== this.lastDirection.x || direction.y !== this.lastDirection.y) {
+    const changed = direction.x !== this.lastDirection.x || direction.y !== this.lastDirection.y;
+    const held = direction.x !== 0 || direction.y !== 0;
+    this.inputElapsed += seconds;
+    // One zero vector on release; while held, one input per server movement step.
+    if (changed || (held && this.inputElapsed >= INPUT_INTERVAL)) {
       const sequence = this.options.client.nextSequence();
       this.prediction.setDirection(direction, sequence);
       this.options.client.sendInput(direction, sequence);
       this.lastDirection = direction;
+      // Carry the remainder so the average stays at 20 Hz whatever the frame rate.
+      this.inputElapsed = changed ? 0 : Math.min(this.inputElapsed - INPUT_INTERVAL, INPUT_INTERVAL);
     }
     const position = this.prediction.step(seconds, this.paused);
     const previousH = this.viewerH;
@@ -165,6 +194,7 @@ export class MapScene extends Phaser.Scene {
 
   shutdown(): void {
     this.removeStateListener?.();
+    this.removeSnapshotListener?.();
     this.removeAckListener?.();
     this.removeChunkListener?.();
     this.chunkLayers.clear();

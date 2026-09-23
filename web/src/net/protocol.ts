@@ -1,4 +1,12 @@
+import type { components } from "./schema";
+
 export type Direction = { x: number; y: number };
+export type MenuEntry = components["schemas"]["MenuEntry"];
+export type MenuResponse = components["schemas"]["MenuResponse"];
+export type GameAction = MenuEntry["action"];
+export type ActivitySnapshot = components["schemas"]["ActivitySnapshot"];
+export type ResultMessage = components["schemas"]["ResultMessage"];
+export type ActivityMessage = components["schemas"]["ActivityMessage"];
 
 export type Position = {
   x: number;
@@ -10,6 +18,7 @@ export type Position = {
 export type ActorState = Position & {
   id: string;
   kind?: string;
+  activity?: ActivitySnapshot | null;
 };
 
 export type WorldState = {
@@ -19,14 +28,7 @@ export type WorldState = {
   actors: Record<string, ActorState>;
   world?: { chunk_size: number; level_h: number; bounds: number[] };
   genVersion?: number;
-};
-
-export type MenuVerb = {
-  verb: string;
-  label?: string;
-  available?: boolean;
-  reason?: string;
-  tag?: string;
+  seed?: number;
 };
 
 export type ServerMessage = {
@@ -46,6 +48,14 @@ function numberValue(...values: unknown[]): number | undefined {
   return values.find((value): value is number => typeof value === "number" && Number.isFinite(value));
 }
 
+function readActivity(value: unknown): ActivitySnapshot | null {
+  const record = asRecord(value);
+  if (typeof record?.op !== "string") return null;
+  const started = numberValue(record.started_minute);
+  const ends = numberValue(record.ends_minute);
+  return started === undefined || ends === undefined ? null : { op: record.op, started_minute: started, ends_minute: ends };
+}
+
 export function readPosition(value: unknown, fallback = EMPTY_POSITION): Position {
   const record = asRecord(value);
   return {
@@ -61,7 +71,7 @@ export function readActors(value: unknown): Record<string, ActorState> {
     return value.reduce<Record<string, ActorState>>((result, entry) => {
       const actor = asRecord(entry);
       const id = typeof actor?.id === "string" ? actor.id : typeof actor?.actor_id === "string" ? actor.actor_id : undefined;
-      if (id) result[id] = { id, kind: typeof actor?.kind === "string" ? actor.kind : undefined, ...readPosition(actor) };
+      if (id) result[id] = { id, kind: typeof actor?.kind === "string" ? actor.kind : undefined, activity: readActivity(actor?.activity), ...readPosition(actor) };
       return result;
     }, {});
   }
@@ -72,7 +82,7 @@ export function readActors(value: unknown): Record<string, ActorState> {
   for (const [id, rawActor] of Object.entries(actors)) {
     const actor = asRecord(rawActor);
     if (!actor) continue;
-    result[id] = { id, kind: typeof actor.kind === "string" ? actor.kind : undefined, ...readPosition(actor) };
+    result[id] = { id, kind: typeof actor.kind === "string" ? actor.kind : undefined, activity: readActivity(actor.activity), ...readPosition(actor) };
   }
   return result;
 }
@@ -91,9 +101,10 @@ export function readWorldState(message: ServerMessage, previous: WorldState): Wo
     gameMinute: numberValue(payload.game_minute, payload.gameMinute, clock?.game_minute, clock?.gameMinute) ?? previous.gameMinute,
     paused: typeof payload.paused === "boolean" ? payload.paused : typeof clock?.paused === "boolean" ? clock.paused : previous.paused,
     speed: numberValue(payload.speed, clock?.speed) ?? previous.speed,
-    actors: Object.keys(actorMap).length > 0 ? actorMap : previous.actors,
+    actors: message.type === "snapshot" || Object.keys(actorMap).length > 0 ? actorMap : previous.actors,
     world: (asRecord(payload.world) as WorldState["world"]) ?? previous.world,
     genVersion: numberValue(payload.gen_version, payload.genVersion) ?? previous.genVersion,
+    seed: numberValue(payload.seed) ?? previous.seed,
   };
 }
 

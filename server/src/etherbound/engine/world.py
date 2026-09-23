@@ -2,6 +2,7 @@ import asyncio
 from dataclasses import dataclass
 from math import floor
 
+from pydantic import TypeAdapter
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -10,10 +11,23 @@ from etherbound.db.models import Chunk as ChunkRow
 from etherbound.db.models import ChunkLevel as ChunkLevelRow
 from etherbound.db.models import Event as EventRow
 from etherbound.db.models import Material as MaterialRow
-from etherbound.engine.actions import Action, ActionResult
-from etherbound.engine.verbs import ActionContext, handler_for
+from etherbound.engine.actions import (
+    Action,
+    ActionResult,
+    ActivityState,
+    MenuEntry,
+    MoveAction,
+    SelfTarget,
+    Target,
+    TileTarget,
+)
+from etherbound.engine.movement import nearest_surface
+from etherbound.engine.ops import ActionContext, handled_ops, handler_for
+from etherbound.engine.ops.base import metres
 from etherbound.events.bus import EventBus
 from etherbound.events.models import (
+    ActivityFinished,
+    ActivityStarted,
     ActorSpawned,
     ClockChanged,
     ClockTicked,
@@ -29,6 +43,8 @@ from etherbound.world.materials import MaterialRegistry
 PLAYER_ID = "niko"
 CHUNK_RADIUS = 2
 
+action_adapter: TypeAdapter[Action] = TypeAdapter(Action)
+
 
 @dataclass(frozen=True, slots=True)
 class ActorState:
@@ -38,6 +54,7 @@ class ActorState:
     y: float
     z: int
     h: int
+    activity: ActivityState | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +86,15 @@ class ChunkPayload:
     ground_h: tuple[int, ...]
     surface_mat: tuple[int, ...]
     levels: tuple[ChunkLevelPayload, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class MenuPayload:
+    x: float
+    y: float
+    z: int
+    target: str
+    entries: tuple[MenuEntry, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,6 +187,7 @@ class WorldEngine:
                 tuple((int(depth), str(key)) for depth, key in row.strata),
                 row.revision,
                 row.gen_version,
+                row.dug,
             )
             for row in session.scalars(select(ChunkRow).order_by(ChunkRow.cx, ChunkRow.cy))
         ]
@@ -194,6 +221,7 @@ class WorldEngine:
                     strata=[list(entry) for entry in chunk.strata],
                     revision=chunk.revision,
                     gen_version=chunk.gen_version,
+                    dug=chunk.dug_blob,
                 )
             )
         for level in world.levels.values():
@@ -272,11 +300,6 @@ class WorldEngine:
             return None
         return surfaces[0].h
 
-    def _stands(self, x: float, y: float, h: int) -> bool:
-        return any(
-            abs(surface.h - h) <= 1 for surface in self.grid.standing_surfaces(floor(x), floor(y))
-        )
-
     def _ensure_actor(self, session: Session) -> ActorSpawned | None:
         spawn_x, spawn_y, spawn_h = self._spawn_point()
         actor = session.get(Actor, PLAYER_ID)
@@ -292,9 +315,13 @@ class WorldEngine:
             )
             session.add(actor)
             reason = "created"
-        elif not self._stands(actor.x, actor.y, actor.h):
+        elif (surface := nearest_surface(self.grid, actor.x, actor.y, actor.h)) is None:
             actor.x, actor.y, actor.h, actor.z = spawn_x, spawn_y, spawn_h, spawn_h // 6
             reason = "relocated"
+        elif surface.h != actor.h:
+            # A data repair, not a world fact: no event. The standing rule needs the exact h,
+            # and the next actor.moved carries the corrected h in from_tile.
+            actor.h, actor.z = surface.h, surface.h // 6
         if reason is None:
             return None
         return ActorSpawned(
@@ -314,7 +341,15 @@ class WorldEngine:
         with self.sessions() as session:
             world = self._world_row(session)
             actors = tuple(
-                ActorState(actor.id, actor.kind, actor.x, actor.y, actor.z, actor.h)
+                ActorState(
+                    actor.id,
+                    actor.kind,
+                    actor.x,
+                    actor.y,
+                    actor.z,
+                    actor.h,
+                    _activity(actor),
+                )
                 for actor in session.scalars(select(Actor).order_by(Actor.id))
             )
             return WorldState(
@@ -417,10 +452,24 @@ class WorldEngine:
                         h=actor.h,
                         reason="paused",
                     )
-                handler = handler_for(action.verb)
+                if isinstance(action, MoveAction) and action.dx == 0 and action.dy == 0:
+                    # Releasing WASD sends a zero vector; it is not an action, so it must not
+                    # interrupt an activity that was chosen a moment earlier.
+                    return ActionResult(
+                        accepted=True,
+                        actor_id=actor_id,
+                        action=action,
+                        x=actor.x,
+                        y=actor.y,
+                        z=actor.z,
+                        h=actor.h,
+                        activity=_activity(actor),
+                    )
+                handler = handler_for(action.op)
                 ctx = ActionContext(session, world, actor, self.grid, delta_seconds)
                 reason = handler.validate(ctx, action)
                 if reason is not None:
+                    # A rejection changes nothing, a running activity included.
                     return ActionResult(
                         accepted=False,
                         actor_id=actor_id,
@@ -430,8 +479,43 @@ class WorldEngine:
                         z=actor.z,
                         h=actor.h,
                         reason=reason,
+                        activity=_activity(actor),
                     )
-                events = handler.resolve(ctx, action)
+                running = _activity(actor)
+                if running is not None:
+                    actor.activity = None
+                    events.append(
+                        ActivityFinished(
+                            actor_id=actor.id,
+                            op=running.op,
+                            outcome="interrupted",
+                            reason=action.op,
+                        )
+                    )
+                text: str | None = None
+                activity: ActivityState | None = None
+                duration = handler.duration(ctx, action)
+                if duration == 0:
+                    resolution = handler.resolve(ctx, action)
+                    events.extend(resolution.events)
+                    text = resolution.text
+                else:
+                    activity = ActivityState(
+                        op=action.op,
+                        action=action.model_dump(mode="json"),
+                        started_minute=world.game_minute,
+                        ends_minute=world.game_minute + duration,
+                    )
+                    actor.activity = activity.model_dump(mode="json")
+                    target = None if isinstance(action, MoveAction) else action.target
+                    events.append(
+                        ActivityStarted(
+                            actor_id=actor.id,
+                            op=action.op,
+                            target=target.model_dump(mode="json") if target is not None else {},
+                            ends_minute=activity.ends_minute,
+                        )
+                    )
                 next_seq = self._stamp_and_store(session, world, events)
                 session.commit()
                 self._next_seq = next_seq
@@ -444,6 +528,8 @@ class WorldEngine:
                     y=actor.y,
                     z=actor.z,
                     h=actor.h,
+                    text=text,
+                    activity=activity,
                 )
         await self.bus.drain()
         return result
@@ -455,6 +541,8 @@ class WorldEngine:
                 world = self._world_row(session)
                 if not world.paused:
                     world.game_minute += 1
+                    # Completions come before clock.ticked, in actor-id order: replay needs it.
+                    events.extend(self._complete_activities(session, world))
                     events.append(ClockTicked())
                     next_seq = self._stamp_and_store(session, world, events)
                     session.commit()
@@ -463,6 +551,71 @@ class WorldEngine:
             state = self.get_state()
         await self.bus.drain()
         return state
+
+    def _complete_activities(self, session: Session, world: WorldMeta) -> list[Event]:
+        events: list[Event] = []
+        for actor in session.scalars(select(Actor).order_by(Actor.id)):
+            running = _activity(actor)
+            if running is None or running.ends_minute > world.game_minute:
+                continue
+            actor.activity = None
+            action = action_adapter.validate_python(running.action)
+            handler = handler_for(action.op)
+            ctx = ActionContext(session, world, actor, self.grid, 0)
+            # The world may have changed since the start; effects apply only if still valid.
+            reason = handler.validate(ctx, action)
+            if reason is not None:
+                events.append(
+                    ActivityFinished(
+                        actor_id=actor.id, op=running.op, outcome="failed", reason=reason
+                    )
+                )
+                continue
+            events.extend(handler.complete(ctx, action))
+            events.append(ActivityFinished(actor_id=actor.id, op=running.op, outcome="completed"))
+        return events
+
+    def menu(self, actor_id: str, x: float, y: float, z: int) -> MenuPayload:
+        """Generated right-click entries. A read: no lock, since submit validates again."""
+        tile_x, tile_y = floor(x), floor(y)
+        surfaces = self.grid.standing_surfaces(tile_x, tile_y)
+        visible = [surface for surface in surfaces if surface.z == z] or list(surfaces)
+        candidates: list[Target] = []
+        if visible:
+            surface = min(visible, key=lambda item: abs(item.z - z))
+            material = self.registry.get(surface.material_id)
+            name = material.name if material is not None else "unknown"
+            label = f"{name} · {metres(surface.h)}"
+            candidates.append(TileTarget(x=tile_x, y=tile_y, h=surface.h))
+        else:
+            label = "nothing"
+        entries: list[MenuEntry] = []
+        with self.sessions() as session:
+            world = self._world_row(session)
+            actor = session.get(Actor, actor_id)
+            if actor is None:
+                raise KeyError(f"unknown actor: {actor_id}")
+            if (floor(actor.x), floor(actor.y)) == (tile_x, tile_y):
+                candidates.append(SelfTarget())
+            ctx = ActionContext(session, world, actor, self.grid, 0)
+            for spec, handler in handled_ops():
+                for target in candidates:
+                    if target.kind not in spec.targets or not handler.applies(ctx, target):
+                        continue
+                    action = handler.build(ctx, target)
+                    reason = handler.validate(ctx, action)
+                    entries.append(
+                        MenuEntry(
+                            op=spec.key,
+                            label=spec.label,
+                            tags=list(spec.tags),
+                            available=reason is None,
+                            reason=reason,
+                            action=action,
+                        )
+                    )
+            session.rollback()
+        return MenuPayload(x=x, y=y, z=z, target=label, entries=tuple(entries))
 
     async def set_clock(
         self, *, paused: bool | None = None, speed: int | None = None
@@ -503,3 +656,7 @@ class WorldEngine:
         statement = statement.limit(limit)
         with self.sessions() as session:
             return list(session.scalars(statement))
+
+
+def _activity(actor: Actor) -> ActivityState | None:
+    return ActivityState.model_validate(actor.activity) if actor.activity else None

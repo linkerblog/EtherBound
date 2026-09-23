@@ -1,0 +1,409 @@
+# The shared op vocabulary (docs/utils/VISION.md [Sec. 7]). It changes only through a Dev doc.
+# `targets` lists the primary target kinds (self, tile, edge, object, actor); an op with no
+# targets, like `move`, is never a menu entry. An op without a code handler is never offered.
+
+[[ops]]
+key = "move"
+label = "Move"
+group = "body"
+targets = []
+tags = ["movement"]
+
+[[ops]]
+key = "climb"
+label = "Climb"
+group = "body"
+targets = ["tile"]
+tags = ["movement", "risky"]
+
+[[ops]]
+key = "jump"
+label = "Jump"
+group = "body"
+targets = ["tile"]
+tags = ["movement", "risky"]
+
+[[ops]]
+key = "sit"
+label = "Sit"
+group = "body"
+targets = ["tile", "object"]
+tags = ["rest"]
+
+[[ops]]
+key = "lie"
+label = "Lie"
+group = "body"
+targets = ["tile", "object"]
+tags = ["rest"]
+
+[[ops]]
+key = "sleep"
+label = "Sleep"
+group = "body"
+targets = ["self", "object"]
+tags = ["rest"]
+
+[[ops]]
+key = "wait"
+label = "Wait"
+group = "body"
+targets = ["self"]
+tags = ["idle"]
+
+[[ops]]
+key = "hide"
+label = "Hide"
+group = "body"
+targets = ["tile", "object"]
+tags = ["covert"]
+
+[[ops]]
+key = "inspect"
+label = "Inspect"
+group = "perception"
+targets = ["tile", "object", "actor", "edge"]
+tags = ["perception"]
+
+[[ops]]
+key = "search"
+label = "Search"
+group = "perception"
+targets = ["tile", "object", "actor"]
+tags = ["perception", "covert"]
+
+[[ops]]
+key = "watch"
+label = "Watch"
+group = "perception"
+targets = ["actor", "tile"]
+tags = ["perception"]
+
+[[ops]]
+key = "take"
+label = "Take"
+group = "handling"
+targets = ["object"]
+tags = ["handling"]
+
+[[ops]]
+key = "drop"
+label = "Drop"
+group = "handling"
+targets = ["object"]
+tags = ["handling"]
+
+[[ops]]
+key = "put"
+label = "Put"
+group = "handling"
+targets = ["object"]
+tags = ["handling"]
+
+[[ops]]
+key = "give"
+label = "Give"
+group = "handling"
+targets = ["object"]
+tags = ["social", "handling"]
+
+[[ops]]
+key = "open"
+label = "Open"
+group = "handling"
+targets = ["edge", "object"]
+tags = ["handling"]
+
+[[ops]]
+key = "close"
+label = "Close"
+group = "handling"
+targets = ["edge", "object"]
+tags = ["handling"]
+
+[[ops]]
+key = "lock"
+label = "Lock"
+group = "handling"
+targets = ["edge", "object"]
+tags = ["handling", "protective"]
+
+[[ops]]
+key = "unlock"
+label = "Unlock"
+group = "handling"
+targets = ["edge", "object"]
+tags = ["handling"]
+
+[[ops]]
+key = "use"
+label = "Use"
+group = "handling"
+targets = ["object"]
+tags = ["handling"]
+
+[[ops]]
+key = "wear"
+label = "Wear"
+group = "handling"
+targets = ["object"]
+tags = ["handling"]
+
+[[ops]]
+key = "remove"
+label = "Remove"
+group = "handling"
+targets = ["object"]
+tags = ["handling"]
+
+[[ops]]
+key = "drag"
+label = "Drag"
+group = "handling"
+targets = ["object", "actor"]
+tags = ["handling", "heavy"]
+
+[[ops]]
+key = "eat"
+label = "Eat"
+group = "consumption"
+targets = ["object"]
+tags = ["need"]
+
+[[ops]]
+key = "drink"
+label = "Drink"
+group = "consumption"
+targets = ["object", "tile"]
+tags = ["need"]
+
+[[ops]]
+key = "treat"
+label = "Treat"
+group = "consumption"
+targets = ["self", "actor"]
+tags = ["protective"]
+
+[[ops]]
+key = "dig"
+label = "Dig"
+group = "matter"
+targets = ["tile"]
+tags = ["labor", "noisy"]
+
+[[ops]]
+key = "fill"
+label = "Fill"
+group = "matter"
+targets = ["tile"]
+tags = ["labor"]
+
+[[ops]]
+key = "build"
+label = "Build"
+group = "matter"
+targets = ["tile", "edge"]
+tags = ["labor", "planned"]
+
+[[ops]]
+key = "break"
+label = "Break"
+group = "matter"
+targets = ["edge", "object"]
+tags = ["violent", "noisy"]
+
+[[ops]]
+key = "repair"
+label = "Repair"
+group = "matter"
+targets = ["edge", "object"]
+tags = ["labor"]
+
+[[ops]]
+key = "ignite"
+label = "Ignite"
+group = "matter"
+targets = ["object", "tile"]
+tags = ["risky", "violent"]
+
+[[ops]]
+key = "extinguish"
+label = "Extinguish"
+group = "matter"
+targets = ["object", "tile"]
+tags = ["protective"]
+
+[[ops]]
+key = "cook"
+label = "Cook"
+group = "matter"
+targets = ["object"]
+tags = ["labor"]
+
+[[ops]]
+key = "craft"
+label = "Craft"
+group = "matter"
+targets = ["object"]
+tags = ["labor", "planned"]
+
+[[ops]]
+key = "push"
+label = "Push"
+group = "force"
+targets = ["object", "actor"]
+tags = ["violent"]
+
+[[ops]]
+key = "pull"
+label = "Pull"
+group = "force"
+targets = ["object", "actor"]
+tags = ["handling"]
+
+[[ops]]
+key = "hit"
+label = "Hit"
+group = "force"
+targets = ["actor", "object", "edge"]
+tags = ["violent"]
+
+[[ops]]
+key = "grab"
+label = "Grab"
+group = "force"
+targets = ["actor"]
+tags = ["violent"]
+
+[[ops]]
+key = "throw"
+label = "Throw"
+group = "force"
+targets = ["object"]
+tags = ["violent", "risky"]
+
+[[ops]]
+key = "shoot"
+label = "Shoot"
+group = "force"
+targets = ["object"]
+tags = ["violent", "risky"]
+
+[[ops]]
+key = "talk"
+label = "Talk"
+group = "social"
+targets = ["actor"]
+tags = ["social"]
+
+[[ops]]
+key = "ask"
+label = "Ask"
+group = "social"
+targets = ["actor"]
+tags = ["social"]
+
+[[ops]]
+key = "tell"
+label = "Tell"
+group = "social"
+targets = ["actor"]
+tags = ["social"]
+
+[[ops]]
+key = "threaten"
+label = "Threaten"
+group = "social"
+targets = ["actor"]
+tags = ["social", "violent"]
+
+[[ops]]
+key = "flirt"
+label = "Flirt"
+group = "social"
+targets = ["actor"]
+tags = ["social", "intimate"]
+
+[[ops]]
+key = "hug"
+label = "Hug"
+group = "social"
+targets = ["actor"]
+tags = ["social", "intimate"]
+
+[[ops]]
+key = "kiss"
+label = "Kiss"
+group = "social"
+targets = ["actor"]
+tags = ["social", "intimate"]
+
+[[ops]]
+key = "sex"
+label = "Sex"
+group = "social"
+targets = ["actor"]
+tags = ["intimate", "sexual"]
+
+[[ops]]
+key = "call"
+label = "Call"
+group = "social"
+targets = ["actor"]
+tags = ["social", "remote"]
+
+[[ops]]
+key = "message"
+label = "Message"
+group = "social"
+targets = ["actor"]
+tags = ["social", "remote"]
+
+[[ops]]
+key = "post"
+label = "Post"
+group = "social"
+targets = ["self"]
+tags = ["social", "remote", "public"]
+
+[[ops]]
+key = "buy"
+label = "Buy"
+group = "economy"
+targets = ["object", "actor"]
+tags = ["economic"]
+
+[[ops]]
+key = "sell"
+label = "Sell"
+group = "economy"
+targets = ["object"]
+tags = ["economic"]
+
+[[ops]]
+key = "pay"
+label = "Pay"
+group = "economy"
+targets = ["actor"]
+tags = ["economic"]
+
+[[ops]]
+key = "offer"
+label = "Offer"
+group = "economy"
+targets = ["actor"]
+tags = ["economic", "social"]
+
+[[ops]]
+key = "accept"
+label = "Accept"
+group = "economy"
+targets = ["actor"]
+tags = ["economic"]
+
+[[ops]]
+key = "work"
+label = "Work"
+group = "economy"
+targets = ["object"]
+tags = ["economic", "labor"]

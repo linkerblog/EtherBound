@@ -200,7 +200,11 @@ def test_menu_target_names_material_and_elevation(tmp_path: Path) -> None:
         payload = client.get("/api/menu", params={"x": 121.5, "y": 128.5, "z": 0}).json()
         assert payload["target"].startswith("Asphalt")
         assert "1 m" in payload["target"]
-        assert payload["verbs"] == ["inspect"]
+        # Niko stands on this road tile: asphalt is never dug, and waiting targets himself.
+        assert [(entry["op"], entry["available"]) for entry in payload["ops"]] == [
+            ("wait", True),
+            ("inspect", True),
+        ]
 
 
 def test_crossing_a_chunk_boundary_pushes_only_new_chunks(tmp_path: Path) -> None:

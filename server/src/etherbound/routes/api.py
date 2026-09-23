@@ -1,10 +1,10 @@
-from math import floor
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from etherbound.engine.world import WorldEngine
+from etherbound.engine.actions import MenuEntry
+from etherbound.engine.world import PLAYER_ID, WorldEngine
 
 router = APIRouter(prefix="/api")
 
@@ -77,7 +77,7 @@ class MenuResponse(BaseModel):
     y: float
     z: int
     target: str
-    verbs: list[str]
+    ops: list[MenuEntry]
 
 
 class EventRecord(BaseModel):
@@ -212,15 +212,8 @@ def menu(
     z: int = Query(0),
     engine: WorldEngine = Depends(get_engine),  # noqa: B008
 ) -> MenuResponse:
-    tile_x, tile_y = floor(x), floor(y)
-    surfaces = engine.grid.standing_surfaces(tile_x, tile_y)
-    visible = [surface for surface in surfaces if surface.z == z] or surfaces
-    if visible:
-        surface = min(visible, key=lambda item: abs(item.z * 6 - z * 6))
-        material = engine.registry.get(surface.material_id)
-        name = material.name if material is not None else "unknown"
-        metres = surface.h * 0.5
-        target = f"{name} · {metres:.1f} m".replace(".0 m", " m")
-    else:
-        target = "nothing"
-    return MenuResponse(x=x, y=y, z=z, target=target, verbs=["inspect"])
+    # The client only plays Niko, so menus are computed for him.
+    payload = engine.menu(PLAYER_ID, x, y, z)
+    return MenuResponse(
+        x=payload.x, y=payload.y, z=payload.z, target=payload.target, ops=list(payload.entries)
+    )

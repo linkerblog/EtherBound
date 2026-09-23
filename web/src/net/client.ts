@@ -3,9 +3,12 @@ import {
   readActorPosition,
   readMessage,
   readWorldState,
+  type ActivityMessage,
   type ConnectionState,
   type Direction,
+  type GameAction,
   type Position,
+  type ResultMessage,
   type ServerMessage,
   type WorldState,
 } from "./protocol";
@@ -16,6 +19,9 @@ type Listener = (state: WorldState) => void;
 type ConnectionListener = (state: ConnectionState) => void;
 type AckListener = (position: Position | undefined, sequence?: number) => void;
 type ChunkListener = (chunk: WorldChunk) => void;
+type SnapshotListener = (state: WorldState) => void;
+type ResultListener = (result: ResultMessage) => void;
+type ActivityListener = (activity: ActivityMessage) => void;
 
 function asChunk(value: ServerMessage): WorldChunk | null {
   const numeric = (field: unknown): field is number[] =>
@@ -46,6 +52,15 @@ function sequenceOf(message: ServerMessage): number | undefined {
   return typeof record.sequence === "number" ? record.sequence : typeof record.seq === "number" ? record.seq : undefined;
 }
 
+export async function requestNewGame(seed: number): Promise<void> {
+  const response = await fetch("/api/game/new", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ seed }),
+  });
+  if (!response.ok) throw new Error(`new game request ${response.status}`);
+}
+
 export class WebSocketClient {
   private socket: WebSocket | null = null;
   private world: WorldState = initialWorld;
@@ -54,6 +69,9 @@ export class WebSocketClient {
   private readonly connectionListeners = new Set<ConnectionListener>();
   private readonly ackListeners = new Set<AckListener>();
   private readonly chunkListeners = new Set<ChunkListener>();
+  private readonly snapshotListeners = new Set<SnapshotListener>();
+  private readonly resultListeners = new Set<ResultListener>();
+  private readonly activityListeners = new Set<ActivityListener>();
 
   connect(url = defaultSocketUrl()): void {
     this.emitConnection("connecting");
@@ -79,7 +97,14 @@ export class WebSocketClient {
   }
 
   sendInput(direction: Direction, sequence = this.nextSequence()): number {
-    this.send({ type: "input", sequence, seq: sequence, direction, vector: direction });
+    this.send({ type: "input", sequence, dx: direction.x, dy: direction.y });
+    return sequence;
+  }
+
+  /** Submits an action exactly as the server's menu built it. */
+  sendAction(action: GameAction): number {
+    const sequence = this.nextSequence();
+    this.send({ type: "action", sequence, action });
     return sequence;
   }
 
@@ -108,6 +133,21 @@ export class WebSocketClient {
     return () => this.chunkListeners.delete(listener);
   }
 
+  onSnapshot(listener: SnapshotListener): () => void {
+    this.snapshotListeners.add(listener);
+    return () => this.snapshotListeners.delete(listener);
+  }
+
+  onResult(listener: ResultListener): () => void {
+    this.resultListeners.add(listener);
+    return () => this.resultListeners.delete(listener);
+  }
+
+  onActivity(listener: ActivityListener): () => void {
+    this.activityListeners.add(listener);
+    return () => this.activityListeners.delete(listener);
+  }
+
   private send(message: Record<string, unknown>): void {
     if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(message));
   }
@@ -123,6 +163,7 @@ export class WebSocketClient {
     if (!message) return;
     if (message.type === "snapshot" || message.type === "tick") {
       this.world = readWorldState(message, this.world);
+      if (message.type === "snapshot") this.snapshotListeners.forEach((listener) => listener(this.world));
       this.listeners.forEach((listener) => listener(this.world));
     }
     if (message.type === "ack") {
@@ -133,6 +174,14 @@ export class WebSocketClient {
     if (message.type === "chunk") {
       const chunk = asChunk(message);
       if (chunk) this.chunkListeners.forEach((listener) => listener(chunk));
+    }
+    if (message.type === "result" && typeof message.sequence === "number" && typeof message.accepted === "boolean") {
+      const result = message as unknown as ResultMessage;
+      this.resultListeners.forEach((listener) => listener(result));
+    }
+    if (message.type === "activity" && typeof message.op === "string" && typeof message.outcome === "string") {
+      const activity = message as unknown as ActivityMessage;
+      this.activityListeners.forEach((listener) => listener(activity));
     }
   }
 

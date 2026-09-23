@@ -50,6 +50,58 @@ Run with `EtherBound.exe`, with no other server running:
 
 Any failure becomes a blocking item in this doc before the fix closes.
 
+### H3 (blocking, found in the H2 walkthrough): a loaded actor with a stale `h` is frozen in its tile
+
+Item 2 fails: the user walked and `GET /api/events` returned **0 events of any type**. The event
+system is not at fault. Niko never leaves his tile, so there is no move to log.
+
+Measured on the live save, `data/etherbound.db`, read-only, and reproduced on a copy:
+
+- `actor` row: `niko`, `x = 2.0`, `y = 2.0`, `h = 0`. This is a Phase 0 position (the map
+  corner, not the road spawn at 121.5, 128.5) that survived `ensure_world`.
+- `grid.standing_surfaces(2, 2)` returns a single surface at `h = 1`. Nothing stands at `h = 0`.
+- 20 inputs in each direction: every one is `accepted = true`, but the body only moves inside
+  tile (2, 2) (x from 2.03 to 2.8) and never crosses a boundary. `can_step` keeps only the
+  source surfaces whose `h` equals the body's `h` exactly (`grid.py` [line 206]), finds none, and
+  refuses every exit.
+- On the copy, with `h` set to 1: 20 inputs to the east cross 4 tiles and store 4 `actor.moved`
+  rows with correct `from_tile` / `to_tile`.
+
+Cause: `WorldEngine._ensure_actor` (`engine/world.py` [lines 275-296]) accepts a saved actor when
+`_stands` finds a surface within ±1 `h`. It then keeps the stale `h` instead of taking the
+surface's. The tolerance exists so that slightly-off saves are not moved back to spawn, but the
+standing rule itself has no tolerance, so the body is frozen. Tests never see this: every test
+world spawns with the exact `h`.
+
+Fix, in `server.engine` only:
+
+1. In `_ensure_actor`, for an existing actor: take the standing surface in its tile nearest to
+   the saved `h` within ±1, as `_arrival_surface` in `movement.py` already does. If there is
+   one, set `actor.h` to that surface's `h` and `actor.z = actor.h // 6`. Keep `x` and `y`. If
+   there is none, relocate to spawn exactly as today (`actor.spawned`, `relocated`).
+2. The snap emits **no event**. It repairs stored data, it is not something that happened in the
+   world, and the next `actor.moved` already carries the corrected `h` in `from_tile`. Put this
+   reason in a one-line comment.
+3. `_stands` is used only by `_ensure_actor`. Replace it with the helper from step 1 instead of
+   keeping both.
+
+Do not loosen `can_step`'s exact match. That match is the standing rule, and Fix01 B1 depends on
+`h` being exact.
+
+Tests (in `test_engine.py`):
+
+- An actor saved with `h` one below its tile's surface, then `ensure_world`: `h` equals the
+  surface, `x`/`y` are unchanged, and no event is stored. After that, 20 `move` inputs east cross
+  a tile and store `actor.moved`.
+- The same with `h` one above.
+- An actor with no surface within ±1: relocated to spawn, and `actor.spawned` (`relocated`) is
+  stored, as today.
+
+On the user's save, the next server start snaps Niko to `h = 1` at (2, 2) with no manual database
+edit. He stays in the map corner, where streaming loads only 9 chunks (`CONTEXT.md`, Measured
+pitfalls). To start from the road, run `POST /api/game/new`, which also restarts the log. After
+the fix, rerun H2 from item 2.
+
 ## 3. Medium
 
 ### M1: `ensure_world` logs the initial clock (per [Sec. 1])
@@ -108,6 +160,7 @@ Keep the existing bus-level test.
 |---|---|---|
 | server.engine | `server/src/etherbound/engine/` | v0.0.4 → v0.0.5 (M1) |
 | server.events | `server/src/etherbound/events/` | v0.0.1 → v0.0.2 (M2 comment, `Event.type`) |
+| server.engine | `server/src/etherbound/engine/` | v0.0.5 → v0.0.6 (H3, a separate change) |
 
 Overall project version per H1. `server.app`, `server.net`, `server.db` and every web module do
 not change. There is no schema change and no migration.
@@ -130,10 +183,16 @@ not change. There is no schema change and no migration.
       `ensure_world`)
 
 ### High
-- [ ] H1: overall project version set to `v0.4.1`; launcher banner not verified because the active
-      launcher has no visible window/title in this session
+- [x] H1: overall project version set to `v0.4.1`; rebuilt the stale root `EtherBound.exe` from the
+      launcher source, which reads the project version from the checkout's `VERSION.md`
+- [x] Verify the visible banner on next GUI launch (confirmed by the user: `v0.4.1`)
 - [ ] H2: manual GUI acceptance not run; startup-log item 1 is verified at 15:59:11, but the
-      remaining walkthrough would mutate the active save or require stopping the user's launcher
+      remaining walkthrough would mutate the active save or require stopping the user's launcher.
+      Item 2 failed in the user's walkthrough: see H3
+- [x] H3 (blocking): `_ensure_actor` snaps a loaded actor's `h` to the nearest surface within ±1
+      (`movement.nearest_surface`, formerly `_arrival_surface`; `_stands` removed); three tests
+      (±1 snap then walk, relocation), the two snap tests fail on the old code. The user's save
+      now loads Niko at (2, 2) with `h = 1`. Rerun H2 from item 2
 
 ### Medium
 - [x] M1: `ensure_world` emits `clock.changed` on first generation; API test asserts 3 events
@@ -153,13 +212,12 @@ not change. There is no schema change and no migration.
 - [x] `CONTEXT.md`: bus contract (M2, `seq` reuse), fresh-save log order, test count
 - [x] `docs/utils/VERSION.md` per [Sec. 5] and H1
 - [x] Notion: Systems Index and Dev Blog page updated
-- [ ] Notion Work Report for 22/09/2026: existing report page is not accessible to the configured
-      integration; it was not duplicated
+- [x] Notion Work Report for 22/09/2026 updated under the existing chronological `16:18` section
 - [ ] Move this doc to `docs/done/`
 
 ## 8. Out of scope
 
-Everything Dev-005 [Sec. 8] excludes still holds: new verbs, RNG persistence, input replay,
+Everything Dev-005 [Sec. 8] excludes still holds: new ops, RNG persistence, input replay,
 witnesses, streaming events to the client, log pruning, `decision.*` events. Waiting drains and
 per-task queues are also out of scope, unless [Sec. 1] is answered the other way.
 
@@ -171,7 +229,8 @@ Dev-005 is sound: the pipeline, the ordering rules and the migration match the p
 implements the missing initial clock event and documents/tests the accepted drain behavior. To
 close the remaining manual acceptance:
 
-- Verify the launcher banner for `v0.4.1` after a safe restart.
-- Run the Dev-005 GUI acceptance without an existing launcher/save in use.
+- Fix H3 (blocking): a loaded actor whose saved `h` is off by one is frozen inside its tile, so
+  the user's save logs no `actor.moved`. Snap `h` to the tile's surface on load.
+- Rerun the Dev-005 GUI acceptance from item 2.
 
 There is no schema change. `server.engine` and `server.events` get one bump each.

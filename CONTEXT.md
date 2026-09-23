@@ -3,8 +3,9 @@
 Current technical context of EtherBound. It records what exists, how it runs and which pitfalls
 have been measured. Design lives in `docs/utils/VISION.md`; `Dev-001` (archived in `docs/done/`)
 specifies the Phase 0 skeleton, `Dev-002` (archived in `docs/done/`) the world model described
-here, `Dev-003` (archived in `docs/done/`) the native launcher, and `Dev-005` (archived in
-`docs/done/`) the event bus and action pipeline.
+here, `Dev-003` (archived in `docs/done/`) the native launcher, `Dev-005` (archived in
+`docs/done/`) the event bus and action pipeline, and `Dev-007` (archived in `docs/done/`) the op
+vocabulary, generated menus and activities.
 
 ## Modules
 
@@ -12,46 +13,68 @@ here, `Dev-003` (archived in `docs/done/`) the native launcher, and `Dev-005` (a
 |---|---|---|
 | server.app | `server/src/etherbound/app.py`, `config.py`, `routes/api.py` | FastAPI app, lifespan (migrations, world, clock, schema export), REST routes |
 | server.clock | `server/src/etherbound/clock.py` | 1 Hz logic clock: speeds x1/x3/x10, pause, autopause locks |
-| server.engine | `server/src/etherbound/engine/` | World engine: the only writer of state. `world.py` (grid ownership, generation commit, actor state, event persistence/dispatch), `actions.py` (Action API), `verbs/` (handler registry and `move`), `movement.py` (`move_in_world`, sub-step standing rule, slope and material cost) |
+| server.engine | `server/src/etherbound/engine/` | World engine: the only writer of state. `world.py` (grid ownership, generation commit, actor state, event persistence/dispatch), `actions.py` (targets, actions, `ActivityState`, `MenuEntry`), `ops.toml` (the 58-op vocabulary), `ops/` (catalog loader, handler registry, `move`, `inspect`, `wait`, `dig`, `climb`), `movement.py` (`move_in_world`, sub-step standing rule, slope and material cost) |
 | server.events | `server/src/etherbound/events/` | Typed committed event models and FIFO async subscriber bus; engine assigns global sequence and stores logged events transactionally |
-| server.world | `server/src/etherbound/world/` | World data: `materials.py` + `materials.toml` (append-only registry), `chunk.py` (blobs), `grid.py` (solidity, edges, standing), `nav.py` (A*), `gen/` (seeded noise + test world) |
+| server.world | `server/src/etherbound/world/` | World data: `materials.py` + `materials.toml` (append-only registry), `chunk.py` (blobs, per-tile `dug`), `grid.py` (solidity with strata anchored to the original ground, edges, standing, `lower_ground`), `nav.py` (A*), `gen/` (seeded noise + test world) |
 | server.net | `server/src/etherbound/net/` | WS hub with per-connection chunk tracking, Pydantic messages, combined OpenAPI + WS schema export |
 | server.db | `server/src/etherbound/db/`, `server/alembic/` | SQLAlchemy models, engine/session factory, Alembic upgrade on start |
 | server.rng | `server/src/etherbound/rng.py` | `RNGStreams.stream(system)` — one seeded stream per system (`worldgen` drives generation) |
 | web.world | `web/src/world/` | `ChunkStore`, `rules.ts` (prediction mirror of the standing rule), `materials.ts` |
-| web.game | `web/src/game/` | Phaser scene: chunk rendering (shading, cliffs, edge walls, openings, cutaway), camera bounds, integer zoom x1–x4 (wheel, `+`/`-`/`0`, saved per browser), WASD, right-click with data-driven `z` |
-| web.net | `web/src/net/` | WS client, prediction/reconciliation with `h`, generated `schema.d.ts`, protocol types |
-| web.ui | `web/src/ui/` | React overlay: clock, speeds, pills, meters, feed, input, context menu with server `target` line |
-| launcher | `launcher/` | `EtherBound.exe`, the dev launcher (C#, .NET 10, Native AOT): starts server + web without shells, each in its own job inside a kill-on-close launcher job, health checks, hot reload by restart, leftover and port handling, UTF-8 logs |
+| web.game | `web/src/game/` | Phaser scene: chunk rendering (shading, cliffs, edge walls, openings, cutaway), camera bounds, integer zoom x1–x4 (wheel, `+`/`-`/`0`, saved per browser), WASD repeated at 20 Hz while held, right-click with data-driven `z`; clears world layers and prediction position on every snapshot; redraws a changed chunk's neighbours; resyncs an idle prediction to the server position on ticks |
+| web.net | `web/src/net/` | WS client, prediction/reconciliation with `h`, generated `schema.d.ts`, protocol types; snapshot listeners run before state listeners, and `requestNewGame(seed)` calls the existing REST endpoint; `sendAction`, `onResult`, `onActivity` |
+| web.ui | `web/src/ui/` | React overlay: clock, speeds, pills, meters, `FEED` (kinds `seen`, `act`, `warn`, `fail`, `echo`), `ACT` telemetry row, input, generated context menu (server `target` line, arrow keys, Enter, Esc) that submits each entry's `action`; `NEW` control opens a confirmation popover with a seed field |
+| launcher | `launcher/` | `EtherBound.exe`, the dev launcher (C#, .NET 10, Native AOT): starts server + web without shells, each in its own job inside a kill-on-close launcher job, health checks, hot reload by restart, leftover and port handling, UTF-8 logs, framed version/services banner |
 | tooling | root config: `package.json`, `global.json`, `.gitignore`, `.env.example` | Build and check scripts, pinned .NET SDK |
 
 ## Data model
 
-SQLite at `data/etherbound.db` (gitignored). Migrations `0001_initial`, `0002_world` and `0003_event`:
+SQLite at `data/etherbound.db` (gitignored). Migrations `0001_initial`, `0002_world`, `0003_event` and `0004_dig_activity`:
 
 | Table | Columns |
 |---|---|
 | `world_meta` | `id` (pk, always 1), `seed`, `game_minute`, `speed` (1/3/10), `paused`, `gen_version` |
-| `actor` | `id` (pk), `kind` (`player`), `x`, `y`, `z` (derived `h // 6`), `h` (half-metres) |
+| `actor` | `id` (pk), `kind` (`player`), `x`, `y`, `z` (derived `h // 6`), `h` (half-metres), nullable JSON `activity` (`op`, `action`, `started_minute`, `ends_minute`) |
 | `material` | append-only `id` ↔ `key` mapping plus rendering/physics properties |
-| `chunk` | pk `(cx, cy)`; blobs `ground_h` (int16×1024), `surface_mat` (uint16×1024), `strata` JSON, `revision`, `gen_version` |
+| `chunk` | pk `(cx, cy)`; blobs `ground_h` (int16×1024), `surface_mat` (uint16×1024), nullable `dug` (uint8×1024, NULL = all zeros), `strata` JSON, `revision`, `gen_version` |
 | `chunk_level` | pk `(cx, cy, z)`; blobs `floor_h`, `floor_mat`, `wall_n`, `wall_w`, `edge_flags`, `flags` |
 | `event` | `seq` (global ordered pk), `game_minute`, `type`, nullable `actor_id`, JSON `data`; indexed by minute, type and actor |
 
 Spatial units: 1 m tiles in 32×32 chunks; `h` in half-metres; `z` is the absolute 3 m band
 `floor(h / 6)`; walls live on tile edges (each tile owns north/west) with doorway/window edge
-flags; below the surface everything is implicit strata until a `void` flag excavates it. The test
+flags; below the surface everything is implicit strata until a `void` flag excavates it. Strata
+depth is measured from the original ground (`ground_h + dug`), so digging exposes deeper layers
+instead of dragging them down. The test
 world (`gen_version = 2`) is 8×8 chunks with hills, a road (spawn at 121.5, 128.5, h=2), a terrace
 with a ramp, a building with a graded approach, west doorway, internal stairs under a stairwell
 hole, roof, basement void and a pond with a park pit. `new_game` wipes actors, chunks and levels
-and regenerates from the seed; `ensure_world` fills an existing Phase 0 save without a wipe.
+and regenerates from the seed; `ensure_world` fills an existing Phase 0 save without a wipe. On load, a saved actor within
+0.5 m of a standing surface in its tile is snapped to that surface's exact `h` (no event);
+further off, it is relocated to spawn (`actor.spawned`, `relocated`).
 
 ## Contracts
 
 - **Action API.** `WorldEngine.submit(actor_id, action, delta_seconds)` is the single mutation entry
-  point: pause/precondition validation → registered verb resolution → transactional commit and
-  event enqueue → FIFO dispatch outside the engine lock. Rejections emit nothing. `move` is the
-  initial registered handler; WASD becomes this action over the WebSocket.
+  point: pause check → a zero-length `move` returns accepted and does nothing → handler
+  `validate` (a rejection changes nothing and emits nothing) → a running activity is cleared with
+  `activity.finished` (`interrupted`) → an instant op resolves (events and an optional `text`), a
+  durative one stores an activity and emits `activity.started` → transactional commit and event
+  enqueue → FIFO dispatch outside the engine lock. Actions are a union discriminated by `op`;
+  targets are `self` or `tile {x, y, h}`.
+- **Ops.** `engine/ops.toml` is the vocabulary (key, label, group, target kinds, tags); a handler
+  (`applies`, `build`, `validate`, `duration`, `resolve`, `complete`) gives an op behaviour, and
+  `register` refuses a key missing from the catalog. Handled: `move` (never in menus), `inspect`
+  (instant, 30 m, text only, no event), `wait` (15 min), `dig` (ground surface only,
+  `ceil(30 × dig_cost)` min per 0.5 m, `dig_cost ≤ 2`, own tile or orthogonal neighbour within
+  ±1 m), `climb` (orthogonal neighbour 1–1.5 m up or down, 1 min).
+- **Activities.** One per actor, stored on the actor, advanced only by clock ticks. In
+  `advance_time`, actors whose `ends_minute` has come are completed in id order before
+  `clock.ticked`: the action is re-validated, and either `complete` applies its events then
+  `activity.finished` (`completed`), or `activity.finished` (`failed`, reason). A paused clock
+  freezes them; progress is lost on interruption.
+- **Menus.** `WorldEngine.menu(actor_id, x, y, z)` is a read (no lock): candidates are the tile's
+  standing surface for `z` and, on the actor's own tile, `self`; each handled op whose targets
+  allow a candidate and whose `applies` holds becomes an entry with its exact `action`,
+  `available` and `reason`, in catalog order.
 - **Event bus.** Only `WorldEngine` stamps/enqueues events. Logged events share the state
   transaction; `clock.ticked` dispatches but is not stored. `new_game` resets the log and sequence
   to 1. A fresh world logs `world.generated`, `actor.spawned`, `clock.changed`; opening an existing
@@ -62,12 +85,17 @@ and regenerates from the seed; `ensure_world` fills an existing Phase 0 save wit
   failures are logged and isolated; a cascade is capped at 10,000 events. `seq` is unique among
   stored events; a transient event's `seq` may be reused after a restart, so never key state on it.
 - **REST.** `GET /api/health`, `POST /api/game/new {seed}`, `GET /api/game/state`,
-  `GET /api/materials`, `GET /api/world/chunk?cx&cy`, `GET /api/menu?x&y&z` (any `z`; returns a
-  `target` line like `Asphalt · 1 m` and `["inspect"]`; the client renders, never adds),
+  `GET /api/materials`, `GET /api/world/chunk?cx&cy`, `GET /api/menu?x&y&z` (any `z`, computed for Niko;
+  returns a `target` line like `Asphalt · 1 m` and `ops: MenuEntry[]`; the client renders, never
+  adds),
   `GET /api/events?after_seq&limit&type&actor_id` (ordered event records; limit 1–500).
 - **WebSocket `/ws`.** Server → client: `snapshot` (with `world: {chunk_size, level_h, bounds}`),
-  `tick`, `ack` (with `h`), `chunk` (full chunk payload with `levels[]`), `error`.
-  Client → server: `input` (dx, dy, sequence), `clock` (paused, speed). On connect the hub sends
+  `tick`, `ack` (with `h`), `result` (for an `action`: accepted, reason, text, activity),
+  `activity` (one of Niko's activities finished: op, outcome, reason), `chunk` (full chunk payload
+  with `levels[]`), `error`. Snapshot and tick actors carry `activity` (op, started, ends).
+  Client → server: `input` (dx, dy, sequence), `action` (sequence, action), `clock` (paused,
+  speed). A `chunk.changed` event (not logged) re-sends the chunk only to connections that
+  already hold an older revision. On connect the hub sends
   the snapshot plus every chunk within radius 2 the connection has not seen; crossing a chunk
   boundary pushes only the new ones (per-connection revision map). Movement is 20 Hz, independent
   of the 1 Hz clock; pause rejects movement with `accepted=false, reason="paused"`.
@@ -133,11 +161,19 @@ its process to stop it, and its job takes the services with it. The logs are
   immediately, and unreachable sweeps need an expansion cap, or a probe can run for minutes.
 - **`schema.json` is not committed.** It is generated (`uv run etherbound-schema`); `gen:types`
   fails if the file is missing. Only `schema.d.ts` is committed.
+- **The browser never moved Niko before v0.5.0.** From v0.1.0 the client sent `input` as
+  `{direction, vector}` with no `dx`/`dy`, so the server rejected every input with a validation
+  `error` and only the prediction moved. A GUI check of walking must compare against
+  `GET /api/game/state`, not the screen.
+- **Held keys repeat.** The server moves 0.2 m per `input` (`delta_seconds = 1/20`), so the
+  client sends one every 50 ms while a key is held and a single zero vector on release. The zero
+  vector must never interrupt an activity.
 - **Pytest warnings are third-party** (FastAPI/Starlette/pytest-asyncio deprecations), not project
-  issues. `pytest` is 41 tests, all passing.
+  issues. `pytest` is 59 tests, all passing.
 
 ## Not yet present
 
-The other seven primitives as data models, verbs beyond `move`, witnesses/knowledge, tile physics,
+The other seven primitives as data models, handlers for the 53 ops beyond `move`, `inspect`,
+`wait`, `dig` and `climb`, modifiers, rolls, witnesses/knowledge, tile physics,
 water simulation, NPCs, LLM, Jev, LimeZu art and the city generator. Placeholder colours and the
 cutaway go away with the art pass.

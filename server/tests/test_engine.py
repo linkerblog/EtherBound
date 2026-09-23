@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from etherbound.db.models import Actor, Base
 from etherbound.engine.actions import MoveAction
-from etherbound.engine.movement import move_in_world
+from etherbound.engine.movement import move_in_world, nearest_surface
 from etherbound.engine.world import PLAYER_ID, WorldEngine
 from etherbound.world.chunk import CELL_COUNT, Chunk
 from etherbound.world.grid import WorldGrid
@@ -87,4 +87,53 @@ async def test_new_game_wipes_and_regenerates(engine: WorldEngine) -> None:
     assert state.seed == 999
     assert engine.grid.chunks
     niko = next(actor for actor in state.actors if actor.id == PLAYER_ID)
-    assert engine._stands(niko.x, niko.y, niko.h)
+    surface = nearest_surface(engine.grid, niko.x, niko.y, niko.h)
+    assert surface is not None and surface.h == niko.h
+
+
+def _save_actor_h(engine: WorldEngine, h: int) -> Actor:
+    with engine.sessions() as session:
+        actor = session.get(Actor, PLAYER_ID)
+        assert actor is not None
+        actor.h, actor.z = h, h // 6
+        session.commit()
+        return actor
+
+
+def _restart(engine: WorldEngine) -> WorldEngine:
+    restarted = WorldEngine(engine.sessions)
+    restarted.ensure_world(123)
+    return restarted
+
+
+@pytest.mark.parametrize("offset", [-1, 1])
+async def test_loaded_actor_with_stale_h_snaps_to_its_surface(
+    engine: WorldEngine, offset: int
+) -> None:
+    before = engine.get_state().actors[0]
+    _save_actor_h(engine, before.h + offset)
+    stored = len(engine.read_events(0, 500, None, None))
+
+    restarted = _restart(engine)
+    after = restarted.get_state().actors[0]
+    assert (after.x, after.y, after.h, after.z) == (before.x, before.y, before.h, before.z)
+    assert len(restarted.read_events(0, 500, None, None)) == stored
+
+    for _ in range(20):
+        result = await restarted.submit(PLAYER_ID, MoveAction(dx=1, dy=0))
+    assert result.accepted
+    moves = restarted.read_events(0, 500, "actor.moved", PLAYER_ID)
+    assert moves
+    assert moves[0].data["from_tile"] == {"x": int(before.x), "y": int(before.y), "h": before.h}
+
+
+async def test_loaded_actor_with_no_surface_nearby_is_relocated(engine: WorldEngine) -> None:
+    spawn = engine.get_state().actors[0]
+    place_actor(engine, spawn.x + 8, spawn.y)
+    _save_actor_h(engine, engine.get_state().actors[0].h + 3)
+
+    restarted = _restart(engine)
+    after = restarted.get_state().actors[0]
+    assert (after.x, after.y, after.h) == (spawn.x, spawn.y, spawn.h)
+    spawned = restarted.read_events(0, 500, "actor.spawned", PLAYER_ID)
+    assert spawned[-1].data["reason"] == "relocated"

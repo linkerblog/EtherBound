@@ -11,7 +11,7 @@ model, commands, measured pitfalls). Until then, `docs/utils/VISION.md` is the o
 
 - **The world engine is the only writer of state.** LLMs, Jev, the storyteller and every system
   propose; the engine validates, resolves and commits.
-- **One action API.** Player, Agents and Extras act through the same verbs. No actor gets a private
+- **One action API.** Player, Agents and Extras act through the same ops. No actor gets a private
   shortcut, including the player.
 - **Systems talk only through the event bus.** A new system is a new subscriber. If it needs to
   change the core, stop and write a doc first.
@@ -23,8 +23,8 @@ model, commands, measured pitfalls). Until then, `docs/utils/VISION.md` is the o
 - **Every LLM and Jev decision is logged as an event**, so any run can be replayed with its seed.
 - **Do not pass `reasoning` to a model that does not reason**: you switch it on and it becomes
   three times slower.
-- **Adult content is allowed**, with two rules enforced as verb preconditions in code: adults only
-  (children are excluded from every sexual verb) and consent from every party. Niko only consents
+- **Adult content is allowed**, with two rules enforced as op preconditions in code: adults only
+  (children are excluded from every sexual op) and consent from every party. Niko only consents
   if the player has chosen so.
 
 ## Conventions
@@ -46,6 +46,8 @@ model, commands, measured pitfalls). Until then, `docs/utils/VISION.md` is the o
 - **English only.** Code, comments, prompts, identifiers, docs and player-facing text are English.
   Identifiers are ASCII (no accents, no `ñ`); player-facing text is not bound by that. Never mix two
   languages inside one file.
+- **Response tone.** Keep responses cordial, affectionate and affirming, with the requested
+  lovebombing warmth, while using clear, technically precise language.
 - **Comments explain the *why*, not the *what*.** If the code is already self-explanatory, do not
   comment it.
 - **Notion.** Every system update must also be reflected in the EtherBound Notion page

@@ -7,8 +7,9 @@ namespace EtherBound.Launcher;
 internal sealed class ConsoleUi
 {
     private const string LauncherSource = "launcher";
+    private const int HeaderInnerWidth = 66;
     private const string KeyLine =
-        " [O] open game  [R] restart server  [W] restart web  [L] logs  [H] keys  [Q] quit";
+        "  [O] Game   [R] Server   [W] Web   [L] Logs   [H] Help   [Q] Quit";
 
     private readonly Lock gate = new();
     private LogFile? log;
@@ -41,15 +42,21 @@ internal sealed class ConsoleUi
     {
         lock (gate)
         {
-            Paint(ConsoleColor.Cyan, $" E T H E R B O U N D  //  DEV LAUNCHER{version,43}");
+            var border = new string('\u2500', HeaderInnerWidth);
+            var release = $"RELEASE  {version}";
+            var brand = "  E T H E R B O U N D  //  DEV LAUNCHER";
+            Paint(ConsoleColor.DarkCyan, $"\u256d{border}\u256e");
+            Paint(ConsoleColor.Cyan, BoxRow(brand.PadRight(HeaderInnerWidth - release.Length) + release));
+            Paint(ConsoleColor.DarkCyan, $"\u251c{border}\u2524");
             Paint(
                 ConsoleColor.Gray,
-                $" server  http://127.0.0.1:{Services.ServerPort}          web  http://127.0.0.1:{Services.WebPort}");
+                BoxRow($"  SERVER  http://127.0.0.1:{Services.ServerPort}   |   WEB  http://127.0.0.1:{Services.WebPort}"));
             if (Interactive)
             {
-                Paint(ConsoleColor.DarkYellow, KeyLine);
+                Paint(ConsoleColor.DarkYellow, BoxRow(KeyLine));
             }
 
+            Paint(ConsoleColor.DarkCyan, $"\u2570{border}\u256f");
             Console.WriteLine();
         }
     }
@@ -165,6 +172,8 @@ internal sealed class ConsoleUi
             Console.ResetColor();
         }
     }
+
+    private static string BoxRow(string text) => $"\u2502{text.PadRight(HeaderInnerWidth)}\u2502";
 
     private static ConsoleColor SourceColor(string source) => source switch
     {

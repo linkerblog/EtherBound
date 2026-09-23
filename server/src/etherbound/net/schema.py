@@ -6,14 +6,27 @@ from fastapi import FastAPI
 
 from etherbound.net.messages import (
     AckMessage,
+    ActionMessage,
+    ActivityMessage,
     ClockMessage,
     ErrorMessage,
     InputMessage,
+    ResultMessage,
     SnapshotMessage,
     TickMessage,
 )
 
-WS_MODELS = (InputMessage, ClockMessage, AckMessage, ErrorMessage, SnapshotMessage, TickMessage)
+WS_MODELS = (
+    InputMessage,
+    ClockMessage,
+    ActionMessage,
+    AckMessage,
+    ResultMessage,
+    ActivityMessage,
+    ErrorMessage,
+    SnapshotMessage,
+    TickMessage,
+)
 
 
 def combined_schema(app: FastAPI) -> dict[str, Any]:
@@ -25,9 +38,11 @@ def combined_schema(app: FastAPI) -> dict[str, Any]:
         components.update(definitions)
         components[model.__name__] = model_schema
     schema["x-etherbound-websocket-messages"] = {
-        "client": [InputMessage.__name__, ClockMessage.__name__],
+        "client": [InputMessage.__name__, ClockMessage.__name__, ActionMessage.__name__],
         "server": [
             AckMessage.__name__,
+            ResultMessage.__name__,
+            ActivityMessage.__name__,
             ErrorMessage.__name__,
             SnapshotMessage.__name__,
             TickMessage.__name__,

@@ -34,6 +34,38 @@ class ActorMoved(Event):
     type: Literal["actor.moved"] = "actor.moved"
     from_tile: TilePos
     to_tile: TilePos
+    mode: Literal["walk", "climb", "lowered"] = "walk"
+
+
+class ActivityStarted(Event):
+    type: Literal["activity.started"] = "activity.started"
+    op: str
+    target: dict[str, Any]
+    ends_minute: int
+
+
+class ActivityFinished(Event):
+    type: Literal["activity.finished"] = "activity.finished"
+    op: str
+    outcome: Literal["completed", "interrupted", "failed"]
+    reason: str | None = None
+
+
+class TerrainDug(Event):
+    type: Literal["terrain.dug"] = "terrain.dug"
+    tile: TilePos
+    removed: str
+    exposed: str
+    dug: int
+
+
+class ChunkChanged(Event):
+    # Replication only: the terrain.dug before it is the world fact.
+    logged: ClassVar[bool] = False
+    type: Literal["chunk.changed"] = "chunk.changed"
+    cx: int
+    cy: int
+    revision: int
 
 
 class ClockTicked(Event):

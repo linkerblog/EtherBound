@@ -28,6 +28,7 @@ class Actor(Base):
     y: Mapped[float] = mapped_column(Float, nullable=False)
     z: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     h: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    activity: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
 
 class Material(Base):
@@ -60,6 +61,8 @@ class Chunk(Base):
     strata: Mapped[list[list[int | str]]] = mapped_column(JSON, nullable=False)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     gen_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    # NULL means nothing was ever dug in this chunk.
+    dug: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
 
 
 class ChunkLevel(Base):

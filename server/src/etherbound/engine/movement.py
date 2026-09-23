@@ -12,7 +12,7 @@ def _tile(x: float, y: float) -> tuple[int, int]:
     return math.floor(x), math.floor(y)
 
 
-def _arrival_surface(grid: WorldGrid, x: float, y: float, h: int) -> StandingSurface | None:
+def nearest_surface(grid: WorldGrid, x: float, y: float, h: int) -> StandingSurface | None:
     tile_x, tile_y = _tile(x, y)
     best: StandingSurface | None = None
     for surface in grid.standing_surfaces(tile_x, tile_y):
@@ -67,7 +67,7 @@ def move_in_world(
             source_tile = _tile(x, y)
             peek_x = x + ux * base
             if _can_enter(grid, x, y, h, peek_x, y):
-                surface = _arrival_surface(grid, peek_x, y, h)
+                surface = nearest_surface(grid, peek_x, y, h)
                 if surface is not None:
                     multiplier = _movement_multiplier(grid, h, surface)
                     x += ux * base
@@ -84,7 +84,7 @@ def move_in_world(
             source_tile = _tile(x, y)
             peek_y = y + uy * base
             if _can_enter(grid, x, y, h, x, peek_y):
-                surface = _arrival_surface(grid, x, peek_y, h)
+                surface = nearest_surface(grid, x, peek_y, h)
                 if surface is not None:
                     multiplier = _movement_multiplier(grid, h, surface)
                     y += uy * base

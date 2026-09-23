@@ -5,6 +5,8 @@ export const MAX_STEP_H = 1;
 export const HEADROOM_H = 4;
 export const H_PER_METRE = 2;
 export const LEVEL_H = 6;
+export const NO_FLOOR = -32768;
+export const BODY_RADIUS_METRES = 0.3;
 
 export const SLOPE_UP_MULTIPLIER = 0.6;
 export const SLOPE_DOWN_MULTIPLIER = 0.85;
@@ -24,6 +26,21 @@ export function slopeMultiplier(deltaH: number): number {
 
 export function stepMultiplier(deltaH: number, walkCost: number): number {
   return slopeMultiplier(deltaH) / walkCost;
+}
+
+/** Higher slabs and walls remain visible unless a slab in their tile occludes them. */
+export function isCutawayVisible(
+  store: ChunkStore,
+  x: number,
+  y: number,
+  targetH: number,
+  viewerH: number,
+): boolean {
+  if (targetH <= viewerH + HEADROOM_H) return true;
+  return !store.levelsAt(x, y).some((level) => {
+    const slabH = store.levelCell(x, y, level.z)?.floor_h;
+    return slabH !== undefined && slabH !== NO_FLOOR && viewerH < slabH && slabH < targetH;
+  });
 }
 
 /** Mirrors the server standing rule for prediction. The server always wins. */
@@ -50,17 +67,6 @@ export function canEnter(
   return !wallBetween(store, fromTile.x, fromTile.y, toTile.x, toTile.y, h);
 }
 
-function levelBlocks(
-  wall: number,
-  flags: number,
-  doorwayFlag: number,
-  windowFlag: number,
-): boolean {
-  if (!wall) return false;
-  if (flags & doorwayFlag) return false;
-  return true; // windows block bodies
-}
-
 /** Edge walls block bodies unless the edge is a doorway; windows always block. */
 export function wallBetween(
   store: ChunkStore,
@@ -80,19 +86,18 @@ export function wallBetween(
 }
 
 function wallOnEdge(store: ChunkStore, x: number, y: number, edge: "n" | "w", h: number): boolean {
+  if (!store.get(Math.floor(x / store.size), Math.floor(y / store.size))) return true;
   const zMin = Math.floor(h / LEVEL_H) - 1;
   const zMax = Math.floor((h + HEADROOM_H) / LEVEL_H) + 1;
   for (let z = zMin; z <= zMax; z += 1) {
     const cell = store.levelCell(x, y, z);
     if (!cell) continue;
     const wall = edge === "n" ? cell.wall_n : cell.wall_w;
-    if (!wall || cell.floor_h === -32768 || (cell.flags & LEVEL_VOID) !== 0) continue;
-    const bottom = cell.floor_h;
+    if (!wall) continue;
+    const bottom = store.wallBaseH(x, y, z, cell.floor_h);
     if (!(bottom < h + HEADROOM_H && bottom + LEVEL_H > h)) continue;
     const doorway = edge === "n" ? EDGE_N_DOORWAY : EDGE_W_DOORWAY;
-    if (levelBlocks(wall, cell.edge_flags, doorway, edge === "n" ? EDGE_N_WINDOW : EDGE_W_WINDOW)) {
-      return true;
-    }
+    if ((cell.edge_flags & doorway) === 0) return true;
   }
   return false;
 }

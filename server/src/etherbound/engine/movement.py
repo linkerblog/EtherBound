@@ -59,11 +59,13 @@ def move_in_world(
         return x, y, h
     ux, uy = dx / magnitude, dy / magnitude
     remaining = distance
+    blocked_x = ux == 0
+    blocked_y = uy == 0
     while remaining > 0:
         base = min(SUBSTEP_METRES, remaining)
         moved = False
         spent = 0.0
-        if ux != 0:
+        if not blocked_x:
             source_tile = _tile(x, y)
             peek_x = x + ux * base
             if _can_enter(grid, x, y, h, peek_x, y):
@@ -78,9 +80,10 @@ def move_in_world(
             elif _tile(peek_x, y) != _tile(x, y):
                 boundary = math.floor(x) + (1 if ux > 0 else 0)
                 x = boundary - BODY_RADIUS_METRES if ux > 0 else boundary + BODY_RADIUS_METRES
+                blocked_x = True
                 moved = True
                 spent = max(spent, base)
-        if uy != 0:
+        if not blocked_y:
             source_tile = _tile(x, y)
             peek_y = y + uy * base
             if _can_enter(grid, x, y, h, x, peek_y):
@@ -95,9 +98,12 @@ def move_in_world(
             elif _tile(x, peek_y) != _tile(x, y):
                 boundary = math.floor(y) + (1 if uy > 0 else 0)
                 y = boundary - BODY_RADIUS_METRES if uy > 0 else boundary + BODY_RADIUS_METRES
+                blocked_y = True
                 moved = True
                 spent = max(spent, base)
         if not moved:
             break
         remaining -= spent if spent > 0 else base
+        if blocked_x and blocked_y:
+            break
     return x, y, h

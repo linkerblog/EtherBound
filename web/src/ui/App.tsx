@@ -49,6 +49,7 @@ export function App(): ReactElement {
   const [telemetry, setTelemetry] = useState<Telemetry | null>(null);
   const [zoom, setZoom] = useState<ZoomLevel | null>(null);
   const [newGameOpen, setNewGameOpen] = useState(false);
+  const [debugOpen, setDebugOpen] = useState(false);
   const menuRequest = useRef(0);
   const gameMinute = useRef(0);
   // Results carry only a sequence, so remember which op each sent action was.
@@ -105,7 +106,10 @@ export function App(): ReactElement {
         event.preventDefault();
         inputRef.current?.focus();
       }
-      if (event.key === "Escape") setMenu(null);
+      if (event.key === "Escape") {
+        setMenu(null);
+        setDebugOpen(false);
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -177,6 +181,7 @@ export function App(): ReactElement {
       <div className="hud-panel status" onClick={(event) => event.stopPropagation()}>
         <span className={`pill ${connection === "open" ? "ok" : "warn"}`}>{statusLabel(connection)}</span>
         <span className="pill ether">ETHER: 00%</span>
+        <button className="mini" aria-expanded={debugOpen} aria-controls="debug-drawer" onClick={() => setDebugOpen((open) => !open)}>DEBUG</button>
       </div>
       <div className="hud-panel feed" aria-live="polite" onClick={(event) => event.stopPropagation()}>
         <div className="feed-label">▍FEED</div>
@@ -192,8 +197,29 @@ export function App(): ReactElement {
         <input ref={inputRef} value={input} onChange={(event) => setInput(event.target.value)} placeholder="say or try anything" aria-label="Free text action" />
       </form>
     </section>
+    <DebugDrawer open={debugOpen} onClose={() => setDebugOpen(false)} />
     {menu && <ContextMenu state={menu} onPick={pickEntry} onClose={() => setMenu(null)} />}
   </main>;
+}
+
+function DebugDrawer({ open, onClose }: { open: boolean; onClose: () => void }): ReactElement {
+  return <aside id="debug-drawer" className={`drawer ${open ? "open" : ""}`} aria-label="Debug menu" aria-hidden={!open} onClick={(event) => event.stopPropagation()}>
+    <div className="drawer-heading">
+      <h2>DEBUG CONSOLE</h2>
+      <button className="mini" aria-label="Close debug menu" onClick={onClose}>X</button>
+    </div>
+    <div className="tabs" role="tablist" aria-label="Debug sections">
+      <button className="tab active" id="debug-tab" role="tab" aria-selected="true" aria-controls="debug-panel">DEBUG</button>
+    </div>
+    <div className="drawer-content" id="debug-panel" role="tabpanel" aria-labelledby="debug-tab">
+      <div className="debug-placeholder">
+        <span className="placeholder-mark" aria-hidden="true">[ -- ]</span>
+        <h3>NO DEBUG TOOLS</h3>
+        <p>Debug controls and diagnostics will appear here.</p>
+        <span className="pill">PLACEHOLDER</span>
+      </div>
+    </div>
+  </aside>;
 }
 
 function NewGamePopover({

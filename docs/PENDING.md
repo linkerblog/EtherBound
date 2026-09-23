@@ -17,25 +17,21 @@ Open decisions and loose ends. When one is settled, record the decision where it
 
 ## Open fixes
 
-- [ ] **Fix01 (Dev-002 review) is half done.** Blocking B1–B5 and High H1–H4 are fixed. Still
-      open (`Fix01.md` [Sec. 4-6, 9]):
-      - Levels are not indexed by `(cx, cy)`. A* from spawn to the roof took 3.3 s, so this
-        must land before NPCs pathfind.
-      - Headroom is off by one (it needs 2.5 m instead of 2 m).
-      - Diagonals are refused on slopes, or can climb 1 m.
-      - Walls on floorless tiles take their base from the band.
-      - Ladders (`LEVEL_CLIMBABLE`) are unused.
-      - The hub reads the database on every input instead of using `submit`'s result.
-      - Dead code and the minor items of [Sec. 5].
-      - The tests of [Sec. 6].
-      - Closing: `CONTEXT.md` pitfalls, `VERSION.md`, the Dev-002 acceptance on seed 0, and
-        Notion.
-
-      Its [Sec. 1] decisions were applied (H1, H4) but never ticked.
 - [ ] **Fix02 (Dev-005 review) closing.** The code, checks and launcher banner (`v0.4.2`) are
       done. The Notion Work Report for 22/09/2026 was updated under `16:18`. H3 (a loaded actor with a stale `h`
       frozen in its tile) is fixed and the user's save now loads correctly. Still open: rerun the
       Dev-005 GUI acceptance (H2) from item 2, then move the doc to `docs/done/`.
+
+- [ ] **Fix04 (Fix03 review) awaiting approval.** Event lines never reach `server.log` (the
+      `etherbound` logger has no handler, effective level WARNING), and below 20 fps the
+      movement steps drift until the final `dt` is rejected. Plan in `Fix04.md`.
+
+## Planned work
+
+- [ ] **Dev-008 (isometric renderer) awaiting approval.** The camera moves to 2:1 isometric
+      (VISION already updated); the web client swaps its renderer with placeholder art, a split
+      painter's order, the roofed cutaway, front-wall stubs, height-aware picking and
+      screen-relative WASD. Lands after Fix04. Plan in `Dev-008.md`.
 
 ## Deferred work
 
@@ -61,13 +57,13 @@ Open decisions and loose ends. When one is settled, record the decision where it
 - [ ] **Dev-006 new game:** manual GUI acceptance 1–10, including same-seed regeneration and
       reconnect redraw (`done/Dev-006.md` [Sec. 7]). The automated web build and server checks pass.
 
-- [ ] **Dev-007 ops:** manual GUI acceptance 1–8 (`done/Dev-007.md` [Sec. 7]). The server
-      tests (59), the WebSocket dig test and the web build pass, and the live server serves the
-      new menu. Also confirm that walking moves Niko on the server (`GET /api/game/state` after a
-      walk): until v0.5.0 the browser's inputs were all rejected, so every earlier GUI check of
-      walking (Dev-004, Dev-005, Dev-006) only saw the prediction.
-- [ ] **Fix03 walking:** run manual acceptance 1–6 in `docs/done/Fix03.md`; automated timed-input
-      validation and event logging checks pass, but the Phaser GUI has no test runner.
+- [ ] **Fix03 walking:** acceptance 1 (no jump at start or stop) was confirmed by the user on
+      22/09/2026 ("walking feels smooth"), and 5 (releasing the keys after `DIG` does not
+      cancel it) in the Dev-007 check. 3 was confirmed too: smooth at 4 m/s on grass and
+      4.44 m/s on asphalt (4 / 0.9, the server's `walk_cost`). 2 was confirmed too: after stopping, the HUD read
+      `X 125.46 · Y 144.40 · Z 0 (1.0 m)`, exactly the server position. 4 passed as well: paused, Niko can neither walk
+      nor act, and x10 leaves walking at real-time speed (the clock speed only scales game
+      minutes). Still open in `docs/done/Fix03.md` [Sec. 6]: 6 (event lines in `server.log`, which fails until Fix04).
 
 The Dev-005 GUI acceptance is tracked in Fix02.
 
@@ -87,9 +83,10 @@ The Dev-005 GUI acceptance is tracked in Fix02.
 ## TL;DR
 
 Four design questions (abilities, city authoring, carry-over, event log retention); the op
-list is settled by `done/Dev-007.md`. Two open fixes: Fix01's medium and minor items,
-including the slow A* that blocks NPC pathfinding, and Fix02's closing (H3 blocking). Five
+list is settled by `done/Dev-007.md`. One planned doc awaiting approval (Dev-008, isometric
+renderer). Two open fixes: Fix02's closing and Fix04 (event lines in `server.log`, step drift
+below 20 fps) awaiting approval. Five
 deferred items (RNG persistence, input replay, multiplayer input rate limit, events to the
-client, lost activity progress). Five manual acceptances not run (Dev-004 zoom, Dev-003 browser,
-Dev-006 new game, Dev-007 ops, Fix03 walking). Three loose ends (NikoStory Notion pages,
+client, lost activity progress). Four manual acceptances not run (Dev-004 zoom, Dev-003 browser,
+Dev-006 new game, Fix03 walking); Dev-007 was fully accepted on 22/09/2026. Three loose ends (NikoStory Notion pages,
 NikoStory's uncommitted changes, fractional-DPR blur).

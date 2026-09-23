@@ -43,7 +43,3 @@ class ValueNoise:
             y *= lacunarity
             amplitude *= gain
         return value / normal
-
-
-def value_noise(seed: int, x: float, y: float) -> float:
-    return ValueNoise(seed).sample(x, y)

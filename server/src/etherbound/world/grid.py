@@ -1,16 +1,19 @@
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
 
 from etherbound.world.chunk import (
     CHUNK_SIZE,
     EDGE_N_DOORWAY,
     EDGE_W_DOORWAY,
+    LEVEL_CLIMBABLE,
     LEVEL_VOID,
     NO_FLOOR,
     Chunk,
     ChunkLevel,
 )
 from etherbound.world.materials import MaterialRegistry
+
+ChunkLoader = Callable[[int, int], tuple[Chunk, Iterable[ChunkLevel]] | None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,10 +31,14 @@ class WorldGrid:
         chunks: Iterable[Chunk] | None = None,
         levels: Iterable[ChunkLevel] | None = None,
         registry: MaterialRegistry | None = None,
+        chunk_loader: ChunkLoader | None = None,
     ) -> None:
         self.registry = registry or MaterialRegistry.load()
         self._chunks: dict[tuple[int, int], Chunk] = {}
         self._levels: dict[tuple[int, int, int], ChunkLevel] = {}
+        self._levels_by_chunk: dict[tuple[int, int], dict[int, ChunkLevel]] = {}
+        self._chunk_loader = chunk_loader
+        self._missing_chunks: set[tuple[int, int]] = set()
         for chunk in chunks or ():
             self.add_chunk(chunk)
         for level in levels or ():
@@ -46,13 +53,33 @@ class WorldGrid:
         return self._levels
 
     def add_chunk(self, chunk: Chunk) -> None:
-        self._chunks[(chunk.cx, chunk.cy)] = chunk
+        key = (chunk.cx, chunk.cy)
+        self._chunks[key] = chunk
+        self._missing_chunks.discard(key)
 
     def add_level(self, level: ChunkLevel) -> None:
         self._levels[(level.cx, level.cy, level.z)] = level
+        self._levels_by_chunk.setdefault((level.cx, level.cy), {})[level.z] = level
 
     def chunk(self, cx: int, cy: int) -> Chunk | None:
-        return self._chunks.get((cx, cy))
+        key = (cx, cy)
+        chunk = self._chunks.get(key)
+        if chunk is not None or self._chunk_loader is None or key in self._missing_chunks:
+            return chunk
+        loaded = self._chunk_loader(cx, cy)
+        if loaded is None:
+            self._missing_chunks.add(key)
+            return None
+        chunk, levels = loaded
+        if (chunk.cx, chunk.cy) != key:
+            raise ValueError("chunk loader returned a different chunk")
+        loaded_levels = tuple(levels)
+        if any((level.cx, level.cy) != key for level in loaded_levels):
+            raise ValueError("chunk loader returned levels from another chunk")
+        self.add_chunk(chunk)
+        for level in loaded_levels:
+            self.add_level(level)
+        return chunk
 
     def level(self, cx: int, cy: int, z: int) -> ChunkLevel | None:
         return self._levels.get((cx, cy, z))
@@ -74,11 +101,9 @@ class WorldGrid:
         cell = self._cell(x, y)
         if cell is None:
             return []
-        chunk, local_x, local_y, index = cell
+        chunk, _, _, index = cell
         return [
-            (level, index)
-            for (cx, cy, _), level in self._levels.items()
-            if cx == chunk.cx and cy == chunk.cy and level.index(local_x, local_y) == index
+            (level, index) for level in self._levels_by_chunk.get((chunk.cx, chunk.cy), {}).values()
         ]
 
     def _void_at(self, x: int, y: int, h: int) -> bool:
@@ -159,9 +184,7 @@ class WorldGrid:
         if cell is None:
             return True
         chunk, _, _, index = cell
-        for level in self._levels.values():
-            if level.cx != chunk.cx or level.cy != chunk.cy:
-                continue
+        for level in self._levels_by_chunk.get((chunk.cx, chunk.cy), {}).values():
             if level.floor_h[index] == h:
                 material = self._material(level.floor_mat[index])
                 return material is None or material.solid
@@ -173,7 +196,7 @@ class WorldGrid:
         return material is None or material.solid
 
     def _headroom(self, x: int, y: int, h: int) -> bool:
-        return not any(self.solid_at(x, y, h + offset) for offset in range(1, 5))
+        return not any(self.solid_at(x, y, h + offset) for offset in range(1, 4))
 
     def standing_surfaces(self, x: int, y: int) -> tuple[StandingSurface, ...]:
         cell = self._cell(x, y)
@@ -186,15 +209,13 @@ class WorldGrid:
         if not self._void_at(x, y, ground_h) and ground_material is not None:
             if ground_material.walkable and self._headroom(x, y, ground_h):
                 result.append(StandingSurface(ground_h, ground_material.id, ground_h // 6))
-        for level in self._levels.values():
-            if level.cx != chunk.cx or level.cy != chunk.cy:
-                continue
+        for level in self._levels_by_chunk.get((chunk.cx, chunk.cy), {}).values():
             floor_h = level.floor_h[index]
             if floor_h == NO_FLOOR or not self._headroom(x, y, floor_h):
                 continue
             material = self._material(level.floor_mat[index])
             if material is not None and material.walkable:
-                result.append(StandingSurface(floor_h, material.id, level.z))
+                result.append(StandingSurface(floor_h, material.id, floor_h // 6))
         return tuple(
             sorted({surface.h: surface for surface in result}.values(), key=lambda item: item.h)
         )
@@ -215,7 +236,16 @@ class WorldGrid:
                 continue
             bottom = level.floor_h[index]
             if bottom == NO_FLOOR:
-                bottom = z * 6
+                supports = [chunk.ground_h[index]]
+                supports.extend(
+                    floor_h
+                    for lower in self._levels_by_chunk.get((chunk.cx, chunk.cy), {}).values()
+                    if lower.z < level.z
+                    for floor_h in (lower.floor_h[index],)
+                    if floor_h != NO_FLOOR
+                )
+                below_level = [floor_h for floor_h in supports if floor_h < (level.z + 1) * 6]
+                bottom = max(below_level, default=level.z * 6)
             if bottom < h + 4 and bottom + 6 > h:
                 flags = level.edge_flags[index]
                 doorway = (
@@ -240,24 +270,69 @@ class WorldGrid:
             return self._wall_on_edge(x2, y2, "west", h)
         raise ValueError("wall_between requires orthogonally adjacent tiles")
 
-    def can_step(self, x1: int, y1: int, x2: int, y2: int, h: int | None = None) -> bool:
-        if max(abs(x2 - x1), abs(y2 - y1)) > 1 or (x1 == x2 and y1 == y2):
-            return False
-        if abs(x2 - x1) == 1 and abs(y2 - y1) == 1:
-            # A diagonal is legal only when both L-shaped detours around the corner
-            # are open, so a path never cuts the corner of a wall.
-            first_leg = self.can_step(x1, y1, x2, y1, h) and self.can_step(x2, y1, x2, y2, h)
-            second_leg = self.can_step(x1, y1, x1, y2, h) and self.can_step(x1, y2, x2, y2, h)
-            return first_leg and second_leg
+    def _step_pairs(
+        self, x1: int, y1: int, x2: int, y2: int, h: int | None = None
+    ) -> tuple[tuple[int, int], ...]:
         source = self.standing_surfaces(x1, y1)
         target = self.standing_surfaces(x2, y2)
         if h is not None:
             source = tuple(surface for surface in source if surface.h == h)
-        for start in source:
-            for end in target:
-                if abs(end.h - start.h) <= 1 and not self.wall_between(x1, y1, x2, y2, start.h):
-                    return True
-        return False
+        return tuple(
+            (start.h, end.h)
+            for start in source
+            for end in target
+            if abs(end.h - start.h) <= 1 and not self.wall_between(x1, y1, x2, y2, start.h)
+        )
+
+    def _climbable_at(self, x: int, y: int) -> bool:
+        cell = self._cell(x, y)
+        if cell is None:
+            return False
+        chunk, _, _, index = cell
+        return any(
+            level.flags[index] & LEVEL_CLIMBABLE
+            for level in self._levels_by_chunk.get((chunk.cx, chunk.cy), {}).values()
+        )
+
+    def can_step(self, x1: int, y1: int, x2: int, y2: int, h: int | None = None) -> bool:
+        dx, dy = x2 - x1, y2 - y1
+        if max(abs(dx), abs(dy)) > 1:
+            return False
+        if dx == 0 and dy == 0:
+            if not self._climbable_at(x1, y1):
+                return False
+            source = self.standing_surfaces(x1, y1)
+            target = source
+            if h is not None:
+                source = tuple(surface for surface in source if surface.h == h)
+            return any(start.h != end.h for start in source for end in target)
+        if abs(dx) == 1 and abs(dy) == 1:
+            # A diagonal is legal only when both L-shaped detours around the corner
+            # are open at consistent per-leg heights, and the move gains at most 0.5 m.
+            first = self._step_pairs(x1, y1, x2, y1, h)
+            first_targets = {end for _, end in first}
+            second = self._step_pairs(x2, y1, x2, y2)
+            third = self._step_pairs(x1, y1, x1, y2, h)
+            third_targets = {end for _, end in third}
+            fourth = self._step_pairs(x1, y2, x2, y2)
+            starts = self.standing_surfaces(x1, y1)
+            ends = self.standing_surfaces(x2, y2)
+            if h is not None:
+                starts = tuple(surface for surface in starts if surface.h == h)
+            return any(
+                abs(end.h - start.h) <= 1
+                and any(
+                    (start.h, middle) in first and (middle, end.h) in second
+                    for middle in first_targets
+                )
+                and any(
+                    (start.h, middle) in third and (middle, end.h) in fourth
+                    for middle in third_targets
+                )
+                for start in starts
+                for end in ends
+            )
+        return bool(self._step_pairs(x1, y1, x2, y2, h))
 
     def bounds(self) -> tuple[int, int, int, int] | None:
         if not self._chunks:

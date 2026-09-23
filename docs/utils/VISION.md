@@ -10,7 +10,7 @@ nothing is implemented until this document is approved.
 
 ## 1. Pitch
 
-An endless, top-down life sandbox. *Project Zomboid without zombies + RimWorld*, with an LLM
+An endless, isometric life sandbox. *Project Zomboid without zombies + RimWorld*, with an LLM
 narrative layer on top. You play Niko Unit Zero, a bioengineered combat unit from another dimension
 and the only Ether bearer, in a city of hybrids, some of whom develop abilities.
 
@@ -37,7 +37,7 @@ out of how the world is built, and the world reacts in ways that are correct but
 | Frontend | Phaser 3 for the world + HTML overlay for text, scenes and panels |
 | Type contract | Pydantic models → OpenAPI → generated TypeScript types |
 | Persistence | SQLite with real migrations (SQLAlchemy + Alembic). No "reset to change schema" |
-| Camera | Top-down 3/4, LimeZu assets (reused from NikoStory) |
+| Camera | Isometric 2:1, fixed (no rotation). A 1 m tile is a 64×32 px diamond; 0.5 m of height is 16 px. Own pixel art, drawn on the LimeZu packs as a base |
 | Scale | 1 tile = 1 m, chunked |
 | Terrain | Fine heightmap surface (hills, slopes) + building floors + excavable underground |
 | Clock | 1 real s = 1 game min by default, configurable. Pause, x1/x3/x10. Autopause in scenes |
@@ -80,16 +80,21 @@ Phase 1 fixes the spatial units used by the world engine: one metre tiles are gr
 metre chunks, surface elevation is an integer number of half-metres, and `z` is an absolute three
 metre band (`floor(h / 6)`). Every walkable spot has a standing elevation. A body may step to a
 neighbouring tile when the difference is at most 0.5 m, it has 2 m of headroom, and no wall blocks
-the shared edge. Stairs and ramps are therefore ordinary graded tiles. A rise of 1 m or 1.5 m to an
-orthogonal neighbour takes the `climb` op; anything higher needs a ladder or another vertical link.
+the shared edge. The body occupies the open interval above its standing surface through `h + 4`;
+the three half-metre cells `h + 1` through `h + 3` must be clear, so a slab exactly 2 m overhead
+touches but does not intersect the body. Its centre stays at least 0.3 m from a blocked wall edge.
+Stairs and ramps are therefore ordinary graded tiles. A rise of 1 m or 1.5 m to an orthogonal
+neighbour takes the `climb` op; anything higher needs a ladder or another vertical link.
 
 - **Grid:** 1 m tiles in chunks. Only existing levels are stored (sparse).
 - **Surface:** heightmap in fine steps (about 0.5 m). Slopes cost movement time and energy, block
-  line of sight, and give view from the top. Rendered as terraces with cliff edges, ramps and height
-  shading.
+  line of sight, and give view from the top. Rendered as isometric terraces: every height step is a
+  vertical face, so a 0.5 m step, a 1 to 1.5 m climb and a cliff read differently. Height shading
+  stays.
 - **Buildings:** sit on a levelled base; floors are about 3 m, relative to that base. A building on
   a slope can have a basement exposed on one side. Rendered one floor at a time with roof cutaway;
-  slabs are hidden above Niko only when another slab is between Niko and the slab.
+  slabs more than 2 m above Niko are hidden only when another slab in the same column lies between
+  Niko and the slab.
 - **Underground:** discrete z-levels of material layers (soil, rock, pipes, water) that can be
   excavated. A dug hole is a space: it shelters, floods, collapses. Digging from the surface
   lowers the heightmap and records a per-tile `dug` depth, so the strata stay anchored to the
@@ -97,8 +102,10 @@ orthogonal neighbour takes the `climb` op; anything higher needs a ladder or ano
 - **Storage:** below the surface, untouched space is implicit solid material from per-chunk strata;
   only excavated voids and constructed levels are stored. Walls occupy tile edges, while doorways
   and windows are edge openings.
-- **Vertical links:** stairs, lifts, fire escapes, sewers, ramps. Pathfinding is a per-level A*
-  plus vertical edges. Flight is a movement mode over the same world.
+- **Vertical links:** stairs, lifts, fire escapes, sewers, ramps. A `climbable` cell connects
+  standing surfaces in its column across otherwise impassable height gaps. Pathfinding is A* over
+  standing spots with those vertical links and the same edge rules as movement. Flight is a
+  movement mode over the same world.
 - **Beyond the city:** forest, river, hills, simulated at lower detail.
 - **Physics (tile-based, not a physics engine):** bodies have mass; a hit is an impulse; the body
   travels tile by tile; on collision, impact energy against material resistance decides whether the
@@ -296,6 +303,7 @@ enforced by the engine as op preconditions, not only in prompts:
 - [ ] Witnesses, knowledge, rumor propagation
 - [ ] Tile physics: impulse, knockback, breakable walls
 - [ ] Seeded RNG streams and the decision log
+- [ ] Isometric renderer with placeholder art (`Dev-008`)
 
 ### Phase 2: Vertical slice
 One block: a pizzeria, an alley, a park, about 20 Extras.
@@ -327,7 +335,7 @@ Tracked in [`PENDING.md`](PENDING.md).
 
 ## TL;DR
 
-EtherBound is an endless top-down life sandbox (Zomboid + RimWorld + LLM) where Niko, the only
+EtherBound is an endless isometric life sandbox (Zomboid + RimWorld + LLM) where Niko, the only
 Ether bearer, lives in a city of hybrids. FastAPI + Phaser, SQLite with migrations, 1 s = 1 min
 with pause. Eight primitives and one shared op API make jobs, factions, laws and consequences
 emerge instead of being scripted. Extras run on rules, Agents on LLM (strategy) + Jev (tactics),

@@ -257,8 +257,12 @@ class WorldEngine:
                 self.registry = MaterialRegistry.load(existing_ids=saved_ids)
                 self.grid.registry = self.registry
             self._sync_materials(session)
-            generated_world = not self._has_chunks(session)
+            has_chunks = self._has_chunks(session)
+            generated_world = not has_chunks or meta.gen_version < GEN_VERSION
             if generated_world:
+                if has_chunks:
+                    session.query(ChunkLevelRow).delete(synchronize_session=False)
+                    session.query(ChunkRow).delete(synchronize_session=False)
                 world = generate_test_world(meta.seed, self.registry)
                 self._commit_world(session, world)
                 meta.gen_version = world.gen_version

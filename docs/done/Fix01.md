@@ -13,8 +13,9 @@ not estimates. Nothing in the repository was changed by the review.
 
 ## 1. Decisions to approve
 
-Three items need an answer before the code changes, because the plan itself is ambiguous or the
-generator deviates from it.
+The user approved all three proposals as part of the request to execute and close Fix01. The
+cutaway and standing/body rules are recorded in `docs/utils/VISION.md` [Sec. 5]; the fixture layout
+is implemented as specified below.
 
 | Topic | Question | Proposal |
 |---|---|---|
@@ -199,7 +200,8 @@ per [Sec. 1].
 - The engine stays the only writer; these fixes add no new writer.
 - One action API: no `climb` shortcut appears while fixing B1.
 - Determinism: generation keeps using only the `worldgen` stream, and the fixes to B5 change the
-  test world's bytes, so `gen_version` goes to 2 and an existing save regenerates.
+  test world's bytes, so `GEN_VERSION` advances from 2 to 3 and an older save regenerates without
+  deleting actors or changing the database schema.
 - An existing Phase 0 save still opens without a wipe.
 - The 20 Hz loop still performs no database reads for world lookups (and, with the hub fix, one
   fewer for the actor).
@@ -209,20 +211,20 @@ per [Sec. 1].
 
 | Module | Path | Version |
 |---|---|---|
-| server.engine | `server/src/etherbound/engine/` | v0.0.2 → v0.0.3 |
-| server.world | `server/src/etherbound/world/` | v0.0.1 → v0.0.2 |
-| server.net | `server/src/etherbound/net/` | v0.0.2 → v0.0.3 |
-| server.db | `server/src/etherbound/db/`, `server/alembic/` | v0.0.2 → v0.0.3 |
-| web.world | `web/src/world/` | v0.0.1 → v0.0.2 |
-| web.game | `web/src/game/` | v0.0.3 → v0.0.4 |
-| web.net | `web/src/net/` | v0.0.2 → v0.0.3 |
+| server.engine | `server/src/etherbound/engine/` | v0.0.7 → v0.0.8 |
+| server.world | `server/src/etherbound/world/` | v0.0.3 → v0.0.4 |
+| server.net | `server/src/etherbound/net/` | v0.0.6 → v0.0.7 |
+| web.world | `web/src/world/` | v0.0.3 → v0.0.4 |
+| web.game | `web/src/game/` | v0.1.0 → v0.1.1 |
+| web.net | `web/src/net/` | v0.0.7 → v0.0.8 |
 
 `server.app` only changes if the menu or the routes are touched; bump it then.
+No database model or migration changed, so `server.db` does not bump.
 
 ## 9. Todo
 
 ### Decisions
-- [ ] Approve [Sec. 1] (cutaway rule, building layout, body radius) and write the outcome into
+- [x] Approve [Sec. 1] (cutaway rule, building layout, body radius) and write the outcome into
       `utils/VISION.md` [Sec. 5] if the model changes
 
 ### Blocking
@@ -239,25 +241,27 @@ per [Sec. 1].
 - [x] H4: building rebuilt per [Sec. 1], border walls without ledges
 
 ### Medium and minor
-- [ ] Levels indexed by `(cx, cy)`
-- [ ] One slab-occupancy convention; headroom exactly 2 m
-- [ ] Diagonals: per-leg `h`, no 1 m climb
-- [ ] Wall base from the floor, not from the band
-- [ ] Ladders: `climbable` honoured by `can_step` and by `nav.py`
+- [x] Levels indexed by `(cx, cy)`
+- [x] One slab-occupancy convention; headroom exactly 2 m
+- [x] Diagonals: per-leg `h`, no 1 m climb
+- [x] Wall base from the floor, not from the band
+- [x] Ladders: `climbable` honoured by `can_step` and by `nav.py`
 - [x] `web/src/world/types.ts` replaced by the generated types
 - [x] `ruff format` on the migration
-- [ ] Hub uses the position `submit` returns
-- [ ] Dead code, `topmostZ` sentinel, `StandingSurface.z`, `VERSION.md` row, `VISION.md` A* line
+- [x] Hub uses the position `submit` returns
+- [x] Dead code, lazy chunk-loader API, `topmostZ` sentinel, `StandingSurface.z`, `VERSION.md` row,
+      `VISION.md` A* line
 
 ### Tests
-- [ ] Every item in [Sec. 6]
+- [x] Every item in [Sec. 6], including shared client/server rules, six-seed reachability, chunk
+      reset, wall radius, complete deterministic blobs and the <1 s 8x8 generation budget
 
 ### Closing
-- [ ] `CONTEXT.md`: corrected pitfalls (slope movement, material ids, chunk invalidation)
-- [ ] `docs/utils/VERSION.md` per [Sec. 8]
-- [ ] Re-run the acceptance list of Dev-002 [Sec. 9] against seed 0, not only seed 123
-- [ ] Notion: Systems Index, Work Report for the date, Dev Blog page
-- [ ] Move this doc to `docs/done/`
+- [x] `CONTEXT.md`: corrected pitfalls (slope movement, material ids, chunk invalidation)
+- [x] `docs/utils/VERSION.md` per [Sec. 8]
+- [x] Re-run the acceptance list of Dev-002 [Sec. 9] against seed 0, not only seed 123
+- [x] Notion: Systems Index, Work Report for the date, Dev Blog page
+- [x] Move this doc to `docs/done/`
 
 ## 10. Out of scope
 
@@ -269,11 +273,7 @@ adds no feature; it only makes Dev-002 true.
 
 ## TL;DR
 
-Dev-002 landed with the right data model and a movement layer that freezes: any height change can
-leave the body holding a `h` its own tile does not have, and it stops dead (60 % of uphill runs,
-100 % of downhill ones). Slope and material cost cancel themselves out on both sides of the wire,
-the material registry loses its append-only guarantee the moment someone edits the TOML, a new game
-never invalidates the client's chunks, and the world the game actually boots (`seed = 0`) has no
-way into the building — the acceptance list was signed off against seed 123. Five blocking fixes,
-four high, a handful of medium, one decision to make about the cutaway, and a test suite that fails
-on the bug instead of passing on it.
+Fix01 is complete: the world grid, movement, navigation, generator, WebSocket chunk tracking and
+client renderer now share the same standing and wall rules. Existing saves regenerate stale world
+chunks without a schema change or actor wipe. The server suite passes 78 tests; the client suite
+passes 22, and 8x8 seeded generation measures 0.348 s.

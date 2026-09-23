@@ -64,7 +64,8 @@ def test_websocket_input_duration_validation_and_event_logging(
         "info",
         lambda message, *args: logged_lines.append(message % args),
     )
-    with TestClient(create_app(settings)) as client, client.websocket_connect("/ws") as websocket:
+    app = create_app(settings)
+    with TestClient(app) as client, client.websocket_connect("/ws") as websocket:
 
         def until(predicate: Callable[[dict[str, Any]], bool]) -> dict[str, Any]:
             for _ in range(1000):
@@ -113,13 +114,16 @@ def test_websocket_input_duration_validation_and_event_logging(
             assert client.get("/api/game/state").json()["actors"][0]["x"] == position
 
 
-def test_event_filters_and_new_game_websocket_refresh(tmp_path: Path) -> None:
+def test_event_filters_and_new_game_websocket_refresh(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     settings = Settings(
         database_url=f"sqlite:///{(tmp_path / 'events.db').as_posix()}",
         schema_path=tmp_path / "schema.json",
         time_scale=10,
     )
-    with TestClient(create_app(settings)) as client, client.websocket_connect("/ws") as websocket:
+    app = create_app(settings)
+    with TestClient(app) as client, client.websocket_connect("/ws") as websocket:
         assert websocket.receive_json()["type"] == "snapshot"
         for _ in range(25):
             assert websocket.receive_json()["type"] == "chunk"
@@ -145,15 +149,41 @@ def test_event_filters_and_new_game_websocket_refresh(tmp_path: Path) -> None:
 
         response = client.post("/api/game/new", json={"seed": 7})
         assert response.status_code == 200
-        assert websocket.receive_json()["type"] == "snapshot"
+        snapshot = websocket.receive_json()
+        assert snapshot["type"] == "snapshot"
+        assert snapshot["seed"] == 7
         for _ in range(25):
-            assert websocket.receive_json()["type"] == "chunk"
+            chunk = websocket.receive_json()
+            assert chunk["type"] == "chunk"
+            assert chunk["revision"] == 0
         events = client.get("/api/events").json()["events"]
         assert [(event["seq"], event["type"]) for event in events] == [
             (1, "world.generated"),
             (2, "actor.spawned"),
             (3, "clock.changed"),
         ]
+
+        engine = app.state.engine
+        get_state = engine.get_state
+        state_reads = 0
+
+        def count_state_reads():
+            nonlocal state_reads
+            state_reads += 1
+            return get_state()
+
+        monkeypatch.setattr(engine, "get_state", count_state_reads)
+        pushed_after_crossing = 0
+        for sequence in range(200):
+            websocket.send_json({"type": "input", "sequence": sequence, "dx": 0, "dy": 1})
+            message = websocket.receive_json()
+            while message["type"] != "ack":
+                if message["type"] == "chunk":
+                    pushed_after_crossing += 1
+                message = websocket.receive_json()
+            assert message["sequence"] == sequence
+        assert pushed_after_crossing == 5
+        assert state_reads == 0
 
 
 def test_websocket_clock_change_is_broadcast_by_subscriber_once(
@@ -164,11 +194,12 @@ def test_websocket_clock_change_is_broadcast_by_subscriber_once(
         schema_path=tmp_path / "schema.json",
         time_scale=10,
     )
-    with TestClient(create_app(settings)) as client, client.websocket_connect("/ws") as websocket:
+    app = create_app(settings)
+    with TestClient(app) as client, client.websocket_connect("/ws") as websocket:
         assert websocket.receive_json()["type"] == "snapshot"
         for _ in range(25):
             assert websocket.receive_json()["type"] == "chunk"
-        hub = client.app.state.hub
+        hub = app.state.hub
         broadcast = hub.broadcast
         tick_broadcasts: list[object] = []
 

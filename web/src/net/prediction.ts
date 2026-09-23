@@ -1,5 +1,5 @@
 import type { ChunkStore } from "../world/ChunkStore";
-import { canEnter, stepMultiplier } from "../world/rules";
+import { BODY_RADIUS_METRES, canEnter, stepMultiplier } from "../world/rules";
 import type { Direction, Position } from "./protocol";
 
 export const WALK_SPEED = 4;
@@ -55,6 +55,8 @@ export class ClientPrediction {
     }
     let remaining = seconds * WALK_SPEED;
     const substep = 0.05;
+    let blockedX = direction.x === 0;
+    let blockedY = direction.y === 0;
     while (remaining > 0) {
       const step = Math.min(substep, remaining);
       const nextX = position.x + direction.x * step;
@@ -62,12 +64,31 @@ export class ClientPrediction {
       const h = position.h ?? 0;
       const sourceX = position.x;
       const sourceY = position.y;
-      if (canEnter(store, position.x, position.y, nextX, position.y, h)) {
-        position.x = nextX;
+      let moved = false;
+      let collided = false;
+      if (!blockedX) {
+        if (canEnter(store, position.x, position.y, nextX, position.y, h)) {
+          position.x = nextX;
+          moved = true;
+        } else if (Math.floor(nextX) !== Math.floor(position.x)) {
+          const boundary = Math.floor(position.x) + (direction.x > 0 ? 1 : 0);
+          position.x = boundary + (direction.x > 0 ? -BODY_RADIUS_METRES : BODY_RADIUS_METRES);
+          blockedX = true;
+          collided = true;
+        }
       }
-      if (canEnter(store, position.x, position.y, position.x, nextY, h)) {
-        position.y = nextY;
+      if (!blockedY) {
+        if (canEnter(store, position.x, position.y, position.x, nextY, h)) {
+          position.y = nextY;
+          moved = true;
+        } else if (Math.floor(nextY) !== Math.floor(position.y)) {
+          const boundary = Math.floor(position.y) + (direction.y > 0 ? 1 : 0);
+          position.y = boundary + (direction.y > 0 ? -BODY_RADIUS_METRES : BODY_RADIUS_METRES);
+          blockedY = true;
+          collided = true;
+        }
       }
+      if (!moved && !collided) break;
       const standing = store.standingH(Math.floor(position.x), Math.floor(position.y), h);
       if (standing !== undefined) {
         const delta = standing - h;
@@ -75,10 +96,13 @@ export class ClientPrediction {
           position.h = standing;
           position.z = Math.floor(standing / 6);
         }
-        remaining -= step / stepMultiplier(delta, store.walkCost(position.x, position.y, standing));
+        remaining -= moved
+          ? step / stepMultiplier(delta, store.walkCost(position.x, position.y, standing))
+          : step;
       } else {
         remaining -= step;
       }
+      if (blockedX && blockedY) break;
     }
   }
 

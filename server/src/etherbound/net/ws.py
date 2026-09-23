@@ -32,6 +32,7 @@ from etherbound.net.messages import (
 from etherbound.net.messages import (
     WorldInfo as WorldInfoMessage,
 )
+from etherbound.world.chunk import CHUNK_SIZE
 
 client_message_adapter: TypeAdapter[ClientMessage] = TypeAdapter(ClientMessage)
 
@@ -122,12 +123,14 @@ class WebSocketHub:
         self._known_chunks: dict[WebSocket, dict[tuple[int, int], int]] = {}
         self._known_centres: dict[WebSocket, tuple[int, int]] = {}
 
+    @staticmethod
+    def _position_chunk(x: float, y: float) -> tuple[int, int]:
+        return floor(x) // CHUNK_SIZE, floor(y) // CHUNK_SIZE
+
     def _player_chunk(self) -> tuple[int, int]:
         for actor in self.engine.get_state().actors:
             if actor.id == PLAYER_ID:
-                return floor(actor.x) // self.engine.world_info().chunk_size, floor(
-                    actor.y
-                ) // self.engine.world_info().chunk_size
+                return self._position_chunk(actor.x, actor.y)
         return 0, 0
 
     async def _push_chunks(
@@ -237,7 +240,7 @@ class WebSocketHub:
                     reason=result.reason,
                 ),
             )
-            centre = self._player_chunk()
+            centre = self._position_chunk(result.x, result.y)
             if self._known_centres.get(websocket) != centre:
                 await self._push_chunks(websocket, centre)
             return

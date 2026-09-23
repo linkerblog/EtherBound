@@ -59,14 +59,6 @@ def decode_uint8(blob: bytes) -> tuple[int, ...]:
     return _decode(blob, "B", CELL_COUNT)
 
 
-encode_i16 = encode_int16
-decode_i16 = decode_int16
-encode_u16 = encode_uint16
-decode_u16 = decode_uint16
-encode_u8 = encode_uint8
-decode_u8 = decode_uint8
-
-
 def _cells(values: Sequence[int], name: str) -> tuple[int, ...]:
     if len(values) != CELL_COUNT:
         raise ValueError(f"{name} must contain {CELL_COUNT} values")

@@ -1,5 +1,5 @@
 import type { components } from "../net/schema";
-import { LEVEL_VOID } from "./rules";
+import { isCutawayVisible, LEVEL_H, LEVEL_VOID, NO_FLOOR } from "./rules";
 type ChunkLevel = components["schemas"]["ChunkLevelResponse"];
 type WorldChunk = components["schemas"]["ChunkResponse"];
 
@@ -21,9 +21,9 @@ export class ChunkStore {
   private readonly chunks = new Map<string, WorldChunk>();
   private chunkSize = DEFAULT_CHUNK_SIZE;
   private boundsValue: WorldBounds | null = null;
-  private materials = new Map<number, { walkable: boolean; walk_cost: number }>();
+  private materials = new Map<number, { walkable: boolean; walk_cost: number; solid: boolean }>();
 
-  setMaterials(materials: Map<number, { walkable: boolean; walk_cost: number }>): void {
+  setMaterials(materials: Map<number, { walkable: boolean; walk_cost: number; solid: boolean }>): void {
     this.materials = materials;
   }
 
@@ -102,7 +102,7 @@ export class ChunkStore {
     if (!cell) return 1;
     const level = cell.chunk.levels.find((entry) => {
       const index = cell.index;
-      return entry.floor_h[index] === h && (entry.flags[index] & LEVEL_VOID) === 0;
+      return entry.floor_h[index] === h;
     });
     const materialId = level ? level.floor_mat[cell.index] :
       cell.chunk.ground_h[cell.index] === h ? cell.chunk.surface_mat[cell.index] : undefined;
@@ -120,9 +120,11 @@ export class ChunkStore {
     };
     for (const level of this.levelsAt(x, y)) {
       const cell = this.levelCell(x, y, level.z);
-      if (cell && cell.floor_h !== -32768 && (cell.flags & LEVEL_VOID) === 0) consider(cell.floor_h);
+      if (cell && cell.floor_h !== NO_FLOOR && this.isWalkable(cell.floor_mat) && this.hasHeadroom(x, y, cell.floor_h)) {
+        consider(cell.floor_h);
+      }
     }
-    if (ground !== undefined && !this.isVoid(x, y, ground)) {
+    if (ground !== undefined && !this.isVoid(x, y, ground) && this.hasHeadroom(x, y, ground)) {
       const material = this.surfaceMat(x, y);
       if (material !== undefined && this.isWalkable(material)) consider(ground);
     }
@@ -131,13 +133,41 @@ export class ChunkStore {
 
   private isVoid(x: number, y: number, h: number): boolean {
     const cell = this.levelCell(x, y, Math.floor(h / 6));
-    return cell !== null && (cell.flags & 1) !== 0;
+    return cell !== null && (cell.flags & LEVEL_VOID) !== 0;
+  }
+
+  private hasHeadroom(x: number, y: number, h: number): boolean {
+    for (let offset = 1; offset <= 3; offset += 1) {
+      if (this.isSolid(x, y, h + offset)) return false;
+    }
+    return true;
+  }
+
+  private isSolid(x: number, y: number, h: number): boolean {
+    const tile = this.cellIndex(x, y);
+    if (!tile) return true;
+    const slab = tile.chunk.levels.find((level) => level.floor_h[tile.index] === h);
+    if (slab) return this.materials.get(slab.floor_mat[tile.index])?.solid ?? true;
+    if (h >= tile.chunk.ground_h[tile.index] || this.isVoid(x, y, h)) return false;
+    // Strata are not streamed to the client; below-ground volumes are conservatively solid.
+    return true;
   }
 
   levelsAt(x: number, y: number): ChunkLevel[] {
     const cell = this.cellIndex(x, y);
     if (!cell) return [];
     return cell.chunk.levels;
+  }
+
+  wallBaseH(x: number, y: number, z: number, floorH: number): number {
+    if (floorH !== NO_FLOOR) return floorH;
+    const limit = (z + 1) * LEVEL_H;
+    const supports = [this.groundH(x, y), ...this.levelsAt(x, y)
+      .filter((level) => level.z < z)
+      .map((level) => this.levelCell(x, y, level.z)?.floor_h)
+      .filter((height): height is number => height !== undefined && height !== NO_FLOOR)];
+    const belowLevel = supports.filter((height): height is number => height !== undefined && height < limit);
+    return belowLevel.length > 0 ? Math.max(...belowLevel) : z * LEVEL_H;
   }
 
   /** One tile's view into a level band, or null when the band has no data. */
@@ -165,11 +195,11 @@ export class ChunkStore {
     const candidates: number[] = [];
     for (const level of this.levelsAt(tileX, tileY)) {
       const cell = this.levelCell(tileX, tileY, level.z);
-      if (cell) candidates.push(cell.floor_h);
+      if (cell && cell.floor_h !== NO_FLOOR) candidates.push(cell.floor_h);
     }
     const ground = this.groundH(tileX, tileY);
     if (ground !== undefined) candidates.push(ground);
-    const visible = candidates.filter((h) => h <= viewerH + 4);
+    const visible = candidates.filter((h) => isCutawayVisible(this, tileX, tileY, h, viewerH));
     const h = visible.length > 0 ? Math.max(...visible) : (candidates[0] ?? 0);
     return Math.floor(h / 6);
   }

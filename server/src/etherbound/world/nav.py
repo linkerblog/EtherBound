@@ -19,6 +19,9 @@ Spot = tuple[int, int, int]
 
 def _neighbours(grid: WorldGrid, spot: Spot) -> Iterator[Spot]:
     x, y, h = spot
+    for surface in grid.standing_surfaces(x, y):
+        if surface.h != h and grid.can_step(x, y, x, y, h):
+            yield x, y, surface.h
     for dx, dy in DIAGONAL_DIRECTIONS:
         target_x, target_y = x + dx, y + dy
         if not grid.can_step(x, y, target_x, target_y, h):

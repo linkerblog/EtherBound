@@ -14,7 +14,7 @@ Niko* (Ether, overload) instead of being sprinkled for style.
 
 | Layer | What | Rules |
 |---|---|---|
-| World | Phaser canvas, LimeZu pixel art | No CSS effects over it. No text drawn in Phaser |
+| World | Phaser canvas, isometric pixel art | No CSS effects over it. No text drawn in Phaser |
 | HUD | Clock, speeds, feed, meters, status pills, input line | Anchored to the edges, never covers the centre of the screen |
 | Panels | Character, relationships, inventory, phone | Right-side drawer, one open at a time |
 | Scene | Prose, options, free text during autopause | Bottom third; the world stays visible and dimmed behind it |

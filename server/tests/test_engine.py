@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -6,7 +8,7 @@ from etherbound.db.models import Actor, Base
 from etherbound.engine.actions import MoveAction
 from etherbound.engine.movement import move_in_world, nearest_surface
 from etherbound.engine.world import PLAYER_ID, WorldEngine
-from etherbound.world.chunk import CELL_COUNT, Chunk
+from etherbound.world.chunk import CELL_COUNT, Chunk, ChunkLevel
 from etherbound.world.grid import WorldGrid
 from etherbound.world.materials import MaterialRegistry
 
@@ -65,6 +67,44 @@ def test_uphill_walking_covers_less_distance_than_flat() -> None:
     uphill_x, _, uphill_h = move_in_world(0.5, 16.5, 4, 1, 0, 8.0, _sloped_grid())
     assert flat_x - 0.5 > uphill_x - 0.5
     assert uphill_h > 4
+
+
+def test_ten_half_metre_slope_steps_are_walkable_both_ways_from_offsets() -> None:
+    registry = MaterialRegistry.load()
+    heights = tuple(min(index % 32, 10) for index in range(CELL_COUNT))
+    grid = WorldGrid(
+        [Chunk(0, 0, heights, (registry["grass"].id,) * CELL_COUNT)], registry=registry
+    )
+    for offset in (0.2, 0.5, 0.8):
+        uphill_x, _, uphill_h = move_in_world(offset, 16.5, 0, 1, 0, 17, grid)
+        assert uphill_h == 10
+        _, _, downhill_h = move_in_world(uphill_x, 16.5, uphill_h, -1, 0, 20, grid)
+        assert downhill_h == 0
+
+
+def test_sand_grass_and_asphalt_have_distinct_movement_distances() -> None:
+    registry = MaterialRegistry.load()
+
+    def distance_on(material: str) -> float:
+        grid = WorldGrid([Chunk.flat(0, 0, 0, registry[material].id)], registry=registry)
+        x, _, _ = move_in_world(0.5, 16.5, 0, 1, 0, 8, grid)
+        return x - 0.5
+
+    grass = distance_on("grass")
+    sand = distance_on("sand")
+    asphalt = distance_on("asphalt")
+    assert sand < grass < asphalt
+
+
+def test_body_stops_three_tenths_of_a_metre_from_a_wall() -> None:
+    registry = MaterialRegistry.load()
+    grid = WorldGrid([Chunk.flat(0, 0, 0, registry["grass"].id)], registry=registry)
+    wall_w = [0] * CELL_COUNT
+    wall_w[1] = registry["brick"].id
+    grid.add_level(replace(ChunkLevel.empty(0, 0, 0), wall_w=tuple(wall_w)))
+
+    x, _, _ = move_in_world(0.5, 0.5, 0, 1, 0, 1, grid)
+    assert x == pytest.approx(0.7)
 
 
 async def test_pause_rejects_movement(engine: WorldEngine) -> None:

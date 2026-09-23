@@ -16,7 +16,8 @@ do not "start with the easy part" while the plan is still on the table.
 - Only after the document is approved does implementation begin, and it follows the
   document. If reality turns out to be different, update the `.md` first, then keep going.
 - A plan that contradicts `docs/utils/VISION.md` updates the vision first, with approval.
-- Once the content is implemented, the doc moves to `docs/done/`.
+- Once the content is implemented, the doc moves to `docs/done/`. When the phase closes,
+  `docs/done/` is emptied (see "Closing a phase" in `AGENTS.md`).
 
 This applies to anything with more than one moving part. A one-line fix, a typo or an
 explicitly requested edit does not need a plan; when in doubt, write the `.md`.

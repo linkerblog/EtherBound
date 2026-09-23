@@ -13,16 +13,16 @@ vocabulary, generated menus and activities.
 |---|---|---|
 | server.app | `server/src/etherbound/app.py`, `config.py`, `routes/api.py` | FastAPI app, lifespan (migrations, world, clock, schema export), REST routes |
 | server.clock | `server/src/etherbound/clock.py` | 1 Hz logic clock: speeds x1/x3/x10, pause, autopause locks |
-| server.engine | `server/src/etherbound/engine/` | World engine: the only writer of state. `world.py` (grid ownership, generation commit, actor state, event persistence/dispatch), `actions.py` (targets, actions, `ActivityState`, `MenuEntry`), `ops.toml` (the 58-op vocabulary), `ops/` (catalog loader, handler registry, `move`, `inspect`, `wait`, `dig`, `climb`), `movement.py` (`move_in_world`, sub-step standing rule, slope and material cost) |
+| server.engine | `server/src/etherbound/engine/` | World engine: the only writer of state. `world.py` (grid ownership, generation commit, stale-world regeneration, actor state, event persistence/dispatch), `actions.py` (targets, actions, `ActivityState`, `MenuEntry`), `ops.toml` (the 58-op vocabulary), `ops/` (catalog loader, handler registry, `move`, `inspect`, `wait`, `dig`, `climb`), `movement.py` (`move_in_world`, sub-step standing rule, slope/material cost, 0.3 m wall clearance) |
 | server.events | `server/src/etherbound/events/` | Typed committed event models and FIFO async subscriber bus; engine assigns global sequence and stores logged events transactionally |
-| server.world | `server/src/etherbound/world/` | World data: `materials.py` + `materials.toml` (append-only registry), `chunk.py` (blobs, per-tile `dug`), `grid.py` (solidity with strata anchored to the original ground, edges, standing, `lower_ground`), `nav.py` (A*), `gen/` (seeded noise + test world) |
-| server.net | `server/src/etherbound/net/` | WS hub with per-connection chunk tracking, Pydantic messages (`input` is a timed step, `dt` 0 < dt ≤ 0.1 s, default 0.05), combined OpenAPI + WS schema export |
+| server.world | `server/src/etherbound/world/` | World data: `materials.py` + `materials.toml` (append-only registry), `chunk.py` (blobs, per-tile `dug`), `grid.py` (per-chunk level index, solidity/headroom, wall bases, climbable links, lazy chunk-loader API), `nav.py` (A* over standing spots), `gen/` (seeded noise + versioned test world) |
+| server.net | `server/src/etherbound/net/` | WS hub with per-connection chunk tracking; movement chunk changes use the position returned by `submit`, not a world-state DB read per input; Pydantic timed `input` (`dt` 0 < dt ≤ 0.1 s, default 0.05); combined OpenAPI + WS schema export |
 | server.db | `server/src/etherbound/db/`, `server/alembic/` | SQLAlchemy models, engine/session factory, Alembic upgrade on start |
 | server.rng | `server/src/etherbound/rng.py` | `RNGStreams.stream(system)` — one seeded stream per system (`worldgen` drives generation) |
-| web.world | `web/src/world/` | `ChunkStore`, `rules.ts` (prediction mirror of standing, slope and material movement costs), `materials.ts` |
-| web.game | `web/src/game/` | Phaser scene: chunk rendering (shading, cliffs, edge walls, openings, cutaway), camera bounds, integer zoom x1–x4 (wheel, `+`/`-`/`0`, saved per browser), WASD submits timed 50 ms steps plus final partial steps; right-click with data-driven `z`; clears world layers and prediction position on every snapshot; redraws a changed chunk's neighbours; resyncs an idle prediction to the server position on ticks |
-| web.net | `web/src/net/` | WS client, prediction/reconciliation by replaying unacknowledged timed steps (no wall clock), generated `schema.d.ts`, protocol types; snapshot listeners run before state listeners, and `requestNewGame(seed)` calls the existing REST endpoint; `sendAction` and pause flush the current partial movement step, `onResult`, `onActivity` |
-| web.ui | `web/src/ui/` | React overlay: clock, speeds, pills, meters, `FEED` (kinds `seen`, `act`, `warn`, `fail`, `echo`), `ACT` telemetry row, input, generated context menu (server `target` line, arrow keys, Enter, Esc) that submits each entry's `action`; `NEW` control opens a confirmation popover with a seed field |
+| web.world | `web/src/world/` | `ChunkStore`, `rules.ts` (server-parity standing/headroom/wall rules, cutaway visibility, slope and material costs), `materials.ts` |
+| web.game | `web/src/game/` | Phaser scene: per-chunk render textures (shading, cliffs, edge walls, openings, cutaway), camera bounds, integer zoom x1–x4 (wheel, `+`/`-`/`0`, saved per browser), WASD submits timed 50 ms steps plus final partial steps; right-click with data-driven `z` and viewport-aligned menu coordinates; clears and destroys world layers on every snapshot; redraws arriving-chunk neighbours; resyncs idle prediction on ticks |
+| web.net | `web/src/net/` | WS client, prediction/reconciliation by replaying unacknowledged timed steps (no wall clock, 0.3 m wall clearance), generated `schema.d.ts`, protocol types; snapshot listeners run before state listeners, and `requestNewGame(seed)` calls the existing REST endpoint; `sendAction` and pause flush the current partial movement step, `onResult`, `onActivity` |
+| web.ui | `web/src/ui/` | React overlay framed around the Phaser viewport: clock, speeds, pills, meters, `FEED` (kinds `seen`, `act`, `warn`, `fail`, `echo`), `ACT` telemetry row, input, generated context menu (server `target` line, arrow keys, Enter, Esc) that submits each entry's `action`; `NEW` control opens a confirmation popover with a seed field; `DEBUG` opens a right-side drawer with a placeholder tab |
 | launcher | `launcher/` | `EtherBound.exe`, the dev launcher (C#, .NET 10, Native AOT): starts server + web without shells, each in its own job inside a kill-on-close launcher job, health checks, hot reload by restart, leftover and port handling, UTF-8 logs, framed version/services banner |
 | tooling | root config: `package.json`, `global.json`, `.gitignore`, `.env.example` | Build and check scripts, pinned .NET SDK |
 
@@ -44,9 +44,9 @@ Spatial units: 1 m tiles in 32×32 chunks; `h` in half-metres; `z` is the absolu
 flags; below the surface everything is implicit strata until a `void` flag excavates it. Strata
 depth is measured from the original ground (`ground_h + dug`), so digging exposes deeper layers
 instead of dragging them down. The test
-world (`gen_version = 2`) is 8×8 chunks with hills, a road (spawn at 121.5, 128.5, h=2), a terrace
-with a ramp, a building with a graded approach, west doorway, internal stairs under a stairwell
-hole, roof, basement void and a pond with a park pit. `new_game` wipes actors, chunks and levels
+world (`gen_version = 3`) is 8×8 chunks with hills, a road (spawn at 121.5, 128.5, h=2), a terrace
+with a ramp, a building with a graded approach, west doorway, accessible basement, first floor at
+h=18, roof at h=24 and a pond with a park pit. `new_game` wipes actors, chunks and levels
 and regenerates from the seed; `ensure_world` fills an existing Phase 0 save without a wipe. On load, a saved actor within
 0.5 m of a standing surface in its tile is snapped to that surface's exact `h` (no event);
 further off, it is relocated to spawn (`actor.spawned`, `relocated`).
@@ -93,15 +93,18 @@ further off, it is relocated to spawn (`actor.spawned`, `relocated`).
   `tick`, `ack` (with `h`), `result` (for an `action`: accepted, reason, text, activity),
   `activity` (one of Niko's activities finished: op, outcome, reason), `chunk` (full chunk payload
   with `levels[]`), `error`. Snapshot and tick actors carry `activity` (op, started, ends).
-  Client → server: `input` (dx, dy, sequence), `action` (sequence, action), `clock` (paused,
+  Client → server: `input` (dx, dy, sequence, dt), `action` (sequence, action), `clock` (paused,
   speed). A `chunk.changed` event (not logged) re-sends the chunk only to connections that
   already hold an older revision. On connect the hub sends
-  the snapshot plus every chunk within radius 2 the connection has not seen; crossing a chunk
+  the snapshot plus every chunk within radius 2 the connection has not seen; movement carries `dt`;
+  crossing a chunk
   boundary pushes only the new ones (per-connection revision map). Movement is 20 Hz, independent
   of the 1 Hz clock; pause rejects movement with `accepted=false, reason="paused"`.
-- **Standing rule (shared).** Step at most 0.5 m (`Δh ≤ 1`), 2 m (4 `h`) of open headroom, no wall
-  on the shared edge; diagonal moves require both L detours open. Floor slabs occupy their own `h`
-  volume. Speed: ×0.6 up, ×0.85 down, divided by the material's `walk_cost`.
+- **Standing rule (shared).** Step at most 0.5 m (`Δh ≤ 1`), keep the three half-metre cells
+  `h+1..h+3` clear (a slab at `h+4` touches but does not intersect a 2 m body), no wall on the shared
+  edge, and at least 0.3 m body-centre clearance from blocked edges. Diagonals validate both
+  height-consistent L routes. Navigation adds same-column `LEVEL_CLIMBABLE` links; normal player
+  movement still uses the shared action API. Speed: ×0.6 up, ×0.85 down, divided by `walk_cost`.
 - **Types.** `combined_schema()` merges OpenAPI with the WS message models and writes
   `server/schema.json`; `web/src/net/schema.d.ts` is generated from it and committed.
 
@@ -153,6 +156,16 @@ its process to stop it, and its job takes the services with it. The logs are
   `data/etherbound.db`.
 - **Roof slabs eat stair headroom.** A floor slab occupies its own `h` volume, so a stairwell
   needs a roof hole or the upper steps lose their 2 m of headroom and become unstandable.
+- **A blocked movement axis must stay blocked for that input step.** Otherwise repeated substeps
+  snap the actor between the wall and the 0.3 m radius limit; server movement and client prediction
+  now clamp once and slide only along an unblocked axis.
+- **Levels are indexed per chunk.** Tile standing/solidity lookups use the chunk's own sparse level
+  map rather than scanning every level in the world. The optional `WorldGrid.chunk()` loader caches
+  hits and misses; the current test world is eagerly loaded before movement.
+- **Test-world changes require a generator version bump.** `ensure_world` regenerates an older
+  generator's chunks and preserves actor rows; it does not wipe the save or change the schema.
+- **The WebSocket hub should use action results for chunk tracking.** `ActionResult.x/y` already
+  identify the resulting player chunk, avoiding a DB-backed `get_state()` on every movement input.
 - **Edge walls belong to the tile that owns the edge.** A wall west of tile (1,0) is `wall_w[1]`
   of the same chunk; chunk-border walls are stored by the neighbouring chunk's first column.
 - **Spawn must come from the generator's road.** A first-walkable-tile scan starts in the map
@@ -175,7 +188,7 @@ its process to stop it, and its job takes the services with it. The logs are
   `event 812 actor.moved niko {"from_tile":...,"to_tile":...,"mode":"walk"}`. Transient events
   such as `clock.ticked` and `chunk.changed` are skipped; `/api/events` remains the structured log.
 - **Pytest warnings are third-party** (FastAPI/Starlette/pytest-asyncio deprecations), not project
-  issues. `pytest` is 60 tests, all passing.
+  issues. The current server suite is 78 tests, all passing.
 
 ## Not yet present
 

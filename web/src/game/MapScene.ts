@@ -8,7 +8,7 @@ import type { components } from "../net/schema";
 import { defaultZoom, loadZoom, saveZoom, stepZoom, WheelAccumulator, type ZoomLevel } from "./zoom";
 type Material = components["schemas"]["MaterialResponse"];
 type WorldChunk = components["schemas"]["ChunkResponse"];
-import { EDGE_N_DOORWAY, EDGE_N_WINDOW, EDGE_W_DOORWAY, EDGE_W_WINDOW, LEVEL_H } from "../world/rules";
+import { EDGE_N_DOORWAY, EDGE_N_WINDOW, EDGE_W_DOORWAY, EDGE_W_WINDOW, isCutawayVisible, LEVEL_H, NO_FLOOR } from "../world/rules";
 
 export const TILE_SIZE = 32;
 const CLIFF_H = 2;
@@ -31,7 +31,7 @@ type MapSceneOptions = {
   onZoom: (level: ZoomLevel) => void;
 };
 
-type ChunkLayers = { ground: Phaser.GameObjects.Graphics; levels: Phaser.GameObjects.Graphics };
+type ChunkLayers = { ground: Phaser.GameObjects.RenderTexture; levels: Phaser.GameObjects.RenderTexture };
 
 export class MapScene extends Phaser.Scene {
   private readonly options: MapSceneOptions;
@@ -106,20 +106,20 @@ export class MapScene extends Phaser.Scene {
       if (!pointer.rightButtonDown()) return;
       const x = Math.floor(pointer.worldX / TILE_SIZE);
       const y = Math.floor(pointer.worldY / TILE_SIZE);
+      const canvasBounds = this.game.canvas.getBoundingClientRect();
       this.options.onContextMenu({
         x,
         y,
         z: this.chunks.topmostZ(x, y, this.viewerH),
-        screenX: pointer.x,
-        screenY: pointer.y,
+        screenX: pointer.x + canvasBounds.left,
+        screenY: pointer.y + canvasBounds.top,
       });
     });
     this.input.mouse?.disableContextMenu();
     this.applyZoom(loadZoom(defaultZoom(window.devicePixelRatio)));
 
     this.removeSnapshotListener = this.options.client.onSnapshot(() => {
-      this.chunkLayers.forEach((layers) => { layers.ground.destroy(); layers.levels.destroy(); });
-      this.chunkLayers.clear();
+      this.clearChunkLayers();
       this.chunks.clear();
       this.hasAuthoritativePosition = false;
       this.telemetryOrigin = null;
@@ -135,7 +135,7 @@ export class MapScene extends Phaser.Scene {
       const player = state.actors.player ?? state.actors.niko ?? Object.values(state.actors)[0];
       if (player && !this.hasAuthoritativePosition) {
         this.prediction.reset(player);
-        this.viewerH = player.h ?? player.z * 6;
+        this.setViewerH(player.h ?? player.z * LEVEL_H);
         this.hasAuthoritativePosition = true;
         this.telemetryOrigin = null;
       } else if (player && this.prediction.idle()) {
@@ -144,24 +144,18 @@ export class MapScene extends Phaser.Scene {
         const drift = Math.hypot(player.x - predicted.x, player.y - predicted.y);
         if (drift > RESYNC_METRES || (player.h !== undefined && player.h !== predicted.h)) {
           this.prediction.reset(player);
-          const previousH = this.viewerH;
-          this.viewerH = player.h ?? previousH;
-          if (this.viewerH !== previousH) this.redrawLevels();
+          this.setViewerH(player.h ?? player.z * LEVEL_H);
         }
       }
     });
     this.removeAckListener = this.options.client.onAck((position, sequence) => {
       if (!position) return;
-      const previousH = this.viewerH;
       this.prediction.reconcile(position, sequence);
-      this.viewerH = position.h ?? previousH;
-      if (this.viewerH !== previousH) this.redrawLevels();
+      this.setViewerH(position.h ?? this.viewerH);
     });
     this.removeChunkListener = this.options.client.onChunk((chunk) => {
-      const known = this.chunks.get(chunk.cx, chunk.cy) !== undefined;
       if (!this.chunks.set(chunk)) return;
       this.drawChunk(chunk);
-      if (!known) return;
       // A changed border tile moves the cliff lines its neighbours draw along their edges.
       for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
         const neighbour = this.chunks.get(chunk.cx + dx, chunk.cy + dy);
@@ -190,9 +184,7 @@ export class MapScene extends Phaser.Scene {
       this.paused ? { x: 0, y: 0 } : direction,
       this.paused ? 0 : this.inputElapsed,
     );
-    const previousH = this.viewerH;
-    this.viewerH = position.h ?? this.viewerH;
-    if (this.viewerH !== previousH) this.redrawLevels();
+    this.setViewerH(position.h ?? this.viewerH);
     this.niko.setPosition(position.x * TILE_SIZE, position.y * TILE_SIZE);
     this.sampleTelemetry(position, seconds);
   }
@@ -203,7 +195,7 @@ export class MapScene extends Phaser.Scene {
     this.removeAckListener?.();
     this.removeChunkListener?.();
     this.options.client.setBeforeCommand(null);
-    this.chunkLayers.clear();
+    this.clearChunkLayers();
   }
 
   private flushPartialStep(): void {
@@ -269,10 +261,31 @@ export class MapScene extends Phaser.Scene {
     const key = `${chunk.cx},${chunk.cy}`;
     let layers = this.chunkLayers.get(key);
     if (!layers) {
-      layers = { ground: this.add.graphics(), levels: this.add.graphics() };
+      const extent = this.chunks.size * TILE_SIZE;
+      const originX = chunk.cx * extent;
+      const originY = chunk.cy * extent;
+      const ground = this.add.renderTexture(originX, originY, extent, extent).setOrigin(0);
+      const levels = this.add.renderTexture(originX, originY, extent, extent).setOrigin(0);
+      ground.setDepth(0);
+      levels.setDepth(1);
+      layers = { ground, levels };
       this.chunkLayers.set(key, layers);
     }
     return layers;
+  }
+
+  private clearChunkLayers(): void {
+    for (const layers of this.chunkLayers.values()) {
+      layers.ground.destroy();
+      layers.levels.destroy();
+    }
+    this.chunkLayers.clear();
+  }
+
+  private setViewerH(h: number): void {
+    if (h === this.viewerH) return;
+    this.viewerH = h;
+    this.redrawLevels();
   }
 
   private shade(base: number, h: number): number {
@@ -289,7 +302,7 @@ export class MapScene extends Phaser.Scene {
 
   private redrawLevels(): void {
     for (const chunk of this.chunks.values()) {
-      if (chunk.levels.length > 0) this.drawChunkLevels(chunk);
+      this.drawChunkLevels(chunk);
     }
   }
 
@@ -297,78 +310,71 @@ export class MapScene extends Phaser.Scene {
     const size = this.chunks.size;
     const { ground } = this.layersFor(chunk);
     ground.clear();
-    const originX = chunk.cx * size * TILE_SIZE;
-    const originY = chunk.cy * size * TILE_SIZE;
+    const graphics = this.make.graphics({ x: 0, y: 0 });
     for (let y = 0; y < size; y += 1) {
       for (let x = 0; x < size; x += 1) {
         const index = y * size + x;
         const h = chunk.ground_h[index] ?? 0;
-        ground.fillStyle(this.shade(this.materialColor(chunk.surface_mat[index] ?? 0), h), 1);
-        ground.fillRect(originX + x * TILE_SIZE, originY + y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        graphics.fillStyle(this.shade(this.materialColor(chunk.surface_mat[index] ?? 0), h), 1);
+        graphics.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
       }
     }
     // Cliff lines where neighbouring tiles differ by a metre or more.
-    ground.lineStyle(1, 0x0c0f12, 0.8);
+    graphics.lineStyle(1, 0x0c0f12, 0.8);
     for (let y = 0; y < size; y += 1) {
       for (let x = 0; x < size; x += 1) {
         const h = chunk.ground_h[y * size + x] ?? 0;
         const east = x + 1 < size ? (chunk.ground_h[y * size + x + 1] ?? h) : (this.chunks.groundH(chunk.cx * size + x + 1 + 0.5, chunk.cy * size + y + 0.5) ?? h);
         const south = y + 1 < size ? (chunk.ground_h[(y + 1) * size + x] ?? h) : (this.chunks.groundH(chunk.cx * size + x + 0.5, chunk.cy * size + y + 1 + 0.5) ?? h);
-        const px = originX + x * TILE_SIZE;
-        const py = originY + y * TILE_SIZE;
-        if (Math.abs(east - h) >= CLIFF_H) ground.lineBetween(px + TILE_SIZE, py, px + TILE_SIZE, py + TILE_SIZE);
-        if (Math.abs(south - h) >= CLIFF_H) ground.lineBetween(px, py + TILE_SIZE, px + TILE_SIZE, py + TILE_SIZE);
+        const px = x * TILE_SIZE;
+        const py = y * TILE_SIZE;
+        if (Math.abs(east - h) >= CLIFF_H) graphics.lineBetween(px + TILE_SIZE, py, px + TILE_SIZE, py + TILE_SIZE);
+        if (Math.abs(south - h) >= CLIFF_H) graphics.lineBetween(px, py + TILE_SIZE, px + TILE_SIZE, py + TILE_SIZE);
       }
     }
+    ground.draw(graphics, 0, 0);
+    graphics.destroy();
     this.drawChunkLevels(chunk);
   }
 
-  /** Cutaway: floors and walls more than 2 m above Niko stay hidden. */
-  private isVisibleH(h: number): boolean {
-    return h <= this.viewerH + 4;
+  /** A higher slab is cut away only when an intermediate slab occludes it. */
+  private isVisibleH(x: number, y: number, h: number): boolean {
+    return isCutawayVisible(this.chunks, x, y, h, this.viewerH);
   }
 
   private drawChunkLevels(chunk: WorldChunk): void {
     const size = this.chunks.size;
     const { levels } = this.layersFor(chunk);
     levels.clear();
-    const originX = chunk.cx * size * TILE_SIZE;
-    const originY = chunk.cy * size * TILE_SIZE;
+    const graphics = this.make.graphics({ x: 0, y: 0 });
     for (const level of chunk.levels) {
       for (let y = 0; y < size; y += 1) {
         for (let x = 0; x < size; x += 1) {
           const index = y * size + x;
           const floorH = level.floor_h[index];
-          const px = originX + x * TILE_SIZE;
-          const py = originY + y * TILE_SIZE;
-          if (floorH === -32768) {
-            const wallN = level.wall_n[index];
-            const wallW = level.wall_w[index];
-            if (wallN || wallW) {
-              const wallColor = this.materialColor(wallN || wallW);
-              const flags = level.edge_flags[index];
-              if (wallN) this.drawEdge(levels, px, py, px + TILE_SIZE, py, flags & EDGE_N_DOORWAY, flags & EDGE_N_WINDOW, wallColor);
-              if (wallW) this.drawEdge(levels, px, py, px, py + TILE_SIZE, flags & EDGE_W_DOORWAY, flags & EDGE_W_WINDOW, wallColor);
-            }
-            continue;
+          const px = x * TILE_SIZE;
+          const py = y * TILE_SIZE;
+          if (floorH !== NO_FLOOR && this.isVisibleH(chunk.cx * size + x, chunk.cy * size + y, floorH)) {
+            graphics.fillStyle(this.shade(this.materialColor(level.floor_mat[index] ?? 0), floorH), 1);
+            graphics.fillRect(px, py, TILE_SIZE, TILE_SIZE);
           }
-          if (this.isVisibleH(floorH)) {
-            levels.fillStyle(this.shade(this.materialColor(level.floor_mat[index] ?? 0), floorH), 1);
-            levels.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-          }
-          const wallColor = this.materialColor(level.wall_n[index] || level.wall_w[index]);
           const wallN = level.wall_n[index];
           const wallW = level.wall_w[index];
           const flags = level.edge_flags[index];
-          if (wallN && this.isVisibleH(floorH)) {
-            this.drawEdge(levels, px, py, px + TILE_SIZE, py, flags & EDGE_N_DOORWAY, flags & EDGE_N_WINDOW, wallColor);
+          const wallBaseH = this.chunks.wallBaseH(chunk.cx * size + x, chunk.cy * size + y, level.z, floorH);
+          const worldX = chunk.cx * size + x;
+          const worldY = chunk.cy * size + y;
+          if (wallN && this.isVisibleH(worldX, worldY, wallBaseH)) {
+            this.drawEdge(graphics, px, py, px + TILE_SIZE, py, flags & EDGE_N_DOORWAY, flags & EDGE_N_WINDOW, this.materialColor(wallN));
           }
-          if (wallW && this.isVisibleH(floorH)) {
-            this.drawEdge(levels, px, py, px, py + TILE_SIZE, flags & EDGE_W_DOORWAY, flags & EDGE_W_WINDOW, wallColor);
+          if (wallW && this.isVisibleH(worldX, worldY, wallBaseH)) {
+            this.drawEdge(graphics, px, py, px, py + TILE_SIZE, flags & EDGE_W_DOORWAY, flags & EDGE_W_WINDOW, this.materialColor(wallW));
           }
         }
       }
     }
+    levels.draw(graphics, 0, 0);
+    graphics.destroy();
   }
 
   private drawEdge(
@@ -390,6 +396,10 @@ export class MapScene extends Phaser.Scene {
         for (let t = 0; t < TILE_SIZE; t += 6) gfx.lineBetween(x1, y1 + t, x1, Math.min(y1 + t + 3, y2));
       }
       return;
+    }
+    if (y1 === y2) {
+      gfx.fillStyle(this.shade(color, LEVEL_H * 2), 1);
+      gfx.fillRect(x1, y1 + 1, x2 - x1, 4);
     }
     gfx.lineStyle(3, this.shade(color, LEVEL_H), 1);
     gfx.lineBetween(x1, y1, x2, y2);

@@ -33,9 +33,14 @@ model, commands, measured pitfalls). Until then, `docs/utils/VISION.md` is the o
   goes in `docs/`, never in the root nor in code subdirectories. Living guides use `UPPER_CASE.md`
   (`docs/utils/VISION.md`, `docs/utils/VERSION.md`, `docs/utils/STYLEGUIDE.md`); versioned work docs use `Dev-XYZ.md` (`Dev-001`, `Dev-002`, etc., according to
   the development version); reviews use `FixNN.md`. A versioned doc in `docs/` is in progress; once
-  its content is implemented it moves to `docs/done/`. `docs/done/` is an archive: not maintained,
-  not consulted as a living reference. Before creating any `.md` file, check whether it already
-  exists and update or reuse it instead of creating a duplicate.
+  its content is implemented it moves to `docs/done/`. `docs/done/` holds the current phase's
+  finished docs only: not maintained, not consulted as a living reference. Before creating any
+  `.md` file, check whether it already exists and update or reuse it instead of creating a duplicate.
+- **Closing a phase empties `docs/done/`.** Once `docs/PENDING.md` has nothing left for the phase:
+  move whatever in `docs/done/` is still true into `docs/utils/VISION.md`, `CONTEXT.md` or tests
+  (a "must not break" list becomes tests where it can); make sure no living doc points into
+  `docs/done/`; tag the closing commit `phase-N-end`; then delete the contents of `docs/done/`.
+  Git history is the archive, and nobody reads old plans from it unless the user asks.
 - **Vision changes go to `docs/utils/VISION.md` first.** If a decision changes, update the doc, then the code.
 - **Versions.** `docs/utils/VERSION.md` lists every module and its version. Every module starts at
   `v0.0.0`; on every modification, bump the affected module's version by `0.0.1` and update

@@ -1,0 +1,121 @@
+{
+  "standing": [
+    {
+      "name": "walkable grass",
+      "ground_h": 0,
+      "ground_material": "grass",
+      "actor_h": 0,
+      "expected_h": 0,
+      "levels": []
+    },
+    {
+      "name": "deep water",
+      "ground_h": 0,
+      "ground_material": "water_deep",
+      "actor_h": 0,
+      "expected_h": null,
+      "levels": []
+    },
+    {
+      "name": "ground void",
+      "ground_h": 0,
+      "ground_material": "grass",
+      "actor_h": 0,
+      "expected_h": null,
+      "levels": [{ "z": 0, "flags": 1 }]
+    },
+    {
+      "name": "solid slab at h+3 blocks headroom",
+      "ground_h": 0,
+      "ground_material": "grass",
+      "actor_h": 0,
+      "expected_h": null,
+      "levels": [{ "z": 0, "floor_h": 3, "floor_material": "concrete" }]
+    },
+    {
+      "name": "slab at h+4 only touches the body",
+      "ground_h": 0,
+      "ground_material": "grass",
+      "actor_h": 0,
+      "expected_h": 0,
+      "levels": [{ "z": 0, "floor_h": 4, "floor_material": "concrete" }]
+    },
+    {
+      "name": "non-solid slab does not consume headroom",
+      "ground_h": 0,
+      "ground_material": "grass",
+      "actor_h": 0,
+      "expected_h": 0,
+      "levels": [{ "z": 0, "floor_h": 3, "floor_material": "water_shallow" }]
+    },
+    {
+      "name": "non-walkable stored floor",
+      "ground_h": 0,
+      "ground_material": "grass",
+      "actor_h": 6,
+      "expected_h": null,
+      "levels": [{ "z": 1, "floor_h": 6, "floor_material": "water_deep" }]
+    }
+  ],
+  "walls": [
+    {
+      "name": "floorless wall uses ground support height",
+      "ground_h": 2,
+      "actor_h": 1,
+      "direction": "north",
+      "levels": [{ "z": 1, "wall_n": "brick" }],
+      "expected_blocked": true
+    },
+    {
+      "name": "floorless wall uses nearest lower slab support",
+      "ground_h": 0,
+      "actor_h": 4,
+      "direction": "north",
+      "levels": [
+        { "z": 0, "floor_h": 8, "floor_material": "concrete" },
+        { "z": 1, "wall_n": "brick" }
+      ],
+      "expected_blocked": false
+    },
+    {
+      "name": "wall outside body height does not block",
+      "ground_h": 0,
+      "actor_h": 0,
+      "direction": "north",
+      "levels": [{ "z": 2, "floor_h": 12, "floor_material": "concrete", "wall_n": "brick" }],
+      "expected_blocked": false
+    },
+    {
+      "name": "north doorway permits passage",
+      "ground_h": 0,
+      "actor_h": 0,
+      "direction": "north",
+      "levels": [{ "z": 0, "floor_h": 0, "floor_material": "concrete", "wall_n": "brick", "edge_flags": 1 }],
+      "expected_blocked": false
+    },
+    {
+      "name": "north window blocks passage",
+      "ground_h": 0,
+      "actor_h": 0,
+      "direction": "north",
+      "levels": [{ "z": 0, "floor_h": 0, "floor_material": "concrete", "wall_n": "brick", "edge_flags": 2 }],
+      "expected_blocked": true
+    },
+    {
+      "name": "west doorway permits passage",
+      "ground_h": 0,
+      "actor_h": 0,
+      "direction": "west",
+      "levels": [{ "z": 0, "floor_h": 0, "floor_material": "concrete", "wall_w": "brick", "edge_flags": 4 }],
+      "expected_blocked": false
+    },
+    {
+      "name": "west window blocks passage",
+      "ground_h": 0,
+      "actor_h": 0,
+      "direction": "west",
+      "levels": [{ "z": 0, "floor_h": 0, "floor_material": "concrete", "wall_w": "brick", "edge_flags": 8 }],
+      "expected_blocked": true
+    }
+  ]
+}

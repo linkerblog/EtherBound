@@ -153,7 +153,10 @@ Manual acceptance with `EtherBound.exe` (the web client has no test runner):
 
 ### Checks
 - [x] Server tests 1–3 [Sec. 6], server checks and web build
-- [ ] Manual acceptance 1–6 [Sec. 6]
+- [x] Manual acceptance 1–5 [Sec. 6]: confirmed by the user on 22/09/2026 (2: HUD and server
+      both at 125.46, 144.40, 1.0 m; 3: 4 m/s on grass, 4.44 m/s on asphalt; 4: paused blocks
+      walking and actions, x10 does not change walking speed)
+- [ ] Manual acceptance 6 [Sec. 6], after Fix04, tracked in `PENDING.md` (6 needs Fix04)
 
 ### Closing
 - [x] `CONTEXT.md`, `PENDING.md` [Sec. 3.6] and `docs/utils/VERSION.md` [Sec. 4]

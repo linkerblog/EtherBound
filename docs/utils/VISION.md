@@ -37,7 +37,7 @@ out of how the world is built, and the world reacts in ways that are correct but
 | Frontend | Phaser 3 for the world + HTML overlay for text, scenes and panels |
 | Type contract | Pydantic models → OpenAPI → generated TypeScript types |
 | Persistence | SQLite with real migrations (SQLAlchemy + Alembic). No "reset to change schema" |
-| Camera | Isometric 2:1, fixed (no rotation). A 1 m tile is a 64×32 px diamond; 0.5 m of height is 16 px. Own pixel art. Terrain sheets and furniture sprites are generated with BitCanvas (`BitCanvas/`), seeded; the LimeZu packs remain a reference base |
+| Camera | Isometric 2:1, fixed (no rotation). A 1 m tile is a 64×32 px diamond; 0.5 m of height is 16 px. Own pixel art. Terrain sheets and furniture sprites are generated with BitCanvas (`BitCanvas/`), seeded; a furniture piece's shape may be proposed by an LLM as a validated primitive spec that BitCanvas renders [Sec. 13]; the LimeZu packs remain a reference base |
 | Scale | 1 tile = 1 m, chunked |
 | Terrain | Fine heightmap surface (hills, slopes) + building floors + excavable underground |
 | Clock | 1 real s = 1 game min by default, configurable. Pause, x1/x3/x10. Autopause in scenes |
@@ -295,6 +295,12 @@ enforced by the engine as op preconditions, not only in prompts:
 - Carry over NikoStory's measured lessons: do not pass `reasoning` to a non-reasoning model, keep
   prose models out of state, benchmark before switching a model into the loop.
 - Token budget is a design input: cap concurrent LLM Agents.
+- **Art authoring.** At authoring time, never during play, an LLM may propose a furniture spec
+  (primitives, roles, patterns, seeded slots) through BitCanvas. Code validates it, and BitCanvas
+  renders it with the game's projection, light and ramps. The game only loads the resulting PNG.
+  The recipe saved next to the sprite (prompt, model, spec, render settings) is its record; it
+  decides nothing in the world, so it is not a logged event. Image models (diffusion) are not part
+  of the pipeline.
 
 ## 14. What must not break
 

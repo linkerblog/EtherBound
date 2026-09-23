@@ -136,6 +136,19 @@ export class ChunkStore {
     return cell !== null && (cell.flags & LEVEL_VOID) !== 0;
   }
 
+  /**
+   * The top of the solid volume in a column: the ground, or the bottom of the contiguous VOID
+   * bands under it. Undefined for a tile the store has not loaded.
+   */
+  solidTopH(x: number, y: number): number | undefined {
+    const ground = this.groundH(x, y);
+    if (ground === undefined) return undefined;
+    let z = Math.floor(ground / LEVEL_H);
+    if (!this.isVoid(x, y, z * LEVEL_H)) return ground;
+    while (this.isVoid(x, y, (z - 1) * LEVEL_H)) z -= 1;
+    return z * LEVEL_H;
+  }
+
   private hasHeadroom(x: number, y: number, h: number): boolean {
     for (let offset = 1; offset <= 3; offset += 1) {
       if (this.isSolid(x, y, h + offset)) return false;

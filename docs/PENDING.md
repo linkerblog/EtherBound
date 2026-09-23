@@ -53,6 +53,12 @@ Open decisions and loose ends. When one is settled, record the decision where it
 - [ ] **Fix08 reconnect:** a tab loaded with the API server down recovers to `LINKED` once the server
       is up, without a reload (`done/Fix08.md` [Sec. 6]); verified in a headless browser and by
       automated tests.
+- [ ] **Fix09 side textures and building base:** GUI acceptance 1–8 for the sheared side sheets
+      (grass lips, slab edges, seams, light, other materials, fallback) and the closed black gaps
+      along the building's east and south base (`done/Fix09.md` [Sec. 7]); automated tests pass.
+      F2 step 0 was confirmed headlessly, with no GUI available: at seed 1895070486 the interior
+      column's solid top is 6 and its S/E fill faces run from the surrounding terrain (h 1–3) up
+      to 6 along x 159|160 and y 159|160.
 
 - [ ] **Fix03 walking:** acceptance 1 (no jump at start or stop) was confirmed by the user on
       22/09/2026 ("walking feels smooth"), and 5 (releasing the keys after `DIG` does not
@@ -72,5 +78,6 @@ Four design questions (abilities, city authoring, carry-over, event log retentio
 list is settled by `done/Dev-007.md`. There are no open or planned fixes. Three deferred items
 (input replay, events to the client, lost activity progress). Manual acceptances remain for
 Dev-003 browser, Dev-006 new game, Fix03 logging, Fix04 logging/movement, and Dev-008/Fix05/Fix06/Fix07
-isometric rendering and network, plus Fix08 reconnect; Dev-007 was fully accepted on 22/09/2026. Fix05,
-Fix06, Fix07 and Fix08 automated validation passed; their GUI visual/performance checklists remain open.
+isometric rendering and network, plus Fix08 reconnect and Fix09 side textures and building base;
+Dev-007 was fully accepted on 22/09/2026. Fix05–Fix09 automated validation passed; their GUI
+visual/performance checklists remain open.

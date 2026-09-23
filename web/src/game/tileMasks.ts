@@ -86,3 +86,55 @@ export function maskHasPixel(mask: TileMask, x: number, y: number): boolean {
   return localX >= 0 && localX < mask.width && localY >= 0 && localY < mask.height &&
     mask.alpha[localY * mask.width + localX] !== 0;
 }
+
+type SideSheet = { width: number; height: number; data: Uint8ClampedArray | Uint8Array };
+
+export type SideCell = {
+  width: number;
+  height: number;
+  offsetX: number;
+  offsetY: number;
+  rgba: Uint8Array;
+};
+
+/**
+ * Shears one 32x16 side-sheet cell into the exact footprint of `faceMask(side, 1)`. Every mask
+ * column takes its whole 16-pixel column from the sheet, moved down to the face's bottom contour,
+ * so no pixel is dropped. The cap cell is row 0 and the fill cell row 16 of the sheet.
+ */
+export function shearSideCell(
+  sheet: SideSheet,
+  side: "s" | "e",
+  part: "cap" | "fill",
+  variant: 0 | 1 | 2 | 3,
+): SideCell {
+  const firstX = side === "s" ? 0 : 32;
+  const lastX = firstX + 31;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (let x = firstX; x <= lastX; x += 1) {
+    const bottom = bottomRow(x);
+    minY = Math.min(minY, bottom + 1);
+    maxY = Math.max(maxY, bottom + 16);
+  }
+  const width = lastX - firstX + 1;
+  const height = maxY - minY + 1;
+  const rgba = new Uint8Array(width * height * 4);
+  const partRow = part === "cap" ? 0 : 16;
+  for (let x = firstX; x <= lastX; x += 1) {
+    const sheetX = variant * 32 + (x - firstX);
+    const bottom = bottomRow(x);
+    for (let r = 0; r < 16; r += 1) {
+      const source = (partRow + r) * sheet.width + sheetX;
+      const at = source * 4;
+      const localX = x - firstX;
+      const localY = bottom + 1 + r - minY;
+      const to = (localY * width + localX) * 4;
+      rgba[to] = sheet.data[at] ?? 0;
+      rgba[to + 1] = sheet.data[at + 1] ?? 0;
+      rgba[to + 2] = sheet.data[at + 2] ?? 0;
+      rgba[to + 3] = sheet.data[at + 3] ?? 0;
+    }
+  }
+  return { width, height, offsetX: firstX, offsetY: minY, rgba };
+}

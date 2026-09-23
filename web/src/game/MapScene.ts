@@ -11,9 +11,9 @@ import { cutoffH } from "../world/cutaway";
 import { pickTile } from "../world/pick";
 import { isCovered, occludingStructures, type Structure } from "../world/occlusion";
 import { cutoffChunkKeys, changedChunkKeys, materialChunkKeys, structureChunkKeys, tileChunkKeys, viewerHeightChunkKeys, type DirtyChunk } from "./dirty";
-import { diamondMask, edgeLineMask, faceMask, wallMask, type TileMask } from "./tileMasks";
-import { shadeColor, spriteTint } from "./terrainSprites";
-import { TERRAIN_SHEETS } from "./terrainSheets";
+import { diamondMask, edgeLineMask, faceMask, shearSideCell, wallMask, type SideCell, type TileMask } from "./tileMasks";
+import { shadeColor, sideTint, sideVariant, spriteTint } from "./terrainSprites";
+import { TERRAIN_SHEETS, TERRAIN_SIDE_SHEETS } from "./terrainSheets";
 type Material = components["schemas"]["MaterialResponse"];
 type WorldChunk = components["schemas"]["ChunkResponse"];
 import { EDGE_N_DOORWAY, EDGE_N_WINDOW, EDGE_W_DOORWAY, EDGE_W_WINDOW, LEVEL_H, NO_FLOOR } from "../world/rules";
@@ -70,6 +70,7 @@ export class MapScene extends Phaser.Scene {
   private readonly dirtyChunks = new Set<string>();
   private readonly maskOffsets = new Map<string, { x: number; y: number }>();
   private readonly spriteKeys = new Set<string>();
+  private readonly sideKeys = new Set<string>();
   private structures: Structure[] = [];
   private telemetryOrigin: { x: number; y: number } | null = null;
   private telemetryElapsed = 0;
@@ -89,6 +90,9 @@ export class MapScene extends Phaser.Scene {
     });
     for (const [key, sheet] of Object.entries(TERRAIN_SHEETS)) {
       this.load.spritesheet(`sheet:${key}`, sheet, { frameWidth: TILE_W, frameHeight: TILE_H });
+    }
+    for (const [key, sheet] of Object.entries(TERRAIN_SIDE_SHEETS)) {
+      this.load.image(`side:${key}`, sheet);
     }
   }
 
@@ -325,8 +329,41 @@ export class MapScene extends Phaser.Scene {
       }
       return [[key, source] as const];
     });
+
+    const sideFrames: Array<[string, SideCell]> = [];
+    let sideWidth = 0;
+    let sideHeight = 0;
+    for (const [key, file] of Object.entries(TERRAIN_SIDE_SHEETS)) {
+      const texture = this.textures.get(`side:${key}`);
+      const source = texture.getSourceImage() as HTMLImageElement | undefined;
+      if (!source || (source.width === 0 && source.height === 0)) {
+        console.warn(`Skipping ${key} terrain side sheet: ${file} not loaded`);
+        continue;
+      }
+      if (source.width !== 128 || source.height !== 32) {
+        console.warn(`Skipping ${key} terrain side sheet: expected 128x32, received ${source.width}x${source.height}`);
+        continue;
+      }
+      if (sideWidth + 16 * 32 > 4096) {
+        console.warn(`Skipping ${key} terrain side sheet: atlas side band would exceed 4096 px`);
+        continue;
+      }
+      const sheet = { width: source.width, height: source.height, data: this.readPixels(source) };
+      for (const side of ["s", "e"] as const) {
+        for (const part of ["cap", "fill"] as const) {
+          for (const variant of [0, 1, 2, 3] as const) {
+            const cell = shearSideCell(sheet, side, part, variant);
+            sideFrames.push([`side:${key}:${side}:${part}:${variant}`, cell]);
+            sideHeight = Math.max(sideHeight, cell.height);
+          }
+        }
+      }
+      sideWidth += 16 * 32;
+      this.sideKeys.add(key);
+    }
+
     const slotCount = spriteSheets.length * 4 + masks.length;
-    const atlas = this.textures.createCanvas("terrain", slotCount * TILE_W, 160);
+    const atlas = this.textures.createCanvas("terrain", Math.max(slotCount * TILE_W, sideWidth), 160 + sideHeight);
     if (!atlas) throw new Error("Failed to create terrain atlas");
     const context = atlas.context;
     let spriteSlot = 0;
@@ -352,7 +389,27 @@ export class MapScene extends Phaser.Scene {
       atlas.add(name, 0, x, 0, mask.width, mask.height);
       this.maskOffsets.set(name, { x: mask.offsetX, y: mask.offsetY });
     });
+    let sideX = 0;
+    for (const [name, cell] of sideFrames) {
+      const image = context.createImageData(cell.width, cell.height);
+      image.data.set(cell.rgba);
+      context.putImageData(image, sideX, 160);
+      atlas.add(name, 0, sideX, 160, cell.width, cell.height);
+      this.maskOffsets.set(name, { x: cell.offsetX, y: cell.offsetY });
+      sideX += cell.width;
+    }
     atlas.refresh();
+  }
+
+  /** Reads a loaded sheet's pixels so the pure shearing helper can run outside a Phaser texture. */
+  private readPixels(source: HTMLImageElement): Uint8ClampedArray {
+    const canvas = document.createElement("canvas");
+    canvas.width = source.width;
+    canvas.height = source.height;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Failed to read terrain side sheet pixels");
+    context.drawImage(source, 0, 0);
+    return context.getImageData(0, 0, source.width, source.height).data;
   }
 
   private layersFor(chunk: WorldChunk): ChunkLayers {
@@ -456,17 +513,20 @@ export class MapScene extends Phaser.Scene {
         const tileCutoff = this.cutoffAt(x, y);
         const h = chunk.ground_h[index] ?? 0;
         const materialId = chunk.surface_mat[index] ?? 0;
+        const fillOnly = this.chunks.isVoid(x, y, h);
+        const faceTop = this.chunks.solidTopH(x, y);
         const hasFloor = chunk.levels.some((level) => level.floor_h[index] !== NO_FLOOR);
-        const groundShown = (!hasFloor || h <= tileCutoff) && !this.chunks.isVoid(x, y, h);
-        if (groundShown) {
-          this.drawTop(layers, usedRows, x, y, h, materialId, row);
-          const eastH = this.chunks.groundH(x + 1.5, y + 0.5);
-          const southH = this.chunks.groundH(x + 0.5, y + 1.5);
-          if (eastH === undefined || h > eastH) {
-            this.drawVertical("e", layers, usedRows, x, y, eastH ?? h - 4, h, this.shade(this.materialColor(materialId), h), 0.66, row);
+        const groundShown = (!hasFloor || h <= tileCutoff) && !fillOnly;
+        if (groundShown) this.drawTop(layers, usedRows, x, y, h, materialId, row);
+        const faceVisible = fillOnly ? faceTop !== undefined && faceTop <= tileCutoff : groundShown;
+        if (faceVisible && faceTop !== undefined) {
+          const eastTop = this.chunks.solidTopH(x + 1.5, y + 0.5);
+          const southTop = this.chunks.solidTopH(x + 0.5, y + 1.5);
+          if (eastTop === undefined || faceTop > eastTop) {
+            this.drawVertical("e", layers, usedRows, x, y, eastTop ?? faceTop - 4, faceTop, materialId, 0.66, row, 1, fillOnly);
           }
-          if (southH === undefined || h > southH) {
-            this.drawVertical("s", layers, usedRows, x, y, southH ?? h - 4, h, this.shade(this.materialColor(materialId), h), 0.82, row);
+          if (southTop === undefined || faceTop > southTop) {
+            this.drawVertical("s", layers, usedRows, x, y, southTop ?? faceTop - 4, faceTop, materialId, 0.82, row, 1, fillOnly);
           }
         }
 
@@ -478,10 +538,10 @@ export class MapScene extends Phaser.Scene {
             const southCell = this.chunks.levelCell(x, y + 1, level.z);
             const eastCell = this.chunks.levelCell(x + 1, y, level.z);
             if (southCell?.floor_h !== floorH) {
-              this.drawVertical("s", layers, usedRows, x, y, floorH - 1, floorH, this.shade(this.materialColor(floorMaterial), floorH), 0.82, row);
+              this.drawVertical("s", layers, usedRows, x, y, floorH - 1, floorH, floorMaterial, 0.82, row);
             }
             if (eastCell?.floor_h !== floorH) {
-              this.drawVertical("e", layers, usedRows, x, y, floorH - 1, floorH, this.shade(this.materialColor(floorMaterial), floorH), 0.66, row);
+              this.drawVertical("e", layers, usedRows, x, y, floorH - 1, floorH, floorMaterial, 0.66, row);
             }
           }
 
@@ -574,16 +634,51 @@ export class MapScene extends Phaser.Scene {
     tileY: number,
     h0: number,
     h1: number,
-    color: number,
+    materialId: number,
     light: number,
     row: number,
     alpha = 1,
+    fillOnly = false,
   ): void {
     const tile = faceTile(side, tileX, tileY);
+    const key = this.materials?.get(materialId)?.key;
+    const textured = key !== undefined && this.sideKeys.has(key);
+    const color = this.materialColor(materialId);
     const lowerTop = Math.min(h1, this.viewerH);
-    if (h0 < lowerTop) this.drawFaceRun(layers, usedRows, side, tile.x, tile.y, h0, lowerTop, row, this.scaleColor(color, light), alpha);
     const upperBottom = Math.max(h0, this.viewerH);
-    if (upperBottom < h1) this.drawFaceRun(layers, usedRows, side, tile.x, tile.y, upperBottom, h1, row, this.scaleColor(color, light), alpha);
+    if (textured && key !== undefined) {
+      if (h0 < lowerTop) this.drawSideRun(side, layers, usedRows, tile.x, tile.y, h0, lowerTop, h1, key, color, light, fillOnly, row, alpha);
+      if (upperBottom < h1) this.drawSideRun(side, layers, usedRows, tile.x, tile.y, upperBottom, h1, h1, key, color, light, fillOnly, row, alpha);
+      return;
+    }
+    const tint = this.scaleColor(this.shade(color, h1), light);
+    if (h0 < lowerTop) this.drawFaceRun(layers, usedRows, side, tile.x, tile.y, h0, lowerTop, row, tint, alpha);
+    if (upperBottom < h1) this.drawFaceRun(layers, usedRows, side, tile.x, tile.y, upperBottom, h1, row, tint, alpha);
+  }
+
+  /** Textured faces stack one unit at a time: a cap on the face's real top, fill below. */
+  private drawSideRun(
+    side: "s" | "e",
+    layers: ChunkLayers,
+    usedRows: Set<number>,
+    x: number,
+    y: number,
+    bottom: number,
+    top: number,
+    faceTop: number,
+    key: string,
+    color: number,
+    light: number,
+    fillOnly: boolean,
+    row: number,
+    alpha: number,
+  ): void {
+    const tint = sideTint(color, faceTop, light);
+    for (let unitTop = bottom + 1; unitTop <= top; unitTop += 1) {
+      const part = !fillOnly && unitTop === faceTop ? "cap" : "fill";
+      const frame = `side:${key}:${side}:${part}:${sideVariant(x, y, side, unitTop)}`;
+      this.drawMask(layers, usedRows, frame, x, y, unitTop, row, tint, alpha);
+    }
   }
 
   private drawFaceRun(

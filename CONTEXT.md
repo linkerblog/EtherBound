@@ -19,8 +19,8 @@ vocabulary, generated menus and activities.
 | server.net | `server/src/etherbound/net/` | WS hub with per-connection chunk tracking; movement chunk changes use the position returned by `submit`, not a world-state DB read per input; Pydantic timed `input` (`dt` 0 < dt ≤ 0.1 s, default 0.05); combined OpenAPI + WS schema export |
 | server.db | `server/src/etherbound/db/`, `server/alembic/` | SQLAlchemy models, engine/session factory, Alembic upgrade on start |
 | server.rng | `server/src/etherbound/rng.py` | `RNGStreams.stream(system)` — one seeded stream per system (`worldgen` drives generation) |
-| web.world | `web/src/world/` | `ChunkStore` (public `isVoid` query), `rules.ts` (server-parity standing/headroom/wall rules, slope and material costs), `cutaway.ts` (roof connectivity and height cutoff), `ray.ts` (shared height-stepped floor/ground ray march), `occlusion.ts` (connected structures, storey cutoffs and Niko coverage probes), `pick.ts` (height-aware picking through `ray.ts`, includes VOID floors and skips VOID ground), `materials.ts` |
-| web.game | `web/src/game/` | Phaser scene: fixed 64×32 isometric projection (16 px per `h`), ordered per-layer `Blitter` batches over runtime `terrain` atlas masks and the grass/wood/concrete sprite table (statically imported in `terrainSheets.ts`), chunk base and diagonal rows split at Niko's feet, explicitly anchored terraced ground/floor faces and walls; roofed and structure cutaways with front-wall stubs and a topmost silhouette when Niko remains occluded; redraws use a time-budgeted dirty queue and culling uses cached chunk bounds; screen-relative WASD, isometric bounds and per-tile-cutoff right-click picking; integer zoom x1–x4 (wheel, `+`/`-`/`0`, saved per browser); timed 50 ms movement steps plus final partial step; redraws arriving-chunk neighbours; resyncs idle prediction on ticks |
+| web.world | `web/src/world/` | `ChunkStore` (public `isVoid` query and `solidTopH`, the solid top under contiguous VOID bands), `rules.ts` (server-parity standing/headroom/wall rules, slope and material costs), `cutaway.ts` (roof connectivity and height cutoff), `ray.ts` (shared height-stepped floor/ground ray march), `occlusion.ts` (connected structures, storey cutoffs and Niko coverage probes), `pick.ts` (height-aware picking through `ray.ts`, includes VOID floors and skips VOID ground), `materials.ts` |
+| web.game | `web/src/game/` | Phaser scene: fixed 64×32 isometric projection (16 px per `h`), ordered per-layer `Blitter` batches over runtime `terrain` atlas masks and the grass/wood/concrete sprite table (statically imported in `terrainSheets.ts`), including a sheared 128×32 side-sheet band per textured material (four cap and four fill cells per side, drawn one unit at a time with a cap on the face top and fill below); chunk base and diagonal rows split at Niko's feet, explicitly anchored terraced ground/floor faces and walls, void-cut ground faces drawn as fill only from `solidTopH`; roofed and structure cutaways with front-wall stubs and a topmost silhouette when Niko remains occluded; redraws use a time-budgeted dirty queue and culling uses cached chunk bounds; screen-relative WASD, isometric bounds and per-tile-cutoff right-click picking; integer zoom x1–x4 (wheel, `+`/`-`/`0`, saved per browser); timed 50 ms movement steps plus final partial step; redraws arriving-chunk neighbours; resyncs idle prediction on ticks |
 | web.net | `web/src/net/` | WS client, prediction/reconciliation by replaying unacknowledged timed steps (no wall clock, 0.3 m wall clearance), generated `schema.d.ts`, protocol types; snapshot listeners run before state listeners, and `requestNewGame(seed)` calls the existing REST endpoint; the client caches every chunk it receives and replays the cache to a late `onChunk` listener, clearing it on snapshot and on `disconnect`; it also reconnects a closed or failed socket with a 250 ms→4 s backoff and stops on `disconnect`; `sendAction` and pause flush the current partial movement step, `onResult`, `onActivity` |
 | web.ui | `web/src/ui/` | React overlay framed around the Phaser viewport: clock, speeds, pills, meters, `FEED` (kinds `seen`, `act`, `warn`, `fail`, `echo`), `ACT` telemetry row, input, generated context menu (server `target` line, arrow keys, Enter, Esc) that submits each entry's `action`; `NEW` control opens a confirmation popover with a seed field; `DEBUG` opens a right-side drawer with a placeholder tab |
 | launcher | `launcher/` | `EtherBound.exe`, the dev launcher (C#, .NET 10, Native AOT): starts server + web without shells, each in its own job inside a kill-on-close launcher job, health checks, hot reload by restart, leftover and port handling, UTF-8 logs, framed version/services banner |
@@ -191,7 +191,7 @@ its process to stop it, and its job takes the services with it. The logs are
   such as `clock.ticked` and `chunk.changed` are skipped; `/api/events` remains the structured log.
 - **Pytest warnings are third-party** (FastAPI/Starlette/pytest-asyncio deprecations), not project
   issues. The current server suite is 79 tests, all passing.
-- **Current automated validation:** 79 server tests, 45 web tests, and 55 launcher tests pass;
+- **Current automated validation:** 79 server tests, 51 web tests, and 55 launcher tests pass;
   generated API types are unchanged. The production web build passes with the existing large-bundle
   advisory. Manual isometric visual and performance acceptance remains in `docs/PENDING.md`.
 - **VOID is a ground-volume flag, not a missing-floor flag.** Render and pick stored floors even
@@ -221,6 +221,13 @@ its process to stop it, and its job takes the services with it. The logs are
 - **Texture mappings are visual only.** `terrainSprites.ts` maps registered material keys to sheet
   file names and `terrainSheets.ts` imports them; movement, collision and menus must continue to use
   material data, never sprite availability.
+- **Side sheets are unsheared; the atlas shears them.** `shearSideCell` moves every 32-pixel sheet
+  column down as a whole into `faceMask(side, 1)`, so a sheet is a flat 128×32 cap/fill strip with
+  four variants per part. Drawing is one unit per cell, the cap only on the face's real top
+  (`h1`), never on a run boundary split at `viewerH`, so a cliff does not grow two grass lips.
+- **A void ground's faces start at its solid top.** `ChunkStore.solidTopH` walks down through
+  contiguous VOID bands, and `drawChunk` measures both the face bottom and the "is it higher" test
+  with it; void-cut faces are fill only, so the excavated side has no grass lip.
 
 ## Not yet present
 

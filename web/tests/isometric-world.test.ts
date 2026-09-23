@@ -130,3 +130,19 @@ test("height-aware picking includes VOID floors and skips VOID ground to find th
   assert.equal(voidGround.isVoid(1, 1, 12), true);
   assert.deepEqual(pickTile(voidGround, 0, -3, 0, () => Infinity), { x: 1, y: 1, z: 1 });
 });
+
+test("solid top height falls to the bottom of contiguous void bands under the ground", () => {
+  assert.equal(makeStore({ groundH: 7 }).solidTopH(1, 1), 7);
+
+  const z1 = makeLevel(1);
+  const z2 = makeLevel(2);
+  z1.flags.fill(LEVEL_VOID);
+  z2.flags.fill(LEVEL_VOID);
+  assert.equal(makeStore({ groundH: 12, levels: [z1, z2] }).solidTopH(1, 1), 6);
+
+  const onlyZ2 = makeLevel(2);
+  onlyZ2.flags.fill(LEVEL_VOID);
+  assert.equal(makeStore({ groundH: 12, levels: [onlyZ2] }).solidTopH(1, 1), 12);
+
+  assert.equal(makeStore().solidTopH(100, 100), undefined);
+});

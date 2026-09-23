@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { diamondMask, edgeLineMask, faceMask, maskHasPixel, wallMask } from "../src/game/tileMasks";
+import { diamondMask, edgeLineMask, faceMask, maskHasPixel, shearSideCell, wallMask } from "../src/game/tileMasks";
 
 function placedPixels(mask: ReturnType<typeof diamondMask>, x = 0, y = 0): Set<string> {
   const pixels = new Set<string>();
@@ -10,6 +10,35 @@ function placedPixels(mask: ReturnType<typeof diamondMask>, x = 0, y = 0): Set<s
     }
   }
   return pixels;
+}
+
+type SideCell = ReturnType<typeof shearSideCell>;
+
+function cellPixels(cell: SideCell): Set<string> {
+  const pixels = new Set<string>();
+  for (let py = 0; py < cell.height; py += 1) {
+    for (let px = 0; px < cell.width; px += 1) {
+      if (cell.rgba[(py * cell.width + px) * 4 + 3]) {
+        pixels.add(`${cell.offsetX + px},${cell.offsetY + py}`);
+      }
+    }
+  }
+  return pixels;
+}
+
+// A 128x32 sheet whose every pixel encodes its own (sx, sy) in red and green.
+function encodedSheet(): { width: number; height: number; data: Uint8ClampedArray } {
+  const data = new Uint8ClampedArray(128 * 32 * 4);
+  for (let y = 0; y < 32; y += 1) {
+    for (let x = 0; x < 128; x += 1) {
+      const at = (y * 128 + x) * 4;
+      data[at] = x;
+      data[at + 1] = y;
+      data[at + 2] = 7;
+      data[at + 3] = 255;
+    }
+  }
+  return { width: 128, height: 32, data };
 }
 
 test("a 4 by 4 field of diamond masks tessellates without gaps or overlaps", () => {
@@ -104,6 +133,56 @@ test("wall top lines touch the wall masks without a gap or overlap", () => {
         if (!maskHasPixel(line, x, lineY)) continue;
         assert.equal(maskHasPixel(wall, x, lineY), false);
         assert.equal(maskHasPixel(wall, x, lineY - 1), true);
+      }
+    }
+  }
+});
+
+test("every sheared side cell has exactly the footprint of a one-unit face", () => {
+  const sheet = encodedSheet();
+  for (const side of ["s", "e"] as const) {
+    const face = faceMask(side, 1);
+    const expected = placedPixels(face);
+    for (const part of ["cap", "fill"] as const) {
+      for (const variant of [0, 1, 2, 3] as const) {
+        const cell = shearSideCell(sheet, side, part, variant);
+        assert.equal(cell.width, face.width, `${side}/${part}/${variant} width`);
+        assert.equal(cell.height, face.height, `${side}/${part}/${variant} height`);
+        assert.equal(cell.offsetX, face.offsetX, `${side}/${part}/${variant} offsetX`);
+        assert.equal(cell.offsetY, face.offsetY, `${side}/${part}/${variant} offsetY`);
+        assert.deepEqual(cellPixels(cell), expected, `${side}/${part}/${variant} pixels`);
+      }
+    }
+  }
+});
+
+test("sheared side cells sample the sheet column by column, cap and fill", () => {
+  const sheet = encodedSheet();
+  for (const side of ["s", "e"] as const) {
+    const firstX = side === "s" ? 0 : 32;
+    const face = faceMask(side, 1);
+    const columnTop = new Map<number, number>();
+    for (let py = 0; py < face.height; py += 1) {
+      for (let px = 0; px < face.width; px += 1) {
+        if (!face.alpha[py * face.width + px]) continue;
+        const x = face.offsetX + px;
+        const y = face.offsetY + py;
+        columnTop.set(x, Math.min(columnTop.get(x) ?? y, y));
+      }
+    }
+    for (const part of ["cap", "fill"] as const) {
+      const partRow = part === "cap" ? 0 : 16;
+      for (const variant of [0, 3] as const) {
+        const cell = shearSideCell(sheet, side, part, variant);
+        for (const [x, top] of columnTop) {
+          for (let y = top; y < top + 16; y += 1) {
+            const cellAt = ((y - cell.offsetY) * cell.width + (x - cell.offsetX)) * 4;
+            const sheetAt = ((partRow + y - top) * sheet.width + variant * 32 + x - firstX) * 4;
+            assert.equal(cell.rgba[cellAt], sheet.data[sheetAt], `${side}/${part}/${variant} r at ${x},${y}`);
+            assert.equal(cell.rgba[cellAt + 1], sheet.data[sheetAt + 1], `${side}/${part}/${variant} g at ${x},${y}`);
+            assert.equal(cell.rgba[cellAt + 3], 255, `${side}/${part}/${variant} alpha at ${x},${y}`);
+          }
+        }
       }
     }
   }

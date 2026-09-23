@@ -8,23 +8,51 @@ const palettes = {
 
 const materialPalettes = {
   planks: {
-    meadow: { name: 'Oak', detail: 'Roble cálido', ramp: [[48, 27, 15], [77, 43, 22], [108, 61, 29], [139, 81, 38], [169, 105, 54], [194, 133, 77], [218, 164, 106], [239, 198, 143]] },
-    emerald: { name: 'Walnut', detail: 'Nogal oscuro', ramp: [[30, 19, 17], [52, 31, 25], [74, 42, 32], [98, 56, 38], [124, 74, 48], [151, 97, 63], [181, 126, 86], [211, 160, 115]] },
-    moss: { name: 'Pine', detail: 'Pino envejecido', ramp: [[36, 34, 23], [57, 51, 33], [79, 68, 42], [103, 86, 51], [127, 105, 62], [153, 128, 79], [181, 154, 103], [210, 184, 132]] },
-    autumn: { name: 'Driftwood', detail: 'Madera lavada', ramp: [[47, 40, 33], [69, 59, 48], [94, 79, 63], [120, 102, 83], [147, 127, 107], [175, 154, 132], [204, 184, 160], [230, 215, 193]] },
+    meadow: { name: 'Oak', detail: 'Warm oak', ramp: [[48, 27, 15], [77, 43, 22], [108, 61, 29], [139, 81, 38], [169, 105, 54], [194, 133, 77], [218, 164, 106], [239, 198, 143]] },
+    emerald: { name: 'Walnut', detail: 'Dark walnut', ramp: [[30, 19, 17], [52, 31, 25], [74, 42, 32], [98, 56, 38], [124, 74, 48], [151, 97, 63], [181, 126, 86], [211, 160, 115]] },
+    moss: { name: 'Pine', detail: 'Weathered pine', ramp: [[36, 34, 23], [57, 51, 33], [79, 68, 42], [103, 86, 51], [127, 105, 62], [153, 128, 79], [181, 154, 103], [210, 184, 132]] },
+    autumn: { name: 'Driftwood', detail: 'Washed wood', ramp: [[47, 40, 33], [69, 59, 48], [94, 79, 63], [120, 102, 83], [147, 127, 107], [175, 154, 132], [204, 184, 160], [230, 215, 193]] },
   },
   cobblestone: {
-    meadow: { name: 'Slate', detail: 'Pizarra azulada', ramp: [[29, 35, 42], [48, 56, 64], [68, 77, 85], [89, 99, 106], [111, 121, 126], [137, 146, 148], [166, 173, 171], [199, 203, 195]] },
-    emerald: { name: 'Granite', detail: 'Granito frío', ramp: [[36, 37, 35], [56, 57, 54], [77, 78, 74], [99, 100, 95], [121, 123, 117], [148, 149, 141], [177, 177, 166], [207, 204, 190]] },
-    moss: { name: 'Sandstone', detail: 'Arenisca clara', ramp: [[55, 43, 32], [78, 62, 45], [101, 82, 59], [126, 103, 73], [151, 125, 91], [177, 150, 111], [202, 176, 136], [226, 204, 165]] },
-    autumn: { name: 'Mossy', detail: 'Piedra con musgo', ramp: [[31, 39, 31], [48, 58, 44], [66, 77, 56], [85, 97, 69], [105, 117, 82], [130, 141, 99], [159, 168, 120], [190, 196, 147]] },
+    meadow: { name: 'Slate', detail: 'Blue slate', ramp: [[29, 35, 42], [48, 56, 64], [68, 77, 85], [89, 99, 106], [111, 121, 126], [137, 146, 148], [166, 173, 171], [199, 203, 195]] },
+    emerald: { name: 'Granite', detail: 'Cool granite', ramp: [[36, 37, 35], [56, 57, 54], [77, 78, 74], [99, 100, 95], [121, 123, 117], [148, 149, 141], [177, 177, 166], [207, 204, 190]] },
+    moss: { name: 'Sandstone', detail: 'Light sandstone', ramp: [[55, 43, 32], [78, 62, 45], [101, 82, 59], [126, 103, 73], [151, 125, 91], [177, 150, 111], [202, 176, 136], [226, 204, 165]] },
+    autumn: { name: 'Mossy', detail: 'Mossy stone', ramp: [[31, 39, 31], [48, 58, 44], [66, 77, 56], [85, 97, 69], [105, 117, 82], [130, 141, 99], [159, 168, 120], [190, 196, 147]] },
   },
   concrete: {
-    meadow: { name: 'Concrete', detail: 'Cemento natural', ramp: [[38, 42, 43], [57, 62, 64], [77, 83, 85], [99, 106, 108], [122, 130, 131], [149, 157, 157], [178, 185, 183], [208, 213, 207]] },
-    emerald: { name: 'Bluestone', detail: 'Gris azulado', ramp: [[31, 39, 48], [47, 58, 70], [65, 78, 92], [85, 100, 114], [107, 123, 138], [132, 149, 163], [161, 178, 191], [193, 208, 218]] },
-    moss: { name: 'Sandstone', detail: 'Arena cálida', ramp: [[49, 45, 37], [69, 64, 53], [91, 85, 71], [115, 108, 91], [140, 133, 113], [167, 159, 137], [195, 187, 162], [224, 215, 188]] },
-    autumn: { name: 'Asphalt', detail: 'Carbón oscuro', ramp: [[25, 29, 32], [40, 45, 49], [57, 63, 67], [76, 83, 87], [98, 105, 108], [122, 130, 132], [149, 157, 157], [179, 186, 184]] },
+    meadow: { name: 'Concrete', detail: 'Natural concrete', ramp: [[38, 42, 43], [57, 62, 64], [77, 83, 85], [99, 106, 108], [122, 130, 131], [149, 157, 157], [178, 185, 183], [208, 213, 207]] },
+    emerald: { name: 'Bluestone', detail: 'Blue-gray stone', ramp: [[31, 39, 48], [47, 58, 70], [65, 78, 92], [85, 100, 114], [107, 123, 138], [132, 149, 163], [161, 178, 191], [193, 208, 218]] },
+    moss: { name: 'Sandstone', detail: 'Warm sand', ramp: [[49, 45, 37], [69, 64, 53], [91, 85, 71], [115, 108, 91], [140, 133, 113], [167, 159, 137], [195, 187, 162], [224, 215, 188]] },
+    autumn: { name: 'Charcoal', detail: 'Dark charcoal', ramp: [[25, 29, 32], [40, 45, 49], [57, 63, 67], [76, 83, 87], [98, 105, 108], [122, 130, 132], [149, 157, 157], [179, 186, 184]] },
   },
+  asphalt: {
+    meadow: { name: 'Fresh', detail: 'New blacktop', ramp: [[18, 19, 22], [28, 30, 34], [40, 42, 47], [54, 57, 62], [70, 73, 79], [90, 93, 99], [116, 119, 124], [150, 152, 155]] },
+    emerald: { name: 'Worn', detail: 'Faded gray', ramp: [[30, 31, 33], [44, 46, 49], [59, 61, 65], [75, 78, 82], [93, 96, 100], [114, 117, 120], [139, 141, 143], [168, 169, 169]] },
+    moss: { name: 'Bleached', detail: 'Sun-baked', ramp: [[40, 38, 35], [56, 54, 50], [73, 71, 66], [91, 89, 84], [111, 108, 102], [133, 130, 123], [158, 155, 147], [186, 182, 172]] },
+    autumn: { name: 'Wet', detail: 'Rain-dark', ramp: [[14, 16, 21], [22, 25, 32], [32, 36, 45], [44, 49, 59], [58, 64, 75], [76, 83, 95], [100, 108, 120], [132, 140, 150]] },
+  },
+  roofing: {
+    meadow: { name: 'Membrane', detail: 'Bitumen felt', ramp: [[24, 25, 29], [36, 38, 43], [50, 52, 58], [63, 66, 73], [77, 80, 88], [95, 98, 106], [120, 123, 130], [154, 157, 162]] },
+    emerald: { name: 'Slate', detail: 'Cool grey', ramp: [[26, 30, 36], [39, 45, 53], [54, 61, 71], [70, 79, 90], [87, 97, 109], [108, 118, 130], [134, 144, 155], [168, 176, 185]] },
+    moss: { name: 'Gravel', detail: 'Warm grit', ramp: [[38, 35, 31], [54, 50, 45], [71, 66, 60], [89, 84, 77], [108, 102, 94], [130, 124, 115], [156, 150, 140], [186, 180, 170]] },
+    autumn: { name: 'Felt', detail: 'Green felt', ramp: [[24, 32, 27], [35, 46, 39], [48, 61, 52], [62, 77, 66], [78, 94, 82], [98, 114, 101], [124, 139, 126], [158, 170, 158]] },
+  },
+  brick: {
+    meadow: { name: 'Red', detail: 'Common red', ramp: [[52, 22, 17], [82, 34, 25], [112, 48, 34], [140, 64, 45], [166, 83, 61], [186, 105, 80], [204, 131, 104], [224, 163, 137]] },
+    emerald: { name: 'Burnt', detail: 'Dark engineering', ramp: [[34, 18, 18], [55, 27, 26], [78, 37, 34], [101, 49, 43], [124, 62, 52], [146, 79, 66], [170, 101, 86], [198, 132, 115]] },
+    moss: { name: 'Stock', detail: 'Yellow stock', ramp: [[60, 45, 26], [89, 68, 40], [119, 92, 55], [147, 116, 72], [172, 140, 91], [194, 163, 114], [214, 188, 142], [233, 214, 176]] },
+    autumn: { name: 'Weathered', detail: 'Faded clay', ramp: [[54, 36, 31], [82, 55, 46], [110, 75, 62], [136, 95, 79], [160, 116, 98], [181, 139, 120], [201, 164, 146], [222, 194, 178]] },
+  },
+};
+
+const GAME_SHEETS = {
+  grass: { folder: 'grass', variants: 'grass_x4.png', sides: 'grass_side_x4.png' },
+  planks: { folder: 'floor', variants: 'planks_x4.png', sides: 'planks_side_x4.png' },
+  cobblestone: { folder: 'floor', variants: 'stone_x4.png', sides: 'stone_side_x4.png' },
+  concrete: { folder: 'floor', variants: 'concrete_x4.png', sides: 'concrete_side_x4.png' },
+  asphalt: { folder: 'floor', variants: 'asphalt_x4.png', sides: 'asphalt_side_x4.png' },
+  roofing: { folder: 'floor', variants: 'roofing_x4.png', sides: 'roofing_side_x4.png' },
+  brick: { folder: 'wall', variants: 'brick_x4.png', sides: 'brick_side_x4.png' },
 };
 
 const DIRT_COLORS = [[146, 108, 66], [116, 83, 50], [88, 62, 38], [62, 44, 28]];
@@ -43,7 +71,7 @@ const previewMat = document.querySelector('.preview-mat');
 const seedInput = document.querySelector('#seed-input');
 const densityInput = document.querySelector('#density');
 const brightnessInput = document.querySelector('#brightness');
-const toast = document.querySelector('#toast');
+const statusFeed = document.querySelector('#toast');
 let textureCanvas;
 let textureSides;
 let textureBlock;
@@ -53,7 +81,6 @@ let textureAtlas;
 let sideAtlas;
 let sideSheetTexture;
 let sideBlockCanvases = [];
-let toastTimer;
 
 function seedNumber(value) {
   let hash = 2166136261;
@@ -353,10 +380,9 @@ function createMaterialTile(seed, colors, material) {
   return canvas;
 }
 
-// Nivel de rampa del material en un píxel de la superficie. Lo comparten el
-// tile y las caras laterales, así la piedra y el concreto se ven iguales de
-// lado que de frente.
-function materialLevel(material, x, y, seed, brightness) {
+// The surface and side faces share this material ramp, so they match from every angle.
+// `face` is set for side faces: roofing keeps its roll seam off the slab edges.
+function materialLevel(material, x, y, seed, brightness, face = false) {
   const u = (x + 0.5) / 32 + (y + 0.5) / 16;
   const v = (x + 0.5) / 32 - (y + 0.5) / 16;
   let level;
@@ -382,6 +408,34 @@ function materialLevel(material, x, y, seed, brightness) {
     if (aggregate % 23 === 0 && (localX === ((aggregate >>> 5) & 1) || localY === ((aggregate >>> 6) & 1))) {
       level += (aggregate & 1) === 0 ? 1.5 : -1.1;
     }
+  } else if (material === 'asphalt') {
+    // Per-pixel speckle has no structure to break at a seam; only the noise needs to wrap.
+    const worn = isoNoise(x + 0.5, y + 0.5, 5, 5, seed);
+    const fine = isoNoise(x + 0.5, y + 0.5, 17, 13, seed ^ 0x165667b1);
+    const grain = materialCellHash(x, y, seed ^ 0x3c6ef372) % 100;
+    level = 3.5 + (worn - 0.5) * 0.8 + (fine - 0.5) * 0.5 + brightness;
+    if (grain < 9) level += 1.6;
+    else if (grain < 13) level -= 1.2;
+    else if (grain === 99) level += 3;
+  } else if (material === 'roofing') {
+    // v has period 2 per tile; the seam runs through the centre line (v = 0), off the tile edges.
+    const roll = (((v + 1) % 2) + 2) % 2;
+    const broad = isoNoise(x + 0.5, y + 0.5, 4, 4, seed);
+    const fine = isoNoise(x + 0.5, y + 0.5, 15, 15, seed ^ 0x2545f491);
+    const grit = materialCellHash(x, y, seed ^ 0x6c8e9cf5) % 100;
+    level = 3.9 + (broad - 0.5) * 0.7 + (fine - 0.5) * 0.4 + brightness;
+    if (!face && roll >= 1 && roll < 1.06) level -= 1.3;
+    else if (!face && roll >= 1.06 && roll < 1.16) level += 0.7;
+    if (grit < 5) level += 1.2;
+    else if (grit < 8) level -= 0.8;
+  } else if (material === 'brick') {
+    // Pavers: 4 courses across v, 2 bricks along u, odd courses offset half a brick.
+    const course = Math.floor((v + 1) * 2);
+    const across = (v + 1) * 2 - course;
+    const along = ((u + (course % 2) * 0.5) % 1 + 1) % 1;
+    const tone = materialCellHash(Math.floor(u + (course % 2) * 0.5) & 1, course & 3, seed) % 5;
+    level = 3.9 + (tone - 2) * 0.35 + (isoNoise(x + 0.5, y + 0.5, 13, 13, seed) - 0.5) * 0.6 + brightness;
+    if (across < 0.06 || along < 0.03) level = 6.2 + brightness * 0.25;
   } else {
     const gridU = u * 4;
     const gridV = v * 4;
@@ -516,21 +570,17 @@ function createSideTextures(colors, seed) {
   return canvas;
 }
 
-// --- Caras laterales del juego (hoja 128 × 32) ----------------------------
-// Una hoja por material: cuatro variantes de 32 px. Cada variante son dos
-// celdas de 32 × 16: el cap (fila 0) es lo que se ve justo bajo el borde de la
-// losa —el labio de hierba, el canto del tablón, la piedra de lado— y el fill
-// (fila 1) se repite hacia abajo en las caras altas. El arte va plano, sin
-// cizallar y sin luz: el juego aplica 0.82 al sur y 0.66 al este, y espeja la
-// misma hoja para las dos caras.
+// --- Game side sheet (128 × 32) --------------------------------------------
+// Each material has four 32 px variants, each with a 32 × 16 cap and fill.
+// The cap sits under the slab edge; the fill repeats down taller faces. The
+// sheet stays flat and unlit: the game applies face lighting and mirrors it.
 
 const SIDE_CELL_WIDTH = TILE_WIDTH / 2;
 const SIDE_CELL_HEIGHT = SIDE_REPEAT_HEIGHT;
 const SIDE_SHEET_WIDTH = SIDE_CELL_WIDTH * VARIATION_COUNT;
 const SIDE_SHEET_HEIGHT = SIDE_CELL_HEIGHT * 2;
 
-// Fila inferior del rombo en la columna x: el borde bajo el que se apoya el cap.
-// Es el mismo rombo que faceMask en el juego, así que el cap encaja al píxel.
+// Return the diamond's bottom row in column x so the cap meets the tile exactly.
 function diamondBottomRow(x) {
   if (x < TILE_WIDTH / 2) {
     return x <= 0 ? TILE_HEIGHT / 2 - 1 : TILE_HEIGHT / 2 + Math.floor((x - 1) / 2);
@@ -538,10 +588,8 @@ function diamondBottomRow(x) {
   return diamondBottomRow(TILE_WIDTH - 1 - x);
 }
 
-// Muestras de la superficie en la columna x subiendo desde el borde del rombo:
-// la fila 0 es el propio borde, así que el cap continúa la textura del tile sin
-// costura. Cerca de las esquinas la columna se queda sin píxeles, y esas filas
-// se rellenan repitiendo el último tono con un dither suave de la rampa.
+// Sample upward from the diamond edge so the cap continues the tile texture.
+// Near corners, repeat the last tone with a subtle ramp dither.
 function sideColumnSamples(colors, tilePixels, x) {
   const ramp = colors.ramp;
   const sourceX = x === 0 ? 1 : x;
@@ -562,7 +610,7 @@ function sideColumnSamples(colors, tilePixels, x) {
   return samples;
 }
 
-// Índice de rampa más cercano a un color: mantiene el tono al repetir muestras.
+// Find the nearest ramp index to preserve tone when repeating samples.
 function rampLevelFor(ramp, color) {
   let best = 0;
   let bestDistance = Infinity;
@@ -576,8 +624,8 @@ function rampLevelFor(ramp, color) {
   return best;
 }
 
-// Labio de hierba: base de 1–2 px, matas anchas y puntas de 1 px colgando.
-// Baja en los bordes de la celda para que dos variantes vecinas se cosan.
+// Grass lip with broad clumps and hanging tips, tapered at the cell edges
+// so neighbouring variants join cleanly.
 function grassLipDepth(random, count) {
   const depth = [];
   for (let x = 0; x < count; x += 1) depth.push(1 + (random() < 0.5 ? 1 : 0));
@@ -600,8 +648,8 @@ function grassLipDepth(random, count) {
   return depth.map((value) => Math.max(0, Math.min(value, 8)));
 }
 
-// Tierra bajo el labio: los mismos tonos que las motas del suelo, con grano
-// fino y manchas. Depende de la fila de cara, así el cap y el fill encajan.
+// Soil below the lip reuses the ground-speck tones and varies by face row,
+// keeping the cap and fill continuous.
 function sideSoilColor(x, faceRow, seed) {
   const grain = materialCellHash(x, faceRow % 32, seed) / 4294967295;
   const blotch = isoNoise(x + 0.5, (faceRow % 32) + 0.5, 5, 4, seed ^ 0x27d4eb2d);
@@ -612,8 +660,7 @@ function sideSoilColor(x, faceRow, seed) {
   return DIRT_COLORS[0];
 }
 
-// Topes verticales del tablón: las columnas donde la junta de la superficie
-// cruza el borde, con la misma fórmula que materialLevel.
+// Find where surface plank joints cross the edge using the same ramp formula.
 function plankSideJointColumns() {
   const columns = [];
   for (let x = 0; x < SIDE_CELL_WIDTH; x += 1) {
@@ -627,7 +674,7 @@ function plankSideJointColumns() {
   return columns;
 }
 
-// Canto del tablón: veta horizontal, junta cada 8 px y topes verticales.
+// Plank edges use horizontal grain, 8 px joints, and vertical joint caps.
 function plankSideColor(colors, samples, x, faceRow, seed, jointColumn, brightness) {
   const ramp = colors.ramp;
   const dither = BAYER_4X4[(faceRow % 4) * 4 + (x % 4)] / 15 - 0.5;
@@ -642,14 +689,35 @@ function plankSideColor(colors, samples, x, faceRow, seed, jointColumn, brightne
   return shade(ramp, 2.9 + (grain - 0.5) * 1.4 + brightness + dither * 0.35 + (grain > 0.86 ? 0.9 : 0));
 }
 
+// Fired bricks in running bond: 4 px courses (3 brick + 1 mortar), 8 px bricks (7 + 1
+// mortar), odd courses offset 4 px. The cap's top course is a header course (4 px
+// bricks). The brick straddling a cell edge uses the pattern seed so the halves of the
+// two variants that meet keep the same tone. Every course repeats every 16 rows.
+function brickSideColor(colors, x, faceRow, seed, patternSeed, part, brightness) {
+  const ramp = colors.ramp;
+  const course = Math.floor(faceRow / 4);
+  const inCourse = faceRow % 4;
+  const header = part === 'cap' && faceRow < 4;
+  const offset = (course % 2) * 4;
+  const step = header ? 4 : 8;
+  const brick = Math.floor((x + offset) / step);
+  const inBrick = (x + offset) % step;
+  if (inCourse === 3 || inBrick === step - 1) return shade(ramp, 6.2 + brightness * 0.25);
+  const straddles = !header && course % 2 === 1 && brick % 4 === 0;
+  const toneSeed = straddles ? patternSeed : seed;
+  const tone = materialCellHash(brick & 3, course, toneSeed) % 5;
+  const speckle = (isoNoise(x + 0.5, faceRow + 0.5, 9, 7, toneSeed) - 0.5) * 0.5;
+  let level = 3 + (tone - 2) * 0.35 + speckle + brightness;
+  if (inCourse === 0) level += header ? 0.8 : 0.4;
+  return shade(ramp, level);
+}
+
 function variantSeedFor(seed, index) {
   return (seed ^ Math.imul(index + 1, 0x9e3779b1)) >>> 0;
 }
 
-// Una celda de 32 × 16. `part` es 'cap' o 'fill': el cap lleva el borde de la
-// losa en la fila 0 y el fill continúa 16 filas más abajo, así que se apila sin
-// costura bajo cualquier cap. `patternSeed` es la semilla del material: la
-// piedra comparte trama entre variantes para no cortarla en las juntas.
+// Build a 32 × 16 cap or fill. The fill continues beneath any cap, while the
+// material pattern seed keeps stone texture continuous across variants.
 function createSideCell(colors, seed, patternSeed, material, tilePixels, part) {
   const data = new Uint8ClampedArray(SIDE_CELL_WIDTH * SIDE_CELL_HEIGHT * 4);
   const brightness = (state.brightness - 58) / 30;
@@ -672,17 +740,17 @@ function createSideCell(colors, seed, patternSeed, material, tilePixels, part) {
         }
       } else if (material === 'planks') {
         color = plankSideColor(colors, samples, x, faceRow, seed, joints.includes(x), brightness);
+      } else if (material === 'brick') {
+        color = brickSideColor(colors, x, faceRow, seed, patternSeed, part, brightness);
       } else {
-        // La misma piedra, de lado: la fórmula del material a lo largo de la
-        // cara, con el borde exacto del rombo en la fila 0 del cap. El adoquín
-        // intercambia los ejes: su trama se repite cada 32 px en `y`, así que
-        // de lado encaja de celda en celda sin cortar piedras.
+        // Reuse the surface material formula along the face, aligned to the
+        // diamond edge. Cobblestone swaps axes so stones do not break at seams.
         const surfaceX = material === 'cobblestone' ? faceRow : x;
         const surfaceY = material === 'cobblestone' ? x : faceRow;
         const dither = BAYER_4X4[((faceRow + phase) % 4) * 4 + ((x + phase) % 4)] / 15 - 0.5;
         color = faceRow === 0 && samples[0].real
           ? samples[0].color
-          : shade(colors.ramp, materialLevel(material, surfaceX, surfaceY, patternSeed, brightness) + dither * 0.35);
+          : shade(colors.ramp, materialLevel(material, surfaceX, surfaceY, patternSeed, brightness, true) + dither * 0.35);
       }
       const offset = (row * SIDE_CELL_WIDTH + x) * 4;
       data[offset] = color[0];
@@ -707,9 +775,8 @@ function createSideSheetTexture(cells) {
   return canvas;
 }
 
-// El bloque como lo pinta el juego: rombo, cap bajo el borde sur y este (la
-// hoja se espeja) y fill debajo. La luz de cada cara se aplica al componer,
-// nunca en la hoja.
+// Compose the tile, mirrored south/east caps, and fill as the game renders them.
+// Face lighting belongs to composition, never to the texture sheet.
 function createSideBlockTexture(tileCanvas, capCell, fillCell, fills) {
   const width = TILE_WIDTH;
   const height = TILE_HEIGHT + SIDE_CELL_HEIGHT * (1 + fills);
@@ -794,10 +861,9 @@ function createBlockTexture(surface, sides) {
   return canvas;
 }
 
-// --- Mobiliario isométrico -------------------------------------------------
-// Cada prop se arma con cajas de vóxeles; el vóxel mide 16 × 8 px de rombo más
-// 8 px de caras laterales, la misma proporción 2:1 del tile. Los vóxeles se
-// pintan de atrás hacia delante (x + y, luego z), así lo cercano tapa lo lejano.
+// --- Isometric furniture ----------------------------------------------------
+// Props are built from voxel boxes and painted back to front so nearer voxels
+// cover farther ones.
 
 const VOXEL_W = TILE_WIDTH / 4;
 const VOXEL_H = VOXEL_W / 2;
@@ -832,9 +898,9 @@ const FURNITURE_ROLES = {
 const FURNITURE = {
   table: {
     name: 'Table',
-    subtitle: 'Mobiliario isométrico',
+    subtitle: 'Isometric furniture',
     corner: 'PIXEL TABLE',
-    description: 'Mesa voxel con tablero de 4 × 4, faldón perimetral y cuatro patas.',
+    description: 'Voxel table with a 4 × 4 top, apron, and four legs.',
     boxes: [
       { from: [0, 0, 0], to: [1, 1, 3], role: 'wood', at: [[0, 0], [3, 0], [0, 3], [3, 3]] },
       { from: [0, 0, 3], to: [4, 4, 4], role: 'wood' },
@@ -850,9 +916,9 @@ const FURNITURE = {
   },
   chair: {
     name: 'Chair',
-    subtitle: 'Mobiliario isométrico',
+    subtitle: 'Isometric furniture',
     corner: 'PIXEL CHAIR',
-    description: 'Silla voxel con asiento claro, cuatro patas y respaldo calado.',
+    description: 'Voxel chair with a light seat, four legs, and open backrest.',
     boxes: [
       { from: [0, 0, 0], to: [1, 1, 2], role: 'wood', at: [[0, 0], [2, 0], [0, 1], [2, 1]] },
       { from: [0, 0, 2], to: [3, 2, 3], role: 'woodLight' },
@@ -863,9 +929,9 @@ const FURNITURE = {
   },
   bed: {
     name: 'Bed',
-    subtitle: 'Mobiliario isométrico',
+    subtitle: 'Isometric furniture',
     corner: 'PIXEL BED',
-    description: 'Cama voxel con cabecero, colchón claro y manta doblada en dos tonos.',
+    description: 'Voxel bed with a headboard, light mattress, and two-tone folded blanket.',
     boxes: [
       { from: [0, 0, 0], to: [1, 2, 4], role: 'woodDark' },
       { from: [1, 0, 0], to: [4, 2, 1], role: 'wood' },
@@ -882,9 +948,9 @@ const FURNITURE = {
   },
   chest: {
     name: 'Chest',
-    subtitle: 'Mobiliario isométrico',
+    subtitle: 'Isometric furniture',
     corner: 'PIXEL CHEST',
-    description: 'Cofre voxel con refuerzos metálicos, tapa propia y cerradura al frente.',
+    description: 'Voxel chest with metal braces, a fitted lid, and a front lock.',
     boxes: [
       { from: [0, 0, 0], to: [3, 2, 2], role: 'wood' },
       { from: [0, 0, 2], to: [3, 2, 3], role: 'woodDark' },
@@ -896,9 +962,9 @@ const FURNITURE = {
   },
   shelf: {
     name: 'Shelf',
-    subtitle: 'Mobiliario isométrico',
+    subtitle: 'Isometric furniture',
     corner: 'PIXEL SHELF',
-    description: 'Estantería voxel con baldas y libros de colores que cambian con la semilla.',
+    description: 'Voxel shelf with shelves and seed-varied colored books.',
     boxes: [
       { from: [0, 0, 0], to: [4, 2, 1], role: 'woodDark' },
       { from: [0, 0, 4], to: [4, 2, 5], role: 'woodDark' },
@@ -920,9 +986,9 @@ const FURNITURE = {
   },
   lamp: {
     name: 'Lamp',
-    subtitle: 'Mobiliario isométrico',
+    subtitle: 'Isometric furniture',
     corner: 'PIXEL LAMP',
-    description: 'Lámpara voxel con base, fuste central y pantalla cálida encendida.',
+    description: 'Voxel lamp with a base, central stem, and warm glowing shade.',
     boxes: [
       { from: [0, 0, 0], to: [2, 2, 1], role: 'woodDark' },
       { from: [0, 0, 1], to: [1, 1, 3], role: 'wood' },
@@ -932,9 +998,9 @@ const FURNITURE = {
   },
   plant: {
     name: 'Plant',
-    subtitle: 'Mobiliario isométrico',
+    subtitle: 'Isometric furniture',
     corner: 'PIXEL PLANT',
-    description: 'Maceta voxel con sustrato y follaje generado hoja a hoja por semilla.',
+    description: 'Voxel planter with soil and seed-generated foliage.',
     boxes: [
       { from: [0, 0, 0], to: [3, 3, 1], role: 'woodDark', chamfer: true },
       { from: [0, 0, 1], to: [3, 3, 2], role: 'woodDark' },
@@ -953,9 +1019,9 @@ const FURNITURE = {
   },
   barrel: {
     name: 'Barrel',
-    subtitle: 'Mobiliario isométrico',
+    subtitle: 'Isometric furniture',
     corner: 'PIXEL BARREL',
-    description: 'Barril voxel con duelas biseladas y fleje metálico central.',
+    description: 'Voxel barrel with beveled staves and a central metal band.',
     boxes: [
       { from: [0, 0, 0], to: [3, 3, 3], role: 'wood' },
       { from: [0, 0, 0], to: [1, 1, 4], role: 'woodDark' },
@@ -1155,7 +1221,7 @@ function isPixelStyle() {
   return state.material === 'furniture' && state.furnitureStyle === 'pixel';
 }
 
-// El estilo pixel art vive en pixelart.js; aquí sólo se vuelca a un canvas.
+// Pixel art rendering lives in pixelart.js; this function copies it to a canvas.
 function createPixelSprite(key, ramps, seed) {
   const sprite = renderPixelFurniture(key, ramps, seed, {
     brightness: (state.brightness - 58) / 30,
@@ -1213,7 +1279,7 @@ function furnitureInfo() {
   const pixel = isPixelStyle();
   return {
     title: `${piece.name} ${pixel ? 'sprite' : 'prop'}`,
-    subtitle: pixel ? 'Sprite pixel art isométrico' : piece.subtitle,
+    subtitle: pixel ? 'Isometric pixel art sprite' : piece.subtitle,
     corner: piece.corner,
     cornerTag: `${pixel ? 'SPRITE' : 'PROP'} / ${String(index).padStart(2, '0')}`,
     breadcrumb: piece.name.toUpperCase(),
@@ -1225,30 +1291,25 @@ function updateSpecText(isFurniture) {
   const size = currentSize();
   document.querySelector('#tile-spec-size').textContent = `${size.width} × ${size.height} px`;
   document.querySelector('#tile-spec-caption').textContent = isFurniture
-    ? `${FURNITURE[state.furniture].name} · 4 variantes`
-    : '1 tile · proporción 2:1';
+    ? `${FURNITURE[state.furniture].name} · 4 variants`
+    : '1 tile · 2:1 ratio';
   const pixel = isPixelStyle();
-  document.querySelector('#face-a-label').textContent = pixel ? 'CONTORNO' : isFurniture ? 'SUPERIOR' : 'SUR';
+  document.querySelector('#face-a-label').textContent = pixel ? 'OUTLINE' : isFurniture ? 'TOP' : 'SOUTH';
   document.querySelector('#face-a-value').textContent = pixel ? '1 PX' : isFurniture ? '100%' : '82%';
-  document.querySelector('#face-b-label').textContent = pixel ? 'RAMPA' : isFurniture ? 'CARAS' : 'ESTE';
-  document.querySelector('#face-b-value').textContent = pixel ? '8 TONOS' : isFurniture ? '78%' : '66%';
+  document.querySelector('#face-b-label').textContent = pixel ? 'RAMP' : isFurniture ? 'SIDES' : 'EAST';
+  document.querySelector('#face-b-value').textContent = pixel ? '8 TONES' : isFurniture ? '78%' : '66%';
   document.querySelector('#face-note').textContent = pixel
-    ? 'Luz arriba a la izquierda · sombra propia · tonos con desplazamiento de matiz'
+    ? 'Top-left light · cast shadow · hue-shifted tones'
     : isFurniture
-      ? 'Vóxel 16 × 8 px · caras superior, frontal y lateral'
-      : 'Caras 32 × 16 px · hoja ×4 con cap bajo el borde y fill repetible';
+      ? '16 × 8 px voxel · top, front, and side faces'
+      : '32 × 16 px faces · 4× sheet with edge caps and repeating fill';
   document.querySelector('#stage-mode').innerHTML = pixel
-    ? '<i></i> SPRITE PIXEL ART <b>CON ALFA</b>'
+    ? '<i></i> PIXEL ART SPRITE <b>WITH ALPHA</b>'
     : isFurniture
-      ? '<i></i> PROP ISOMÉTRICO <b>CON ALFA</b>'
+      ? '<i></i> ISOMETRIC PROP <b>WITH ALPHA</b>'
       : state.view === 'sides'
-        ? '<i></i> CARAS 128 × 32 <b>CAP + FILL</b>'
-        : '<i></i> MOSAICO ISOMÉTRICO <b>SEAMLESS</b>';
-  document.querySelector('#export-button > span').textContent = isFurniture ? `Sprite ${size.width} × ${size.height}` : 'Top 64 × 32';
-  document.querySelector('#export-title').textContent = isFurniture ? 'Tu sprite empieza aquí.' : 'Tu mundo empieza aquí.';
-  document.querySelector('#export-copy').textContent = isFurniture
-    ? `Exporta tu ${pixel ? 'sprite' : 'prop'} isométrico con fondo transparente.`
-    : 'Exporta tu tile isométrico con fondo transparente.';
+        ? '<i></i> SIDES 128 × 32 <b>CAP + FILL</b>'
+        : '<i></i> ISOMETRIC TILING <b>SEAMLESS</b>';
   document.querySelector('#export-sides').hidden = isFurniture;
   document.querySelector('#export-sides-sheet').hidden = isFurniture;
 }
@@ -1295,8 +1356,7 @@ function drawPreview() {
       }
     }
   } else if (view === 'sides' && sideBlockCanvases.length) {
-    // Las cuatro variantes con su cap bajo el borde y un fill: la hoja tal y
-    // como entra en el juego, con la luz del sur y del este ya aplicada.
+    // Show all four variants with their cap and fill as the lit game block.
     const blockWidth = TILE_WIDTH * PREVIEW_SCALE;
     const blockHeight = (TILE_HEIGHT + SIDE_CELL_HEIGHT * 2) * PREVIEW_SCALE;
     const gap = 24;
@@ -1312,7 +1372,7 @@ function drawPreview() {
       );
     });
   } else if (isPixelStyle()) {
-    // Los sprites pixel art traen su propia sombra; se amplían todo lo que quepa.
+    // Pixel art sprites include their own shadow; scale them to fit the preview.
     const width = textureBlock.width;
     const height = textureBlock.height;
     const scale = Math.max(PREVIEW_SCALE, Math.min(8, Math.floor((edge * 0.62) / Math.max(width, height))));
@@ -1335,47 +1395,47 @@ function drawPreview() {
   }
   previewMat.classList.toggle('is-original', !tiled);
   preview.setAttribute('aria-label', state.material === 'furniture'
-    ? `Sprite isométrico ${isPixelStyle() ? 'en pixel art' : 'voxel'} de ${FURNITURE[state.furniture].name.toLowerCase()} con cuatro variantes y fondo transparente`
+    ? `${isPixelStyle() ? 'Pixel art' : 'Voxel'} isometric ${FURNITURE[state.furniture].name.toLowerCase()} sprite with four variants and a transparent background`
     : view === 'sides'
-      ? `Vista de bloque de ${state.material} con la hoja de caras 128 por 32: cap bajo el borde y fill repetible`
+      ? `${state.material} block preview with the 128 by 32 side sheet: edge cap and repeating fill`
       : tiled
-        ? `Mosaico de cuatro variantes de ${state.material} isométrico 64 por 32, repetidas sin costuras`
-        : `Vista de un bloque isométrico de ${state.material} 64 por 32 con caras laterales`);
+        ? `Seamless isometric ${state.material} tile preview, 64 by 32, with four variants`
+        : `Isometric ${state.material} block preview, 64 by 32, with side faces`);
 }
 
 function updateMaterialControls() {
   const materials = {
-    grass: { title: 'Grass texture', subtitle: 'Superficie isométrica', corner: 'GRASS FIELD', description: 'Hierba pixelada con variaciones, bordes limpios y repetición sin costuras.' },
-    planks: { title: 'Planks texture', subtitle: 'Tablones de madera', corner: 'WOODEN DECK', description: 'Tablones con vetas, juntas alternadas y paletas de madera.' },
-    cobblestone: { title: 'Cobblestone texture', subtitle: 'Piedra adoquinada', corner: 'STONE PATH', description: 'Adoquines irregulares con juntas de mortero y variación tonal.' },
-    concrete: { title: 'Concrete texture', subtitle: 'Concreto alisado', corner: 'CAST CONCRETE', description: 'Concreto pixelado con árido fino y variaciones minerales.' },
+    grass: { title: 'Grass texture', subtitle: 'Isometric surface', corner: 'GRASS FIELD', description: 'Seeded grass with variation, clean edges, and seamless tiling.' },
+    planks: { title: 'Planks texture', subtitle: 'Wooden boards', corner: 'WOODEN DECK', description: 'Grained planks with staggered joints and wood palettes.' },
+    cobblestone: { title: 'Cobblestone texture', subtitle: 'Stone paving', corner: 'STONE PATH', description: 'Irregular stones with mortar joints and tonal variation.' },
+    concrete: { title: 'Concrete texture', subtitle: 'Smoothed concrete', corner: 'CAST CONCRETE', description: 'Pixel-textured concrete with fine aggregate and mineral variation.' },
+    asphalt: { title: 'Asphalt texture', subtitle: 'Road surface', corner: 'ROAD ASPHALT', description: 'Dark bitumen with fine aggregate speckle and worn patches.' },
+    roofing: { title: 'Roofing texture', subtitle: 'Flat roof membrane', corner: 'ROOF DECK', description: 'Bitumen membrane with overlapped roll seams and fine grit.' },
+    brick: { title: 'Brick texture', subtitle: 'Running bond', corner: 'BRICK WALL', description: 'Fired bricks in running bond with light mortar and a header course.' },
   };
   const isFurniture = state.material === 'furniture';
   const selected = isFurniture ? furnitureInfo() : materials[state.material];
   document.querySelector('#generator-title').textContent = selected.title;
-  document.querySelector('#generator-subtitle').textContent = selected.subtitle;
   document.querySelector('#breadcrumb-material').textContent = isFurniture ? selected.breadcrumb : state.material.toUpperCase();
-  document.querySelector('#preview-description').textContent = selected.description;
-  document.querySelector('#corner-label').innerHTML = `${selected.corner} <span>${isFurniture ? selected.cornerTag : 'ISO / 01'}</span>`;
   document.querySelectorAll('.grass-only').forEach((control) => { control.hidden = state.material !== 'grass'; });
   document.querySelectorAll('.furniture-only').forEach((control) => { control.hidden = !isFurniture; });
   document.querySelectorAll('.pixel-only').forEach((control) => { control.hidden = !isPixelStyle(); });
   document.querySelectorAll('.style-option').forEach((button) => {
     const active = button.dataset.style === state.furnitureStyle;
-    button.classList.toggle('is-active', active);
+    button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', String(active));
   });
   document.querySelectorAll('.material-option').forEach((button) => {
     const active = isFurniture
       ? button.dataset.material === 'furniture' && button.dataset.piece === state.furniture
       : button.dataset.material === state.material;
-    button.classList.toggle('is-active', active);
+    button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', String(active));
   });
   document.querySelector('.preview-actions').hidden = isFurniture;
   document.querySelectorAll('.view-button').forEach((button) => {
     const active = button.dataset.view === state.view;
-    button.classList.toggle('is-active', active);
+    button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', String(active));
   });
   updateSpecText(isFurniture);
@@ -1384,13 +1444,13 @@ function updateMaterialControls() {
   const activeColors = state.customPalette || (paletteSet ? paletteSet[state.palette] : palettes[state.palette]);
   document.querySelectorAll('.palette-option').forEach((button) => {
     const active = button.dataset.palette === state.palette && !state.customPalette;
-    button.classList.toggle('is-selected', active);
+    button.classList.toggle('selected', active);
     button.setAttribute('aria-pressed', String(active));
     const palette = paletteSet?.[button.dataset.palette];
     const name = button.querySelector('b');
     const detail = button.querySelector('small');
     name.textContent = palette?.name || ({ meadow: 'Meadow', emerald: 'Emerald', moss: 'Moss', autumn: 'Autumn' }[button.dataset.palette]);
-    detail.textContent = palette?.detail || ({ meadow: 'Primavera suave', emerald: 'Bosque vibrante', moss: 'Musgo apagado', autumn: 'Pradera dorada' }[button.dataset.palette]);
+    detail.textContent = palette?.detail || ({ meadow: 'Soft spring', emerald: 'Vibrant forest', moss: 'Muted moss', autumn: 'Golden grassland' }[button.dataset.palette]);
     button.querySelectorAll('.swatches i').forEach((swatch, index) => {
       const ramp = palette?.ramp || palettes[button.dataset.palette].ramp;
       swatch.style.backgroundColor = `rgb(${ramp[[0, 2, 5, 7][index]].join(',')})`;
@@ -1402,18 +1462,26 @@ function updateMaterialControls() {
   updateRandomPaletteSwatches(activeColors.ramp);
   document.querySelector('.south-swatch').style.backgroundColor = `rgb(${activeColors.ramp[3].map((channel) => Math.round(channel * 0.82)).join(',')})`;
   document.querySelector('.east-swatch').style.backgroundColor = `rgb(${activeColors.ramp[3].map((channel) => Math.round(channel * 0.66)).join(',')})`;
-  const paletteLabel = isFurniture ? 'mobiliario' : state.material;
-  document.querySelector('#random-palette').setAttribute('aria-label', `Generar paleta aleatoria de ${paletteLabel}`);
-  document.querySelector('.variation-swatches').setAttribute('aria-label', `Cuatro variantes de ${paletteLabel}`);
+  const paletteLabel = isFurniture ? 'furniture' : state.material;
+  document.querySelector('#random-palette').setAttribute('aria-label', `Generate a random ${paletteLabel} palette`);
+  document.querySelector('.variation-swatches').setAttribute('aria-label', `Four ${paletteLabel} variations`);
+  document.querySelector('#send-to-game').hidden = isFurniture || !BitCanvasGameSync.supported;
+  document.querySelector('#change-folder').hidden = isFurniture || !BitCanvasGameSync.supported;
+  document.querySelector('#game-destination').hidden = isFurniture || !BitCanvasGameSync.supported;
+  const gameSheet = GAME_SHEETS[state.material];
+  document.querySelector('#game-destination').textContent = gameSheet
+    ? `→ sprites/${gameSheet.folder}/ ${gameSheet.variants} + ${gameSheet.sides}`
+    : '';
+  document.querySelector('#seed-readout').textContent = state.seed.toUpperCase();
 }
 
 function updateReadouts() {
   const size = currentSize();
   const sides = state.material !== 'furniture' && state.view === 'sides';
   document.querySelector('#stage-dimensions').textContent = sides ? '128 × 32 PX' : `${size.width} × ${size.height} PX`;
-  document.querySelector('#export-dimensions').textContent = sides ? '128 × 32 px' : `${size.width} × ${size.height} px`;
   document.querySelector('#density-value').textContent = state.density;
   document.querySelector('#brightness-value').textContent = state.brightness;
+  document.querySelector('#seed-readout').textContent = state.seed.toUpperCase();
 }
 
 function randomSeed() {
@@ -1425,11 +1493,20 @@ function randomMaterialPalette() {
   const hueRange = woodTones ? [18, 42]
     : state.material === 'cobblestone' ? [185, 245]
       : state.material === 'concrete' ? [175, 215]
-      : [72, 147];
+        : state.material === 'asphalt' ? [195, 235]
+          : state.material === 'roofing' ? [200, 230]
+            : state.material === 'brick' ? [5, 25]
+              : [72, 147];
   const saturationRange = woodTones ? [30, 56]
     : state.material === 'cobblestone' ? [5, 20]
       : state.material === 'concrete' ? [2, 12]
-      : [42, 67];
+        : state.material === 'asphalt' ? [2, 10]
+          : state.material === 'roofing' ? [3, 12]
+            : state.material === 'brick' ? [40, 65]
+              : [42, 67];
+  const lightnessSpan = state.material === 'asphalt' ? [8, 46]
+    : state.material === 'roofing' ? [10, 50]
+      : [13, 58];
   const hue = hueRange[0] + Math.random() * (hueRange[1] - hueRange[0]);
   const saturation = saturationRange[0] + Math.random() * (saturationRange[1] - saturationRange[0]);
   const ramp = [];
@@ -1437,7 +1514,7 @@ function randomMaterialPalette() {
     const step = index / 7;
     const colorHue = (hue + (Math.random() - 0.5) * 8) / 360;
     const colorSaturation = (saturation - step * 8 + (Math.random() - 0.5) * 6) / 100;
-    const lightness = (13 + step * 58 + (Math.random() - 0.5) * 3) / 100;
+    const lightness = (lightnessSpan[0] + step * lightnessSpan[1] + (Math.random() - 0.5) * 3) / 100;
     const chroma = (1 - Math.abs(2 * lightness - 1)) * colorSaturation;
     const segment = colorHue * 6;
     const secondary = chroma * (1 - Math.abs((segment % 2) - 1));
@@ -1460,11 +1537,12 @@ function updateRandomPaletteSwatches(ramp) {
   });
 }
 
-function showToast(message) {
-  toast.textContent = message;
-  toast.classList.add('is-visible');
-  window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => toast.classList.remove('is-visible'), 2400);
+function showStatus(message, kind = 'act') {
+  const item = document.createElement('div');
+  item.className = `status-item ${kind}`;
+  item.textContent = message;
+  statusFeed.append(item);
+  while (statusFeed.children.length > 3) statusFeed.firstElementChild.remove();
 }
 
 function updateSliderProgress(input) {
@@ -1477,7 +1555,7 @@ document.querySelectorAll('.material-option[data-material]').forEach((button) =>
     state.material = button.dataset.material;
     if (button.dataset.piece) state.furniture = button.dataset.piece;
     state.customPalette = null;
-    document.querySelector('#random-palette').classList.remove('is-active');
+    document.querySelector('#random-palette').classList.remove('active');
     document.querySelector('#random-palette').setAttribute('aria-pressed', 'false');
     updateMaterialControls();
     paintTexture();
@@ -1489,11 +1567,11 @@ document.querySelectorAll('.palette-option').forEach((button) => {
     state.palette = button.dataset.palette;
     state.customPalette = null;
     const randomPaletteButton = document.querySelector('#random-palette');
-    randomPaletteButton.classList.remove('is-active');
+    randomPaletteButton.classList.remove('active');
     randomPaletteButton.setAttribute('aria-pressed', 'false');
     document.querySelectorAll('.palette-option').forEach((option) => {
       const selected = option === button;
-      option.classList.toggle('is-selected', selected);
+      option.classList.toggle('selected', selected);
       option.setAttribute('aria-pressed', String(selected));
     });
     updateMaterialControls();
@@ -1504,15 +1582,15 @@ document.querySelectorAll('.palette-option').forEach((button) => {
 document.querySelector('#random-palette').addEventListener('click', (event) => {
   state.customPalette = randomMaterialPalette();
   document.querySelectorAll('.palette-option').forEach((option) => {
-    option.classList.remove('is-selected');
+    option.classList.remove('selected');
     option.setAttribute('aria-pressed', 'false');
   });
-  event.currentTarget.classList.add('is-active');
+  event.currentTarget.classList.add('active');
   event.currentTarget.setAttribute('aria-pressed', 'true');
   updateRandomPaletteSwatches(state.customPalette.ramp);
   updateMaterialControls();
   paintTexture();
-  showToast(`Nueva paleta de ${state.material} generada`);
+  showStatus(`Generated a new ${state.material} palette.`);
 });
 
 densityInput.addEventListener('input', () => {
@@ -1554,14 +1632,14 @@ document.querySelector('#random-seed').addEventListener('click', () => {
   state.seed = randomSeed();
   seedInput.value = state.seed;
   paintTexture();
-  showToast('Nueva semilla lista para explorar');
+  showStatus('New seed ready.');
 });
 
 function setView(view) {
   state.view = view;
   document.querySelectorAll('.view-button').forEach((button) => {
     const active = button.dataset.view === view;
-    button.classList.toggle('is-active', active);
+    button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', String(active));
   });
   updateSpecText(state.material === 'furniture');
@@ -1576,7 +1654,7 @@ document.querySelectorAll('.view-button').forEach((button) => {
 function downloadTexture(canvas, filename, successMessage) {
   canvas.toBlob((blob) => {
     if (!blob) {
-      showToast('No se pudo preparar el PNG');
+    showStatus('Could not prepare the PNG.', 'fail');
       return;
     }
     const link = document.createElement('a');
@@ -1584,7 +1662,7 @@ function downloadTexture(canvas, filename, successMessage) {
     link.href = URL.createObjectURL(blob);
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-    showToast(successMessage);
+    showStatus(successMessage);
   }, 'image/png');
 }
 
@@ -1593,50 +1671,128 @@ document.querySelector('#export-button').addEventListener('click', () => {
   if (state.material === 'furniture') {
     const { name } = FURNITURE[state.furniture];
     const size = currentSize();
-    downloadTexture(textureCanvas, `pixelcanvas-furniture-${state.furniture}-${state.furnitureStyle}-${size.width}x${size.height}-${safeSeed}.png`, `Sprite ${name.toLowerCase()} ${size.width} × ${size.height} exportado.`);
+    downloadTexture(textureCanvas, `bitcanvas-furniture-${state.furniture}-${state.furnitureStyle}-${size.width}x${size.height}-${safeSeed}.png`, `${name} sprite (${size.width} × ${size.height}) exported.`);
     return;
   }
-  downloadTexture(textureCanvas, `pixelcanvas-${state.material}-top-64x32-${safeSeed}.png`, 'Tile isométrico 64 × 32 exportado.');
+  downloadTexture(textureCanvas, `bitcanvas-${state.material}-top-64x32-${safeSeed}.png`, 'Isometric 64 × 32 tile exported.');
 });
 
 document.querySelector('#export-variants').addEventListener('click', () => {
+  const sheet = GAME_SHEETS[state.material];
+  if (sheet) {
+    downloadTexture(textureAtlas, sheet.variants, `Saved ${sheet.variants}.`);
+    return;
+  }
   const safeSeed = state.seed.replace(/[^a-z0-9_-]/gi, '-').slice(0, 12) || state.material;
-  downloadTexture(textureAtlas, `pixelcanvas-${state.material}-variants-${textureAtlas.width}x${textureAtlas.height}-${safeSeed}.png`, 'Spritesheet de cuatro variantes exportado.');
+  downloadTexture(textureAtlas, `bitcanvas-${state.material}-variants-${textureAtlas.width}x${textureAtlas.height}-${safeSeed}.png`, 'Four-variant spritesheet exported.');
 });
 
 document.querySelector('#export-sides').addEventListener('click', () => {
   if (!sideAtlas) {
-    showToast('Las caras laterales no aplican al mobiliario.');
+    showStatus('Side faces are not available for furniture.', 'warn');
     return;
   }
   const safeSeed = state.seed.replace(/[^a-z0-9_-]/gi, '-').slice(0, 12) || state.material;
-  downloadTexture(sideAtlas, `pixelcanvas-${state.material}-sides-256x16-${safeSeed}.png`, 'Cuatro pares de caras exportados; cada bloque se repite cada 16 px.');
+  downloadTexture(sideAtlas, `bitcanvas-${state.material}-sides-256x16-${safeSeed}.png`, 'Four side pairs exported; each block repeats every 16 px.');
 });
 
 document.querySelector('#export-sides-sheet').addEventListener('click', () => {
   if (!sideSheetTexture) {
-    showToast('La hoja de caras no aplica al mobiliario.');
+    showStatus('The side sheet is not available for furniture.', 'warn');
+    return;
+  }
+  const sheet = GAME_SHEETS[state.material];
+  if (sheet) {
+    downloadTexture(sideSheetTexture, sheet.sides, `Saved ${sheet.sides}.`);
     return;
   }
   const safeSeed = state.seed.replace(/[^a-z0-9_-]/gi, '-').slice(0, 12) || state.material;
-  downloadTexture(
-    sideSheetTexture,
-    `pixelcanvas-${state.material}-side-128x32-${safeSeed}.png`,
-    'Hoja de caras 128 × 32 exportada: cap bajo el borde y fill para caras altas.',
-  );
+  downloadTexture(sideSheetTexture, `bitcanvas-${state.material}-side-128x32-${safeSeed}.png`, '128 × 32 side sheet exported: edge cap and repeating fill.');
 });
 
-document.querySelector('#help-button').addEventListener('click', () => {
-  showToast('Texturas 64 × 32 px, hojas de caras 128 × 32 y mobiliario en pixel art o voxel, con semilla, paleta y cuatro variantes.');
+const helpButton = document.querySelector('#help-button');
+const helpPopover = document.querySelector('#help-popover');
+helpButton.addEventListener('click', () => { helpPopover.hidden = !helpPopover.hidden; });
+
+document.querySelectorAll('[data-material-tab]').forEach((button) => {
+  button.addEventListener('click', () => setMaterialTab(button.dataset.materialTab));
 });
 
-document.querySelector('#add-material').addEventListener('click', () => {
-  showToast('Más materiales de Pixelcanvas llegarán pronto.');
+function setMaterialTab(tab) {
+  document.querySelectorAll('[data-material-tab]').forEach((button) => {
+    const active = button.dataset.materialTab === tab;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', String(active));
+  });
+  document.querySelectorAll('.material-option').forEach((button) => {
+    button.hidden = (button.dataset.material === 'furniture') !== (tab === 'furniture');
+  });
+  const visible = [...document.querySelectorAll('.material-option:not([hidden])')];
+  if (!visible.some((button) => button.classList.contains('active'))) visible[0]?.click();
+}
+
+document.querySelector('#send-to-game').addEventListener('click', async () => {
+  const sheets = GAME_SHEETS[state.material];
+  if (!sheets || !BitCanvasGameSync.supported) return;
+  const result = await BitCanvasGameSync.send(sheets.folder, textureAtlas, sideSheetTexture, [sheets.variants, sheets.sides]);
+  const message = result.kind === 'warn' ? `CAN'T SEND: ${result.message}`
+    : result.kind === 'fail' ? `FAILED: ${result.message}` : result.message;
+  showStatus(message, result.kind);
+  if (result.kind === 'act') document.querySelector('#folder-name').textContent = 'FOLDER sprites';
+});
+
+document.querySelector('#change-folder').addEventListener('click', async () => {
+  const result = await BitCanvasGameSync.chooseFolder();
+  if (result.handle) {
+    document.querySelector('#folder-name').textContent = `FOLDER ${result.handle.name}`;
+    showStatus(`Using ${result.handle.name}/ as the sprites folder.`);
+  } else {
+    const refused = result.error.includes('Pick EtherBound');
+    showStatus(`${refused ? "CAN'T SEND" : 'FAILED'}: ${result.error}`, refused ? 'warn' : 'fail');
+  }
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    helpPopover.hidden = true;
+    return;
+  }
+  if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target.isContentEditable) return;
+  const key = event.key.toLowerCase();
+  if (key === '?') {
+    helpPopover.hidden = !helpPopover.hidden;
+  } else if (key === 't') {
+    setMaterialTab('terrain');
+  } else if (key === 'f') {
+    setMaterialTab('furniture');
+  } else if (key === 'v' && state.material !== 'furniture') {
+    const views = ['tiles', 'block', 'sides'];
+    setView(views[(views.indexOf(state.view) + 1) % views.length]);
+  } else if (key === 'r') {
+    document.querySelector('#random-seed').click();
+  } else if (key === 'p') {
+    document.querySelector('#random-palette').click();
+  } else if (key === 'arrowup' || key === 'arrowdown') {
+    event.preventDefault();
+    const options = [...document.querySelectorAll('.material-option:not([hidden])')];
+    const selected = options.findIndex((button) => button.classList.contains('active'));
+    const step = key === 'arrowdown' ? 1 : -1;
+    options[(selected + step + options.length) % options.length]?.click();
+  }
 });
 
 preview.width = 768;
 preview.height = 768;
+if (!BitCanvasGameSync.supported) {
+  document.querySelector('#send-to-game').hidden = true;
+  document.querySelector('#change-folder').hidden = true;
+  document.querySelector('#folder-name').hidden = true;
+}
+setMaterialTab('terrain');
 updateMaterialControls();
+BitCanvasGameSync.storedFolderName().then((name) => {
+  if (name) document.querySelector('#folder-name').textContent = `FOLDER ${name}`;
+});
 updateSliderProgress(densityInput);
 updateSliderProgress(brightnessInput);
 paintTexture();

@@ -5,7 +5,8 @@ have been measured. Design lives in `docs/utils/VISION.md`; `Dev-001` (archived 
 specifies the Phase 0 skeleton, `Dev-002` (archived in `docs/done/`) the world model described
 here, `Dev-003` (archived in `docs/done/`) the native launcher, `Dev-005` (archived in
 `docs/done/`) the event bus and action pipeline, and `Dev-007` (archived in `docs/done/`) the op
-vocabulary, generated menus and activities.
+vocabulary, generated menus and activities. `Dev-009` (archived in `docs/done/`) makes BitCanvas
+the standalone terrain/furniture generator and adds guarded game-sheet sync.
 
 ## Modules
 
@@ -20,10 +21,11 @@ vocabulary, generated menus and activities.
 | server.db | `server/src/etherbound/db/`, `server/alembic/` | SQLAlchemy models, engine/session factory, Alembic upgrade on start |
 | server.rng | `server/src/etherbound/rng.py` | `RNGStreams.stream(system)` — one seeded stream per system (`worldgen` drives generation) |
 | web.world | `web/src/world/` | `ChunkStore` (public `isVoid` query and `solidTopH`, the solid top under contiguous VOID bands), `rules.ts` (server-parity standing/headroom/wall rules, slope and material costs), `cutaway.ts` (roof connectivity and height cutoff), `ray.ts` (shared height-stepped floor/ground ray march), `occlusion.ts` (connected structures, storey cutoffs and Niko coverage probes), `pick.ts` (height-aware picking through `ray.ts`, includes VOID floors and skips VOID ground), `materials.ts` |
-| web.game | `web/src/game/` | Phaser scene: fixed 64×32 isometric projection (16 px per `h`), ordered per-layer `Blitter` batches over runtime `terrain` atlas masks and the grass/wood/concrete sprite table (statically imported in `terrainSheets.ts`), including a sheared 128×32 side-sheet band per textured material (four cap and four fill cells per side, drawn one unit at a time with a cap on the face top and fill below); chunk base and diagonal rows split at Niko's feet, explicitly anchored terraced ground/floor faces and walls, void-cut ground faces drawn as fill only from `solidTopH`; roofed and structure cutaways with front-wall stubs and a topmost silhouette when Niko remains occluded; redraws use a time-budgeted dirty queue and culling uses cached chunk bounds; screen-relative WASD, isometric bounds and per-tile-cutoff right-click picking; integer zoom x1–x4 (wheel, `+`/`-`/`0`, saved per browser); timed 50 ms movement steps plus final partial step; redraws arriving-chunk neighbours; resyncs idle prediction on ticks |
+| web.game | `web/src/game/` | Phaser scene: fixed 64×32 isometric projection (16 px per `h`), ordered per-layer `Blitter` batches over runtime `terrain` atlas masks and the grass/wood/concrete/asphalt/roofing/brick sprite table (statically imported in `terrainSheets.ts`), including a sheared 128×32 side-sheet band per textured material (four cap and four fill cells per side, drawn one unit at a time with a cap on the face top and fill below) and a separate wall band built from the same side sheets by `shearWallCell` (four cap and four fill cells per `n`/`w` edge, one unit per cell with a cap on the wall's real top and fill below); chunk base and diagonal rows split at Niko's feet, explicitly anchored terraced ground/floor faces and walls, void-cut ground faces drawn as fill only from `solidTopH`; roofed and structure cutaways with front-wall stubs and a topmost silhouette when Niko remains occluded; redraws use a time-budgeted dirty queue and culling uses cached chunk bounds; screen-relative WASD, isometric bounds and per-tile-cutoff right-click picking; integer zoom x1–x4 (wheel, `+`/`-`/`0`, saved per browser); timed 50 ms movement steps plus final partial step; redraws arriving-chunk neighbours; resyncs idle prediction on ticks |
 | web.net | `web/src/net/` | WS client, prediction/reconciliation by replaying unacknowledged timed steps (no wall clock, 0.3 m wall clearance), generated `schema.d.ts`, protocol types; snapshot listeners run before state listeners, and `requestNewGame(seed)` calls the existing REST endpoint; the client caches every chunk it receives and replays the cache to a late `onChunk` listener, clearing it on snapshot and on `disconnect`; it also reconnects a closed or failed socket with a 250 ms→4 s backoff and stops on `disconnect`; `sendAction` and pause flush the current partial movement step, `onResult`, `onActivity` |
 | web.ui | `web/src/ui/` | React overlay framed around the Phaser viewport: clock, speeds, pills, meters, `FEED` (kinds `seen`, `act`, `warn`, `fail`, `echo`), `ACT` telemetry row, input, generated context menu (server `target` line, arrow keys, Enter, Esc) that submits each entry's `action`; `NEW` control opens a confirmation popover with a seed field; `DEBUG` opens a right-side drawer with a placeholder tab |
 | launcher | `launcher/` | `EtherBound.exe`, the dev launcher (C#, .NET 10, Native AOT): starts server + web without shells, each in its own job inside a kill-on-close launcher job, health checks, hot reload by restart, leftover and port handling, UTF-8 logs, framed version/services banner |
+| bitcanvas | `BitCanvas/` | Standalone seeded texture (grass, planks, cobblestone, concrete, asphalt, roofing, brick) and furniture sprite generator (plain HTML/JS, no build, opens from disk). "Send to game" writes the 256×32 top atlas and 128×32 side sheet into `src/sprites/` under the game's names (File System Access API, Chromium only); downloads remain available for every export |
 | tooling | root config: `package.json`, `global.json`, `.gitignore`, `.env.example` | Build and check scripts, pinned .NET SDK |
 
 ## Data model
@@ -112,6 +114,7 @@ further off, it is relocated to spawn (`actor.spawned`, `relocated`).
 
 ```text
 # Launcher: build once, and again after changing launcher/ (the exe is gitignored)
+npm run bitcanvas             # open the standalone sprite generator
 npm run launcher:build        # Native AOT publish, copies EtherBound.exe to the root
 EtherBound.exe                # server (hot reload) + web; keys O R W L H Q; logs in logs\
 EtherBound.exe --no-reload    # no restart on saved server sources
@@ -191,7 +194,7 @@ its process to stop it, and its job takes the services with it. The logs are
   such as `clock.ticked` and `chunk.changed` are skipped; `/api/events` remains the structured log.
 - **Pytest warnings are third-party** (FastAPI/Starlette/pytest-asyncio deprecations), not project
   issues. The current server suite is 79 tests, all passing.
-- **Current automated validation:** 79 server tests, 51 web tests, and 55 launcher tests pass;
+- **Current automated validation:** 79 server tests, 55 web tests, and 55 launcher tests pass;
   generated API types are unchanged. The production web build passes with the existing large-bundle
   advisory. Manual isometric visual and performance acceptance remains in `docs/PENDING.md`.
 - **VOID is a ground-volume flag, not a missing-floor flag.** Render and pick stored floors even
@@ -228,10 +231,20 @@ its process to stop it, and its job takes the services with it. The logs are
 - **A void ground's faces start at its solid top.** `ChunkStore.solidTopH` walks down through
   contiguous VOID bands, and `drawChunk` measures both the face bottom and the "is it higher" test
   with it; void-cut faces are fill only, so the excavated side has no grass lip.
+- **BitCanvas (`bitcanvas` v0.0.3; tooling v0.0.9; project v0.6.7) sends only game-ready terrain sheets.** The File System Access API is Chromium-only
+  and requires a user-picked directory named `sprites` containing a `grass` or `floor` directory.
+  A send overwrites files: `git restore src/sprites` restores tracked sheets, but newly created
+  material PNGs are untracked and need separate cleanup if they were only test outputs. New material
+  sheets still require entries in `terrainSprites.ts` and static imports in `terrainSheets.ts`;
+  BitCanvas never edits game source. The manual Vite reload check was not run.
+- **The terrain atlas side and wall bands each hold at most 8 materials** (512 px per material,
+  4096 px per band). The side band and the wall band are separate rows in the same canvas, and a
+  ninth sheet in either needs a wider or wrapped band; the loader warns and skips the overflow.
 
 ## Not yet present
 
 The other seven primitives as data models, handlers for the 53 ops beyond `move`, `inspect`,
 `wait`, `dig` and `climb`, modifiers, rolls, witnesses/knowledge, tile physics,
-water simulation, NPCs, LLM, Jev, LimeZu art pipeline and the city generator. Vector placeholders
-remain for materials not mapped in `web/src/game/terrainSprites.ts`.
+water simulation, NPCs, LLM, Jev, furniture rendering in the game (BitCanvas already exports
+sprites) and the city generator. Vector placeholders remain for materials not mapped in
+`web/src/game/terrainSprites.ts`.

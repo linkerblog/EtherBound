@@ -11,7 +11,7 @@ import { cutoffH } from "../world/cutaway";
 import { pickTile } from "../world/pick";
 import { isCovered, occludingStructures, type Structure } from "../world/occlusion";
 import { cutoffChunkKeys, changedChunkKeys, materialChunkKeys, structureChunkKeys, tileChunkKeys, viewerHeightChunkKeys, type DirtyChunk } from "./dirty";
-import { diamondMask, edgeLineMask, faceMask, shearSideCell, wallMask, type SideCell, type TileMask } from "./tileMasks";
+import { diamondMask, edgeLineMask, faceMask, shearSideCell, shearWallCell, wallMask, type SideCell, type TileMask } from "./tileMasks";
 import { shadeColor, sideTint, sideVariant, spriteTint } from "./terrainSprites";
 import { TERRAIN_SHEETS, TERRAIN_SIDE_SHEETS } from "./terrainSheets";
 type Material = components["schemas"]["MaterialResponse"];
@@ -71,6 +71,7 @@ export class MapScene extends Phaser.Scene {
   private readonly maskOffsets = new Map<string, { x: number; y: number }>();
   private readonly spriteKeys = new Set<string>();
   private readonly sideKeys = new Set<string>();
+  private readonly wallKeys = new Set<string>();
   private structures: Structure[] = [];
   private telemetryOrigin: { x: number; y: number } | null = null;
   private telemetryElapsed = 0;
@@ -331,8 +332,11 @@ export class MapScene extends Phaser.Scene {
     });
 
     const sideFrames: Array<[string, SideCell]> = [];
+    const wallFrames: Array<[string, SideCell]> = [];
     let sideWidth = 0;
     let sideHeight = 0;
+    let wallWidth = 0;
+    let wallHeight = 0;
     for (const [key, file] of Object.entries(TERRAIN_SIDE_SHEETS)) {
       const texture = this.textures.get(`side:${key}`);
       const source = texture.getSourceImage() as HTMLImageElement | undefined;
@@ -344,26 +348,45 @@ export class MapScene extends Phaser.Scene {
         console.warn(`Skipping ${key} terrain side sheet: expected 128x32, received ${source.width}x${source.height}`);
         continue;
       }
+      const sheet = { width: source.width, height: source.height, data: this.readPixels(source) };
       if (sideWidth + 16 * 32 > 4096) {
         console.warn(`Skipping ${key} terrain side sheet: atlas side band would exceed 4096 px`);
-        continue;
-      }
-      const sheet = { width: source.width, height: source.height, data: this.readPixels(source) };
-      for (const side of ["s", "e"] as const) {
-        for (const part of ["cap", "fill"] as const) {
-          for (const variant of [0, 1, 2, 3] as const) {
-            const cell = shearSideCell(sheet, side, part, variant);
-            sideFrames.push([`side:${key}:${side}:${part}:${variant}`, cell]);
-            sideHeight = Math.max(sideHeight, cell.height);
+      } else {
+        for (const side of ["s", "e"] as const) {
+          for (const part of ["cap", "fill"] as const) {
+            for (const variant of [0, 1, 2, 3] as const) {
+              const cell = shearSideCell(sheet, side, part, variant);
+              sideFrames.push([`side:${key}:${side}:${part}:${variant}`, cell]);
+              sideHeight = Math.max(sideHeight, cell.height);
+            }
           }
         }
+        sideWidth += 16 * 32;
+        this.sideKeys.add(key);
       }
-      sideWidth += 16 * 32;
-      this.sideKeys.add(key);
+      if (wallWidth + 16 * 32 > 4096) {
+        console.warn(`Skipping ${key} terrain wall sheet: atlas wall band would exceed 4096 px`);
+      } else {
+        for (const edge of ["n", "w"] as const) {
+          for (const part of ["cap", "fill"] as const) {
+            for (const variant of [0, 1, 2, 3] as const) {
+              const cell = shearWallCell(sheet, edge, part, variant);
+              wallFrames.push([`wall:${key}:${edge}:${part}:${variant}`, cell]);
+              wallHeight = Math.max(wallHeight, cell.height);
+            }
+          }
+        }
+        wallWidth += 16 * 32;
+        this.wallKeys.add(key);
+      }
     }
 
     const slotCount = spriteSheets.length * 4 + masks.length;
-    const atlas = this.textures.createCanvas("terrain", Math.max(slotCount * TILE_W, sideWidth), 160 + sideHeight);
+    const atlas = this.textures.createCanvas(
+      "terrain",
+      Math.max(slotCount * TILE_W, sideWidth, wallWidth),
+      160 + sideHeight + wallHeight,
+    );
     if (!atlas) throw new Error("Failed to create terrain atlas");
     const context = atlas.context;
     let spriteSlot = 0;
@@ -397,6 +420,16 @@ export class MapScene extends Phaser.Scene {
       atlas.add(name, 0, sideX, 160, cell.width, cell.height);
       this.maskOffsets.set(name, { x: cell.offsetX, y: cell.offsetY });
       sideX += cell.width;
+    }
+    let wallX = 0;
+    const wallY = 160 + sideHeight;
+    for (const [name, cell] of wallFrames) {
+      const image = context.createImageData(cell.width, cell.height);
+      image.data.set(cell.rgba);
+      context.putImageData(image, wallX, wallY);
+      atlas.add(name, 0, wallX, wallY, cell.width, cell.height);
+      this.maskOffsets.set(name, { x: cell.offsetX, y: cell.offsetY });
+      wallX += cell.width;
     }
     atlas.refresh();
   }
@@ -732,18 +765,47 @@ export class MapScene extends Phaser.Scene {
   ): void {
     const color = this.materialColor(materialId);
     const light = edge === "n" ? 0.82 : 0.66;
+    const key = this.materials?.get(materialId)?.key;
+    const textured = key !== undefined && this.wallKeys.has(key);
     const cap = Math.min(base + MAX_WALL_H, cutoff);
     const top = stub ? Math.min(base + 1, cap) : cap;
     if (top <= base) return;
+    const run = (bottom: number, runTop: number, tint: number): void => {
+      if (textured && key !== undefined) this.drawWallUnits(edge, layers, usedRows, x, y, bottom, runTop, base, stub, key, light, row);
+      else this.drawWallRun(layers, usedRows, edge, x, y, bottom, runTop, row, tint);
+    };
     if (stub || !window) {
-      this.drawWallRun(layers, usedRows, edge, x, y, base, top, row, this.scaleColor(color, light));
+      run(base, top, this.scaleColor(color, light));
     } else {
-      this.drawWallRun(layers, usedRows, edge, x, y, base, Math.min(base + 2, top), row, this.scaleColor(color, light));
-      if (top > base + 4) this.drawWallRun(layers, usedRows, edge, x, y, base + 4, top, row, this.scaleColor(color, light));
+      run(base, Math.min(base + 2, top), this.scaleColor(color, light));
+      if (top > base + 4) run(base + 4, top, this.scaleColor(color, light));
       if (top > base + 2) this.drawWallRun(layers, usedRows, edge, x, y, base + 2, Math.min(base + 4, top), row, this.scaleColor(0xd8e6f0, light), 0.45);
     }
     if (!stub && top === base + MAX_WALL_H) {
       this.drawMask(layers, usedRows, `line${edge.toUpperCase()}`, x, y, top, row, this.scaleColor(color, 1.12));
+    }
+  }
+
+  /** Textured walls stack one unit at a time: a cap only on the wall's real top, fill below. */
+  private drawWallUnits(
+    edge: "n" | "w",
+    layers: ChunkLayers,
+    usedRows: Set<number>,
+    x: number,
+    y: number,
+    bottom: number,
+    top: number,
+    base: number,
+    stub: boolean,
+    key: string,
+    light: number,
+    row: number,
+  ): void {
+    const tint = this.scaleColor(0xffffff, light);
+    for (let unitTop = bottom + 1; unitTop <= top; unitTop += 1) {
+      const part = !stub && unitTop === base + MAX_WALL_H ? "cap" : "fill";
+      const frame = `wall:${key}:${edge}:${part}:${sideVariant(x, y, edge, unitTop)}`;
+      this.drawMask(layers, usedRows, frame, x, y, unitTop, row, tint);
     }
   }
 

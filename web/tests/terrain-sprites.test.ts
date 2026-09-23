@@ -66,3 +66,29 @@ test("side variant is deterministic and uses all four values over a 16x16 area",
   }
   assert.deepEqual([...seen].sort(), [0, 1, 2, 3]);
 });
+
+test("side variant keeps its south and east values on a fixed sample", () => {
+  assert.equal(sideVariant(5, 7, "s", 18), 1);
+  assert.equal(sideVariant(5, 7, "e", 18), 0);
+  assert.equal(sideVariant(12, 3, "s", 11), 1);
+  assert.equal(sideVariant(12, 3, "e", 11), 1);
+  assert.equal(sideVariant(-3, 9, "s", 24), 3);
+  assert.equal(sideVariant(-3, 9, "e", 24), 2);
+});
+
+test("north and west wall variants are deterministic and cover all four values", () => {
+  const seen = new Set<number>();
+  for (let x = 0; x < 16; x += 1) {
+    for (let y = 0; y < 16; y += 1) {
+      for (const side of ["n", "w"] as const) {
+        const value = sideVariant(x, y, side, 12);
+        assert.ok(value >= 0 && value <= 3);
+        assert.equal(value, sideVariant(x, y, side, 12));
+        seen.add(value);
+      }
+    }
+  }
+  assert.deepEqual([...seen].sort(), [0, 1, 2, 3]);
+  assert.notEqual(sideVariant(0, 0, "n", 12), sideVariant(0, 0, "s", 12));
+  assert.notEqual(sideVariant(0, 0, "w", 12), sideVariant(0, 0, "s", 12));
+});

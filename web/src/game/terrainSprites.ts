@@ -1,13 +1,19 @@
 export const TERRAIN_SPRITE_FILES: Record<string, string> = {
   grass: "grass/grass_x4.png",
   wood_floor: "floor/planks_x4.png",
-  concrete: "floor/stone_x4.png",
+  concrete: "floor/concrete_x4.png",
+  asphalt: "floor/asphalt_x4.png",
+  roofing: "floor/roofing_x4.png",
+  brick: "wall/brick_x4.png",
 };
 
 export const TERRAIN_SIDE_FILES: Record<string, string> = {
   grass: "grass/grass_side_x4.png",
   wood_floor: "floor/planks_side_x4.png",
-  concrete: "floor/stone_side_x4.png",
+  concrete: "floor/concrete_side_x4.png",
+  asphalt: "floor/asphalt_side_x4.png",
+  roofing: "floor/roofing_side_x4.png",
+  brick: "wall/brick_side_x4.png",
 };
 
 export function shadeColor(color: number, h: number): number {
@@ -35,9 +41,11 @@ export function sideTint(color: number, h: number, light: number): number {
 }
 
 /** Per-unit side variant, hashed from the owner tile, side and unit top. */
-export function sideVariant(x: number, y: number, side: "s" | "e", h: number): 0 | 1 | 2 | 3 {
+export function sideVariant(x: number, y: number, side: "s" | "e" | "n" | "w", h: number): 0 | 1 | 2 | 3 {
   let hash = Math.imul(x, 0x45d9f3b) ^ Math.imul(y, 0x119de1f3) ^ Math.imul(h, 0x27d4eb2f);
   if (side === "e") hash ^= 0x9e3779b9;
+  else if (side === "n") hash ^= 0x7f4a7c15;
+  else if (side === "w") hash ^= 0x94d049bb;
   hash = Math.imul(hash ^ (hash >>> 16), 0x45d9f3b);
   return ((hash ^ (hash >>> 16)) & 3) as 0 | 1 | 2 | 3;
 }

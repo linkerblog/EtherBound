@@ -1,149 +1,140 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#101b14" />
-    <meta name="description" content="Pixelcanvas: generador de texturas y mobiliario isométrico de pixel art." />
-    <title>Pixelcanvas — Texturas y mobiliario</title>
-    <link rel="stylesheet" href="./styles.css" />
-    <link rel="stylesheet" href="./pixelcanvas.css" />
+    <meta name="theme-color" content="#07080a" />
+    <meta name="description" content="BitCanvas: a seeded texture and isometric furniture sprite generator." />
+    <title>BitCanvas - Textures and furniture</title>
+    <link rel="stylesheet" href="./bitcanvas.css" />
     <script src="./pixelart.js" defer></script>
+    <script src="./gamesync.js" defer></script>
     <script src="./app.js" defer></script>
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
-        <div class="breadcrumb"><span>PIXELCANVAS</span><span class="crumb-slash">/</span><b id="breadcrumb-material">GRASS</b><span class="unsaved-dot" title="Cambios sin exportar"></span></div>
-        <div class="topbar-actions"><div class="engine-badge"><span class="engine-dot"></span> ISOMETRIC <span class="engine-divider"></span> 16 BIT</div><button class="icon-button" id="help-button" type="button" aria-label="Acerca de Pixelcanvas" title="Acerca de Pixelcanvas">?</button></div>
+        <a class="brand" href="#main" aria-label="BitCanvas home">BIT<span>CANVAS</span></a>
+        <div class="breadcrumb"><span>TEXTURES</span><span class="crumb-slash">/</span><b id="breadcrumb-material">GRASS</b></div>
+        <div class="topbar-actions">
+          <span class="pill">ISO 2:1</span>
+          <span class="pill">64 × 32 PX</span>
+          <span class="pill seed-pill">#<span id="seed-readout">A17F3C</span></span>
+          <button class="mini" id="help-button" type="button" aria-label="Help" title="Help">?</button>
+          <div class="help-popover" id="help-popover" hidden>
+            <h3>KEYBOARD</h3>
+            <p><kbd>↑</kbd> <kbd>↓</kbd> Select material</p>
+            <p><kbd>T</kbd> Terrain · <kbd>F</kbd> Furniture</p>
+            <p><kbd>V</kbd> Cycle preview · <kbd>R</kbd> New seed</p>
+            <p><kbd>P</kbd> Random palette · <kbd>Esc</kbd> Close</p>
+            <p>Variants are seeded. Terrain sheets export at 256 × 32 and 128 × 32.</p>
+          </div>
+        </div>
       </header>
 
-      <section class="tool-panel">
-      <aside class="sidebar">
-        <a class="brand" href="#main" aria-label="Pixelcanvas, inicio">
-          <span class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 32 32" fill="none"><path d="M5 24c0-7.4 3.5-13.2 10.4-17.3 1.8 8.6-.7 15.5-7.2 20.6" fill="currentColor"/><path d="M12 27c1.7-7.3 6.2-12.2 13.6-14.8 0 9.8-4.4 15.3-13.6 14.8Z" fill="currentColor" opacity=".62"/><path d="M4 28h24" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          </span>
-          <span class="brand-name">pixel<span>canvas</span></span>
-        </a>
-
-        <div class="sidebar-scroll">
-          <nav class="material-nav" aria-label="Materiales por categoría">
-            <div class="section-eyebrow"><span>01</span> MATERIALES</div>
-            <section class="material-category" aria-labelledby="nature-category">
-              <h2 id="nature-category">Naturaleza</h2>
-              <button class="material-option is-active" id="grass-material" data-material="grass" type="button" aria-pressed="true"><span class="material-icon" aria-hidden="true">✳</span><span class="material-copy"><b>Grass</b><small>Vegetación</small></span><span class="material-indicator" aria-hidden="true"></span></button>
-            </section>
-            <section class="material-category" aria-labelledby="building-category">
-              <h2 id="building-category">Construcción</h2>
-              <button class="material-option" id="planks-material" data-material="planks" type="button" aria-pressed="false"><span class="material-icon" aria-hidden="true">▤</span><span class="material-copy"><b>Planks</b><small>Madera</small></span><span class="material-indicator" aria-hidden="true"></span></button>
-              <button class="material-option" id="cobblestone-material" data-material="cobblestone" type="button" aria-pressed="false"><span class="material-icon" aria-hidden="true">▦</span><span class="material-copy"><b>Cobblestone</b><small>Piedra</small></span><span class="material-indicator" aria-hidden="true"></span></button>
-              <button class="material-option" id="concrete-material" data-material="concrete" type="button" aria-pressed="false"><span class="material-icon" aria-hidden="true">▧</span><span class="material-copy"><b>Concrete</b><small>Concreto</small></span><span class="material-indicator" aria-hidden="true"></span></button>
-            </section>
-            <section class="material-category" aria-labelledby="furniture-category">
-              <h2 id="furniture-category">Mobiliario</h2>
-              <button class="material-option" id="table-material" data-material="furniture" data-piece="table" type="button" aria-pressed="false"><span class="material-icon" aria-hidden="true">⊞</span><span class="material-copy"><b>Table</b><small>Comedor</small></span><span class="material-indicator" aria-hidden="true"></span></button>
-              <button class="material-option" id="chair-material" data-material="furniture" data-piece="chair" type="button" aria-pressed="false"><span class="material-icon" aria-hidden="true">⊓</span><span class="material-copy"><b>Chair</b><small>Asiento</small></span><span class="material-indicator" aria-hidden="true"></span></button>
-              <button class="material-option" id="bed-material" data-material="furniture" data-piece="bed" type="button" aria-pressed="false"><span class="material-icon" aria-hidden="true">▭</span><span class="material-copy"><b>Bed</b><small>Dormitorio</small></span><span class="material-indicator" aria-hidden="true"></span></button>
-              <button class="material-option" id="chest-material" data-material="furniture" data-piece="chest" type="button" aria-pressed="false"><span class="material-icon" aria-hidden="true">▣</span><span class="material-copy"><b>Chest</b><small>Almacenaje</small></span><span class="material-indicator" aria-hidden="true"></span></button>
-              <button class="material-option" id="shelf-material" data-material="furniture" data-piece="shelf" type="button" aria-pressed="false"><span class="material-icon" aria-hidden="true">≣</span><span class="material-copy"><b>Shelf</b><small>Almacenaje</small></span><span class="material-indicator" aria-hidden="true"></span></button>
-              <button class="material-option" id="lamp-material" data-material="furniture" data-piece="lamp" type="button" aria-pressed="false"><span class="material-icon" aria-hidden="true">✦</span><span class="material-copy"><b>Lamp</b><small>Iluminación</small></span><span class="material-indicator" aria-hidden="true"></span></button>
-              <button class="material-option" id="plant-material" data-material="furniture" data-piece="plant" type="button" aria-pressed="false"><span class="material-icon" aria-hidden="true">❀</span><span class="material-copy"><b>Plant</b><small>Decoración</small></span><span class="material-indicator" aria-hidden="true"></span></button>
-              <button class="material-option" id="barrel-material" data-material="furniture" data-piece="barrel" type="button" aria-pressed="false"><span class="material-icon" aria-hidden="true">◉</span><span class="material-copy"><b>Barrel</b><small>Almacenaje</small></span><span class="material-indicator" aria-hidden="true"></span></button>
-            </section>
-            <button class="add-material" id="add-material" type="button" aria-label="Más materiales, próximamente"><span aria-hidden="true">+</span> Añadir material</button>
-          </nav>
-
-          <div class="section-eyebrow generator-eyebrow"><span>02</span> GENERADOR</div>
-          <div class="control-heading">
-            <div><h1 id="generator-title">Grass texture</h1><p id="generator-subtitle">Superficie isométrica</p></div>
-            <span class="live-badge"><span></span> LIVE</span>
+      <main class="tool-panel" id="main">
+        <aside class="materials-panel">
+          <h3>MATERIALS</h3>
+          <div class="tabs" role="tablist" aria-label="Material type">
+            <button class="tab active" type="button" data-material-tab="terrain" role="tab" aria-selected="true">TERRAIN</button>
+            <button class="tab" type="button" data-material-tab="furniture" role="tab" aria-selected="false">FURNITURE</button>
           </div>
+          <nav class="material-list list" aria-label="Materials">
+            <button class="material-option row active" id="grass-material" data-material="grass" type="button" aria-pressed="true"><span class="material-icon">✳</span><span class="material-copy"><b>Grass</b><small class="meta">grass/grass_x4</small></span></button>
+            <button class="material-option row" id="planks-material" data-material="planks" type="button" aria-pressed="false"><span class="material-icon">▤</span><span class="material-copy"><b>Planks</b><small class="meta">floor/planks_x4</small></span></button>
+            <button class="material-option row" id="cobblestone-material" data-material="cobblestone" type="button" aria-pressed="false"><span class="material-icon">▦</span><span class="material-copy"><b>Cobblestone</b><small class="meta">floor/stone_x4</small></span></button>
+            <button class="material-option row" id="concrete-material" data-material="concrete" type="button" aria-pressed="false"><span class="material-icon">▧</span><span class="material-copy"><b>Concrete</b><small class="meta">floor/concrete_x4</small></span></button>
+            <button class="material-option row" id="asphalt-material" data-material="asphalt" type="button" aria-pressed="false"><span class="material-icon">▩</span><span class="material-copy"><b>Asphalt</b><small class="meta">floor/asphalt_x4</small></span></button>
+            <button class="material-option row" id="roofing-material" data-material="roofing" type="button" aria-pressed="false"><span class="material-icon">▱</span><span class="material-copy"><b>Roofing</b><small class="meta">floor/roofing_x4</small></span></button>
+            <button class="material-option row" id="brick-material" data-material="brick" type="button" aria-pressed="false"><span class="material-icon">▥</span><span class="material-copy"><b>Brick</b><small class="meta">wall/brick_x4</small></span></button>
+            <button class="material-option row" id="table-material" data-material="furniture" data-piece="table" type="button" aria-pressed="false"><span class="material-icon">⊞</span><span class="material-copy"><b>Table</b><small class="meta">Furniture</small></span></button>
+            <button class="material-option row" id="chair-material" data-material="furniture" data-piece="chair" type="button" aria-pressed="false"><span class="material-icon">⊓</span><span class="material-copy"><b>Chair</b><small class="meta">Furniture</small></span></button>
+            <button class="material-option row" id="bed-material" data-material="furniture" data-piece="bed" type="button" aria-pressed="false"><span class="material-icon">▭</span><span class="material-copy"><b>Bed</b><small class="meta">Furniture</small></span></button>
+            <button class="material-option row" id="chest-material" data-material="furniture" data-piece="chest" type="button" aria-pressed="false"><span class="material-icon">▣</span><span class="material-copy"><b>Chest</b><small class="meta">Furniture</small></span></button>
+            <button class="material-option row" id="shelf-material" data-material="furniture" data-piece="shelf" type="button" aria-pressed="false"><span class="material-icon">≣</span><span class="material-copy"><b>Shelf</b><small class="meta">Furniture</small></span></button>
+            <button class="material-option row" id="lamp-material" data-material="furniture" data-piece="lamp" type="button" aria-pressed="false"><span class="material-icon">✦</span><span class="material-copy"><b>Lamp</b><small class="meta">Furniture</small></span></button>
+            <button class="material-option row" id="plant-material" data-material="furniture" data-piece="plant" type="button" aria-pressed="false"><span class="material-icon">❀</span><span class="material-copy"><b>Plant</b><small class="meta">Furniture</small></span></button>
+            <button class="material-option row" id="barrel-material" data-material="furniture" data-piece="barrel" type="button" aria-pressed="false"><span class="material-icon">◉</span><span class="material-copy"><b>Barrel</b><small class="meta">Furniture</small></span></button>
+          </nav>
+        </aside>
 
+        <section class="workspace" aria-label="Texture preview">
+          <div class="workspace-heading">
+            <div><span class="eyebrow">PREVIEW</span><h1 id="generator-title">Grass texture</h1></div>
+            <div class="preview-actions" role="group" aria-label="Preview mode">
+              <button id="tile-view" class="mini view-button active" type="button" data-view="tiles" aria-pressed="true">TILES</button>
+              <button id="single-view" class="mini view-button" type="button" data-view="block" aria-pressed="false">BLOCK</button>
+              <button id="sides-view" class="mini view-button" type="button" data-view="sides" aria-pressed="false">SIDES</button>
+            </div>
+          </div>
+          <div class="preview-stage">
+            <div class="preview-mat"><canvas id="texture-preview" aria-label="Isometric texture preview"></canvas></div>
+            <div class="stage-caption"><span id="stage-mode"><i></i> ISOMETRIC TILING <b>SEAMLESS</b></span><span id="stage-dimensions">64 × 32 PX</span></div>
+          </div>
+        </section>
+
+        <aside class="generator-panel">
+          <h3 id="generator-heading">GENERATOR</h3>
           <section class="control-group style-group furniture-only" hidden>
-            <div class="label-row"><span class="field-label">Estilo de sprite</span><span class="tiny-note">MOBILIARIO</span></div>
-            <div class="size-options style-options" role="group" aria-label="Estilo de sprite">
-              <button class="size-option style-option is-active" type="button" data-style="pixel" aria-pressed="true">Pixel art</button>
-              <button class="size-option style-option" type="button" data-style="voxel" aria-pressed="false">Voxel</button>
+            <h3>STYLE</h3>
+            <div class="style-options" role="group" aria-label="Furniture style">
+              <button class="mini style-option active" type="button" data-style="pixel" aria-pressed="true">PIXEL ART</button>
+              <button class="mini style-option" type="button" data-style="voxel" aria-pressed="false">VOXEL</button>
             </div>
           </section>
-
-          <section class="control-group tile-spec-group">
-            <div class="label-row"><span class="field-label">Formato isométrico</span><span class="tiny-note">FIJO</span></div>
-            <div class="tile-spec"><span class="iso-mini" aria-hidden="true"></span><span><b id="tile-spec-size">64 × 32 px</b><small id="tile-spec-caption">1 tile · proporción 2:1</small></span><span class="tile-lock" aria-hidden="true">◆</span></div>
-            <div class="variation-row"><span>Variaciones automáticas</span><b>×4</b></div>
-            <div class="variation-swatches" aria-label="Cuatro variantes de textura"><i></i><i></i><i></i><i></i><span>Se alternan sin repetir vecinos</span></div>
-            <div class="face-spec"><span><i class="south-swatch"></i> <span id="face-a-label">SUR</span> <b id="face-a-value">82%</b></span><span><i class="east-swatch"></i> <span id="face-b-label">ESTE</span> <b id="face-b-value">66%</b></span></div>
-            <p class="face-note" id="face-note">Caras 32 × 16 px · repetición vertical cada 16 px</p>
-          </section>
-
-          <section class="control-group slider-group grass-only">
-            <div class="label-row"><label for="density">Densidad de hierba</label><span class="value-readout"><span id="density-value">6</span><small>/10</small></span></div>
-            <input id="density" type="range" min="1" max="10" value="6" />
-            <div class="slider-captions"><span>Despejada</span><span>Frondosa</span></div>
-          </section>
-
-          <section class="control-group slider-group brightness-group">
-            <div class="label-row"><label for="brightness">Luminosidad</label><span class="value-readout"><span id="brightness-value">58</span><small>%</small></span></div>
-            <input id="brightness" type="range" min="25" max="100" value="58" />
-            <div class="slider-captions"><span>Sombría</span><span>Soleada</span></div>
-          </section>
-
           <section class="control-group palette-group">
-            <div class="label-row"><span class="field-label">Paleta de color</span><button class="palette-random" id="random-palette" type="button" aria-label="Generar paleta aleatoria de grass" aria-pressed="false"><span class="random-palette-swatches" aria-hidden="true"><i></i><i></i><i></i><i></i></span> Aleatoria <span aria-hidden="true">↻</span></button></div>
-            <div class="palette-list" role="group" aria-label="Paleta de color">
-              <button type="button" class="palette-option is-selected" data-palette="meadow" aria-pressed="true"><span class="swatches meadow-swatches"><i></i><i></i><i></i><i></i></span><span><b>Meadow</b><small>Primavera suave</small></span><span class="palette-check" aria-hidden="true">✓</span></button>
-              <button type="button" class="palette-option" data-palette="emerald" aria-pressed="false"><span class="swatches emerald-swatches"><i></i><i></i><i></i><i></i></span><span><b>Emerald</b><small>Bosque vibrante</small></span><span class="palette-check" aria-hidden="true">✓</span></button>
-              <button type="button" class="palette-option" data-palette="moss" aria-pressed="false"><span class="swatches moss-swatches"><i></i><i></i><i></i><i></i></span><span><b>Moss</b><small>Musgo apagado</small></span><span class="palette-check" aria-hidden="true">✓</span></button>
-              <button type="button" class="palette-option" data-palette="autumn" aria-pressed="false"><span class="swatches autumn-swatches"><i></i><i></i><i></i><i></i></span><span><b>Autumn</b><small>Pradera dorada</small></span><span class="palette-check" aria-hidden="true">✓</span></button>
+            <div class="section-heading"><h3>PALETTE</h3><button class="mini" id="random-palette" type="button" aria-label="Generate a random palette" aria-pressed="false">RANDOM</button></div>
+            <div class="palette-list" role="group" aria-label="Color palette">
+              <button type="button" class="palette-option row selected" data-palette="meadow" aria-pressed="true"><span class="swatches"><i></i><i></i><i></i><i></i></span><span><b>Meadow</b><small>Soft spring</small></span></button>
+              <button type="button" class="palette-option row" data-palette="emerald" aria-pressed="false"><span class="swatches"><i></i><i></i><i></i><i></i></span><span><b>Emerald</b><small>Vibrant forest</small></span></button>
+              <button type="button" class="palette-option row" data-palette="moss" aria-pressed="false"><span class="swatches"><i></i><i></i><i></i><i></i></span><span><b>Moss</b><small>Muted moss</small></span></button>
+              <button type="button" class="palette-option row" data-palette="autumn" aria-pressed="false"><span class="swatches"><i></i><i></i><i></i><i></i></span><span><b>Autumn</b><small>Golden grassland</small></span></button>
             </div>
+            <span class="random-palette-swatches" hidden><i></i><i></i><i></i><i></i></span>
           </section>
-
           <section class="control-group seed-group">
-            <div class="label-row"><label for="seed-input">Semilla</label><button class="seed-random" id="random-seed" type="button" aria-label="Generar semilla aleatoria" title="Semilla aleatoria">↻</button></div>
-            <div class="seed-input-wrap"><span aria-hidden="true">#</span><input id="seed-input" value="A17F3C" maxlength="12" autocomplete="off" spellcheck="false" aria-label="Semilla de generación" /><span class="seed-lock" aria-hidden="true">✳</span></div>
-            <p class="seed-hint">Misma semilla = misma textura</p>
+            <div class="section-heading"><h3>SEED</h3><button class="mini" id="random-seed" type="button" aria-label="Generate a random seed" title="Generate a random seed">↻</button></div>
+            <label class="seed-input-wrap"><span>#</span><input id="seed-input" value="A17F3C" maxlength="12" autocomplete="off" spellcheck="false" aria-label="Generation seed" /></label>
+            <p class="seed-hint">Same seed = same texture</p>
           </section>
-
-          <section class="toggle-group grass-only">
-            <div><b>Pequeñas motas de tierra</b><small>Rompe la uniformidad</small></div>
-            <label class="switch"><input id="dirt-toggle" type="checkbox" /><span></span></label>
+          <section class="control-group slider-group grass-only">
+            <div class="label-row"><label for="density">DENSITY</label><span class="value-readout"><span id="density-value">6</span>/10</span></div>
+            <input id="density" type="range" min="1" max="10" value="6" />
           </section>
-
-          <section class="toggle-group pixel-only" hidden>
-            <div><b>Sombra en el suelo</b><small>Se incluye en el PNG exportado</small></div>
-            <label class="switch"><input id="shadow-toggle" type="checkbox" checked /><span></span></label>
+          <section class="control-group slider-group brightness-group">
+            <div class="label-row"><label for="brightness">BRIGHTNESS</label><span class="value-readout"><span id="brightness-value">58</span>%</span></div>
+            <input id="brightness" type="range" min="25" max="100" value="58" />
           </section>
-        </div>
-
-        <div class="sidebar-footer"><span class="footer-sprout">✳</span><span>Hecho para mundos <b>pixelados</b></span><span class="footer-dots">•••</span></div>
-      </aside>
-
-      <main id="main" class="workspace">
-        <div class="workspace-content">
-          <section class="preview-section" aria-labelledby="preview-title">
-            <div class="preview-heading">
-              <div><div class="section-eyebrow light-eyebrow"><span>01</span> VISTA ISOMÉTRICA</div><h2 id="preview-title">Un mundo en <em>rombo.</em></h2><p id="preview-description">Tile 64 × 32. Repetición isométrica sin costuras.</p></div>
-              <div class="preview-actions" role="group" aria-label="Modo de vista previa"><button id="tile-view" class="view-button is-active" type="button" data-view="tiles" aria-pressed="true"><span class="view-icon tiled-icon" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Mosaico</button><button id="single-view" class="view-button" type="button" data-view="block" aria-pressed="false"><span class="view-icon single-icon" aria-hidden="true"><i></i></span>Un tile</button><button id="sides-view" class="view-button" type="button" data-view="sides" aria-pressed="false"><span class="view-icon side-icon" aria-hidden="true"><i></i><i></i></span>Lados</button></div>
-            </div>
-
-            <div class="preview-stage">
-              <div class="preview-mat"><canvas id="texture-preview" aria-label="Vista previa repetida de una textura isométrica"></canvas><div class="center-marker" aria-hidden="true"><span>1 TILE</span></div><div id="corner-label" class="corner-label">GRASS FIELD <span>ISO / 01</span></div><div class="pixel-stamp" aria-hidden="true"><span>✳</span></div></div>
-              <div class="stage-caption"><span id="stage-mode"><i></i> MOSAICO ISOMÉTRICO <b>SEAMLESS</b></span><span id="stage-dimensions">64 × 32 PX</span></div>
-            </div>
+          <section class="control-group toggle-group grass-only">
+            <label for="dirt-toggle"><span>DIRT SPECKS<small>Break up the surface</small></span><input id="dirt-toggle" type="checkbox" /></label>
           </section>
-
-          <section class="export-panel" aria-label="Exportar textura">
-            <div class="export-info"><div class="export-icon" aria-hidden="true"><span>↓</span></div><div><h3 id="export-title">Tu mundo empieza aquí.</h3><p id="export-copy">Exporta tu tile isométrico con fondo transparente.</p></div></div>
-            <div class="export-meta"><span class="format-chip">PNG <i>·</i> ALFA</span><span class="export-separator"></span><span class="meta-size" id="export-dimensions">64 × 32 px</span></div>
-            <div class="export-buttons"><button class="export-button" id="export-button" type="button"><span>Top 64 × 32</span><span class="download-arrow" aria-hidden="true">↓</span></button><button class="export-button export-button-secondary" id="export-variants" type="button"><span>Variantes ×4</span><span class="download-arrow" aria-hidden="true">↓</span></button><button class="export-button export-button-secondary" id="export-sides" type="button"><span>Caras ×4</span><span class="download-arrow" aria-hidden="true">↓</span></button><button class="export-button export-button-secondary" id="export-sides-sheet" type="button"><span>Lados 128 × 32</span><span class="download-arrow" aria-hidden="true">↓</span></button></div>
+          <section class="control-group toggle-group pixel-only" hidden>
+            <label for="shadow-toggle"><span>GROUND SHADOW<small>Included in exported PNG</small></span><input id="shadow-toggle" type="checkbox" checked /></label>
           </section>
-
-          <footer class="workspace-footer"><span>PIXEL POR PIXEL, UN MUNDO A LA VEZ.</span><span><span>↗</span> TILE ISO 64 × 32 <i>·</i> V.01</span></footer>
-        </div>
+          <section class="control-group tile-spec-group">
+            <h3>FORMAT</h3>
+            <div class="format-readout"><b id="tile-spec-size">64 × 32 px</b><span id="tile-spec-caption">1 tile · 2:1 ratio</span></div>
+            <div class="variation-swatches" aria-label="Four texture variations"><i></i><i></i><i></i><i></i><span>4 VARIANTS</span></div>
+            <div class="face-spec"><span><i class="south-swatch"></i> <span id="face-a-label">SOUTH</span> <b id="face-a-value">82%</b></span><span><i class="east-swatch"></i> <span id="face-b-label">EAST</span> <b id="face-b-value">66%</b></span></div>
+            <p class="face-note" id="face-note">32 × 16 px faces · repeat every 16 px</p>
+          </section>
+        </aside>
       </main>
-      </section>
+
+      <footer class="export-panel" aria-label="Export textures">
+        <div class="game-export">
+          <button class="primary" id="send-to-game" type="button">SEND TO GAME</button>
+          <span class="destination" id="game-destination">→ sprites/grass/ grass_x4.png + grass_side_x4.png</span>
+          <span class="folder-control"><span id="folder-name">FOLDER NOT SET</span><button class="mini" id="change-folder" type="button">CHANGE</button></span>
+        </div>
+        <div class="download-controls">
+          <button class="mini" id="export-variants" type="button">VARIANTS</button>
+          <button class="mini" id="export-sides-sheet" type="button">SIDES</button>
+          <button class="mini" id="export-button" type="button">TOP</button>
+          <button class="mini" id="export-sides" type="button">SIDE PAIRS</button>
+        </div>
+        <div class="status-feed" id="toast" role="status" aria-live="polite" aria-relevant="additions text"></div>
+      </footer>
     </div>
-    <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </body>
 </html>

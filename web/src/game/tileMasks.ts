@@ -138,3 +138,46 @@ export function shearSideCell(
   }
   return { width, height, offsetX: firstX, offsetY: minY, rgba };
 }
+
+/**
+ * Shears one 32x16 wall-sheet cell into the exact footprint of `wallMask(edge, 1)`. Every mask
+ * column takes its whole 16-pixel sheet column, moved up to the wall's top contour, so no pixel is
+ * dropped. The cap cell is row 0 and the fill cell row 16 of the sheet. It mirrors `shearSideCell`
+ * across the diamond.
+ */
+export function shearWallCell(
+  sheet: SideSheet,
+  edge: "n" | "w",
+  part: "cap" | "fill",
+  variant: 0 | 1 | 2 | 3,
+): SideCell {
+  const firstX = edge === "n" ? 32 : 0;
+  const lastX = firstX + 31;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (let x = firstX; x <= lastX; x += 1) {
+    const top = topRow(x);
+    minY = Math.min(minY, top - 16);
+    maxY = Math.max(maxY, top - 1);
+  }
+  const width = lastX - firstX + 1;
+  const height = maxY - minY + 1;
+  const rgba = new Uint8Array(width * height * 4);
+  const partRow = part === "cap" ? 0 : 16;
+  for (let x = firstX; x <= lastX; x += 1) {
+    const sheetX = variant * 32 + (x - firstX);
+    const top = topRow(x);
+    for (let r = 0; r < 16; r += 1) {
+      const source = (partRow + r) * sheet.width + sheetX;
+      const at = source * 4;
+      const localX = x - firstX;
+      const localY = top - 16 + r - minY;
+      const to = (localY * width + localX) * 4;
+      rgba[to] = sheet.data[at] ?? 0;
+      rgba[to + 1] = sheet.data[at + 1] ?? 0;
+      rgba[to + 2] = sheet.data[at + 2] ?? 0;
+      rgba[to + 3] = sheet.data[at + 3] ?? 0;
+    }
+  }
+  return { width, height, offsetX: firstX, offsetY: minY, rgba };
+}

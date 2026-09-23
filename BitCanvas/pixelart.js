@@ -1,12 +1,12 @@
-// --- Mobiliario pixel art --------------------------------------------------
-// A diferencia del estilo voxel, aquí cada mueble es una escena de sólidos
-// simples (cajas, troncos de cono, cilindros tumbados y elipsoides) que se
-// trazan con un rayo por píxel. Luego se aplican las reglas de un pixel artist:
-// luz en bandas limpias sin ruido, brillo en la arista frontal, sombra propia,
-// contorno selectivo coloreado y rampas con desplazamiento de tono.
+// --- Pixel Art Furniture ---------------------------------------------------
+// Unlike voxel art, each piece of furniture is a scene of simple solids
+// (boxes, truncated cones, horizontal cylinders, and ellipsoids) traced with
+// one ray per pixel. Then pixel art rules are applied: clean light bands,
+// highlights on front edges, self-shadowing, selective colored outlines, and
+// hue-shifted ramps.
 //
-// Mundo en píxeles: 1 tile iso (64 × 32 px) cubre 32 × 32 unidades, y una
-// unidad de altura sube 1 px. Proyección: sx = x − y, sy = (x + y) / 2 − z.
+// Pixel scale: 1 iso tile (64 × 32 px) covers 32 × 32 units; each height
+// unit raises the image by 1 px. Projection: sx = x − y, sy = (x + y) / 2 − z.
 
 const PX_FAR = 400;
 const PX_EPS = 1e-4;
@@ -27,8 +27,8 @@ function pxCross(a, b) {
   return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 }
 
-// Luz desde arriba a la izquierda: la cara izquierda (+y) queda iluminada y la
-// derecha (+x) en penumbra, como en la mayoría del pixel art isométrico.
+// Light from the upper left illuminates the left (+y) face and shades the
+// right (+x) face, as in most isometric pixel art.
 const PX_LIGHT = pxNormalize([-0.35, 0.65, 1]);
 const PX_HALF = pxNormalize([PX_LIGHT[0] + 0.577, PX_LIGHT[1] + 0.577, PX_LIGHT[2] + 0.577]);
 
@@ -49,23 +49,23 @@ function pxRandom(seed) {
   };
 }
 
-// --- Primitivas -------------------------------------------------------------
+// --- Primitives -------------------------------------------------------------
 
 function pxBox(from, to, role, extra = {}) {
   return { kind: 'box', from, to, role, ...extra };
 }
 
-// Tronco de cono vertical: radio r0 en z0 y r1 en z1 (cilindro si coinciden).
+// Vertical truncated cone: radius r0 at z0 and r1 at z1 (a cylinder if equal).
 function pxCyl(cx, cy, z0, z1, r0, r1, role, extra = {}) {
   return { kind: 'cyl', cx, cy, z0, z1, r0, r1, role, ...extra };
 }
 
-// Cilindro tumbado a lo largo de x (la tapa del cofre).
+// Horizontal cylinder along x (the chest lid).
 function pxLog(cy, cz, r, x0, x1, role, extra = {}) {
   return { kind: 'log', cy, cz, r, x0, x1, role, ...extra };
 }
 
-// Elipsoide con ejes propios, para cojines, hojas y frutas.
+// Ellipsoid with local axes, for cushions, leaves, and fruit.
 function pxBlob(center, radii, role, extra = {}) {
   return { kind: 'blob', center, radii, axes: PX_AXES, role, ...extra };
 }
@@ -186,8 +186,8 @@ function pxHitBlob(prim, o, d) {
 
 const PX_HIT = { box: pxHitBox, cyl: pxHitCyl, log: pxHitLog, blob: pxHitBlob };
 
-// Caja envolvente en el mundo y rectángulo en pantalla de cada sólido: descartan
-// casi todos los rayos antes de la intersección exacta.
+// Each solid's world-space bounding box and screen rectangle reject nearly all
+// rays before exact intersection testing.
 function pxPrepare(prim) {
   let from;
   let to;
@@ -209,8 +209,8 @@ function pxPrepare(prim) {
   prim.rects = PX_SHADOW_DIRS.map((basis) => pxProjectBox(from, to, basis));
 }
 
-// Para cada dirección de sombra, la caja se proyecta sobre el plano normal a la
-// dirección: un rayo sólo puede tocarla si su origen cae dentro del rectángulo.
+// For each shadow direction, project the box onto the perpendicular plane. A
+// ray can hit it only if its origin lies inside the rectangle.
 function pxBasis(d) {
   const e1 = pxNormalize(pxCross(d, Math.abs(d[2]) > 0.9 ? [1, 0, 0] : [0, 0, 1]));
   return [e1, pxCross(d, e1), d];
@@ -250,7 +250,7 @@ function pxTrace(prims, o, d, sx, sy) {
   return best;
 }
 
-// dir: índice en PX_SHADOW_DIRS (0 luz principal, 1 vertical para el suelo).
+// dir: index in PX_SHADOW_DIRS (0 main light, 1 vertical ground shadow).
 function pxOccluded(prims, o, dir, skip) {
   const [e1, e2, d] = PX_SHADOW_DIRS[dir];
   const u = o[0] * e1[0] + o[1] * e1[1] + o[2] * e1[2];
@@ -265,7 +265,7 @@ function pxOccluded(prims, o, dir, skip) {
   return false;
 }
 
-// --- Rampas -----------------------------------------------------------------
+// --- Ramps ------------------------------------------------------------------
 
 const PX_GOLD_RAMP = [[58, 32, 18], [96, 56, 22], [140, 90, 28], [180, 128, 36], [214, 166, 50], [236, 198, 78], [248, 224, 122], [255, 244, 184]];
 const PX_CLAY_RAMP = [[62, 28, 24], [94, 42, 32], [128, 60, 40], [160, 82, 50], [188, 106, 64], [210, 134, 86], [228, 164, 114], [242, 196, 152]];
@@ -305,8 +305,8 @@ function pxHueToward(hue, target, amount) {
   return (hue + Math.sign(delta) * Math.min(Math.abs(delta), amount) + 360) % 360;
 }
 
-// Sombras hacia el violeta y luces hacia el ámbar: el truco clásico que hace que
-// una rampa se vea pintada a mano en lugar de oscurecida en gris.
+// Shift shadows toward violet and highlights toward amber for a hand-painted
+// look instead of simply darkening colors to gray.
 function pxShiftRamp(ramp) {
   return ramp.map((rgb, index) => {
     const t = index / (ramp.length - 1);
@@ -333,7 +333,7 @@ function pixelArtRamps(baseRamps) {
   return ramps;
 }
 
-// level: tono base en la rampa (0–7). contrast: cuánto separa la luz las caras.
+// level: base ramp shade (0–7). contrast: how strongly light separates faces.
 const PIXEL_ROLES = {
   wood: { ramp: 'wood', level: 4.4, contrast: 3.2 },
   woodDark: { ramp: 'wood', level: 3.1, contrast: 3.0 },
@@ -359,8 +359,8 @@ const PIXEL_ROLES = {
   book3: { ramp: 'book3', level: 4.4, contrast: 3.0 },
 };
 
-// --- Patrones de superficie ---------------------------------------------------
-// Devuelven un desplazamiento de tono; son líneas de 1 px, nunca ruido.
+// --- Surface Patterns --------------------------------------------------------
+// Return hue offsets as 1 px lines, never noise.
 
 function pxMainAxis(n) {
   const ax = Math.abs(n[0]);
@@ -442,7 +442,7 @@ function pxPattern(prim, p, n, seed) {
   }
 }
 
-// --- Muebles ------------------------------------------------------------------
+// --- Furniture ---------------------------------------------------------------
 
 function pxTableItem(random) {
   const x = 11 + Math.round(random() * 9);
@@ -504,7 +504,7 @@ function pxBooks(random, zBase, zTop, prims) {
 
 const PIXEL_FURNITURE = {
   table: {
-    description: 'Mesa pixel art con tablero de tablones, faldón y un detalle sobre la mesa que cambia con la semilla.',
+    description: 'Pixel art table with a plank top, apron, and a seed-varied tabletop detail.',
     extent: { from: [0, 0, 0], to: [32, 32, 30] },
     build(random) {
       const prims = [];
@@ -516,7 +516,7 @@ const PIXEL_FURNITURE = {
     },
   },
   chair: {
-    description: 'Silla pixel art con respaldo de listones y cojín mullido de color variable.',
+    description: 'Pixel art chair with a slatted backrest and a cushion in a varied color.',
     extent: { from: [5, 5, 0], to: [27, 27, 34] },
     build(random) {
       const prims = [];
@@ -533,7 +533,7 @@ const PIXEL_FURNITURE = {
     },
   },
   bed: {
-    description: 'Cama pixel art con cabecero de panel, almohadas mullidas y manta estampada por semilla.',
+    description: 'Pixel art bed with a paneled headboard, soft pillows, and a seed-patterned blanket.',
     extent: { from: [0, 0, 0], to: [64, 32, 24] },
     build(random) {
       const prims = [];
@@ -575,7 +575,7 @@ const PIXEL_FURNITURE = {
     },
   },
   shelf: {
-    description: 'Estantería pixel art con baldas, libros de lomos variados y adornos por semilla.',
+    description: 'Pixel art shelf with shelves, varied book spines, and seed-generated ornaments.',
     extent: { from: [0, 2, 0], to: [32, 16, 48] },
     build(random) {
       const prims = [
@@ -592,7 +592,7 @@ const PIXEL_FURNITURE = {
     },
   },
   lamp: {
-    description: 'Lámpara de pie pixel art con pantalla encendida, fuste metálico y remate dorado.',
+    description: 'Pixel art floor lamp with a glowing shade, metal stem, and gold finial.',
     extent: { from: [4, 4, 0], to: [28, 28, 44] },
     build(random) {
       const [r0, r1] = [[10, 6], [9, 7.5], [10.5, 5]][Math.floor(random() * 3)];
@@ -608,7 +608,7 @@ const PIXEL_FURNITURE = {
     },
   },
   plant: {
-    description: 'Maceta de barro pixel art con hojas orientadas una a una según la semilla.',
+    description: 'Pixel art clay planter with leaves individually oriented from the seed.',
     extent: { from: [0, 0, 0], to: [32, 32, 44] },
     build(random) {
       const prims = [
@@ -679,8 +679,8 @@ const PIXEL_FURNITURE = {
   },
 };
 
-// Sprite con 1 px de margen para el contorno; el tamaño sale del volumen máximo
-// del mueble, así las cuatro variantes comparten dimensiones.
+// Add a 1 px outline margin. Size sprites from the maximum furniture volume so
+// all four variants share dimensions.
 for (const piece of Object.values(PIXEL_FURNITURE)) {
   let minX = Infinity;
   let maxX = -Infinity;
@@ -701,10 +701,10 @@ for (const piece of Object.values(PIXEL_FURNITURE)) {
   piece.size = { width: Math.ceil(maxX) + 1 - piece.bounds.minX, height: Math.ceil(maxY) + 1 - piece.bounds.minY };
 }
 
-// --- Render -------------------------------------------------------------------
+// --- Rendering ----------------------------------------------------------------
 
 const PX_SHADOW_COLOR = [22, 18, 34];
-// El vecino de abajo va primero: decide el tono del contorno sobre las tapas.
+// Check the lower neighbor first to choose the outline shade above top faces.
 const PX_NEIGHBOURS = [[0, 1], [1, 0], [-1, 0], [0, -1]];
 
 function renderPixelFurniture(key, ramps, seed, options = {}) {
@@ -725,7 +725,7 @@ function renderPixelFurniture(key, ramps, seed, options = {}) {
   for (let py = 0; py < height; py += 1) {
     for (let px = 0; px < width; px += 1) {
       const i = py * width + px;
-      // Un pelo fuera del centro para que ninguna arista caiga justo en empate.
+      // Offset slightly from center so no edge lands exactly on a tie.
       const sx = minX + px + 0.5 + 0.013;
       const sy = minY + py + 0.5 + 0.007;
       const gx = sy + sx / 2;
@@ -763,12 +763,12 @@ function renderPixelFurniture(key, ramps, seed, options = {}) {
       const i = py * width + px;
       const index = hitIndex[i];
       if (index < 0) continue;
-      // Brillo de arista: la fila superior de cada cara lateral que asoma bajo la
-      // tapa, y la esquina vertical donde se unen las dos caras visibles.
+      // Edge highlight: the top row of each side face below the top, and the
+      // vertical corner where the two visible faces meet.
       const below = py + 1 < height ? i + width : -1;
       if (below >= 0 && hitIndex[below] === index && normalZ[i] > 0.7 && normalZ[below] < 0.5) final[i] += 1.1;
       if (face[i] === 2 && px + 1 < width && hitIndex[i + 1] === index && face[i + 1] === 3) final[i] += 0.8;
-      // Línea interior: el objeto de detrás se oscurece donde otro lo tapa.
+      // Inner line: darken the object behind where another object covers it.
       for (const [dx, dy] of PX_NEIGHBOURS) {
         const nx = px + dx;
         const ny = py + dy;
@@ -797,8 +797,8 @@ function renderPixelFurniture(key, ramps, seed, options = {}) {
         paint(i, ramp.colors[step]);
         continue;
       }
-      // Contorno exterior coloreado: toma el tono más oscuro del vecino, y uno
-      // algo más claro sobre las tapas iluminadas (contorno selectivo).
+      // Colored outer outline: use the neighbor's darkest shade, or a slightly
+      // lighter one above lit top faces (selective outlining).
       let outline = null;
       for (const [dx, dy] of PX_NEIGHBOURS) {
         const nx = px + dx;
@@ -814,7 +814,7 @@ function renderPixelFurniture(key, ramps, seed, options = {}) {
       else if (ground[i]) paint(i, PX_SHADOW_COLOR, 110);
     }
   }
-  // Borde suave de la sombra: un segundo tono más tenue, en escalón.
+  // Soft shadow edge: add a second, fainter stepped shade.
   if (options.shadow) {
     for (let py = 0; py < height; py += 1) {
       for (let px = 0; px < width; px += 1) {

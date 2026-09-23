@@ -8,6 +8,9 @@ display: monospaced, near-black panels, neon accents, no rounded corners. The te
 diegetic, not decoration, which is why glitch effects are reserved for moments that happen *to
 Niko* (Ether, overload) instead of being sprinkled for style.
 
+BitCanvas (`BitCanvas/`) follows this guide too, except [Sec. 1] and [Sec. 15], which belong to the
+game's world and to Niko.
+
 ---
 
 ## 1. Layers

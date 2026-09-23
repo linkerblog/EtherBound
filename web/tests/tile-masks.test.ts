@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { diamondMask, edgeLineMask, faceMask, maskHasPixel, shearSideCell, wallMask } from "../src/game/tileMasks";
+import { diamondMask, edgeLineMask, faceMask, maskHasPixel, shearSideCell, shearWallCell, wallMask } from "../src/game/tileMasks";
 
 function placedPixels(mask: ReturnType<typeof diamondMask>, x = 0, y = 0): Set<string> {
   const pixels = new Set<string>();
@@ -151,6 +151,56 @@ test("every sheared side cell has exactly the footprint of a one-unit face", () 
         assert.equal(cell.offsetX, face.offsetX, `${side}/${part}/${variant} offsetX`);
         assert.equal(cell.offsetY, face.offsetY, `${side}/${part}/${variant} offsetY`);
         assert.deepEqual(cellPixels(cell), expected, `${side}/${part}/${variant} pixels`);
+      }
+    }
+  }
+});
+
+test("every sheared wall cell has exactly the footprint of a one-unit wall", () => {
+  const sheet = encodedSheet();
+  for (const edge of ["n", "w"] as const) {
+    const wall = wallMask(edge, 1);
+    const expected = placedPixels(wall);
+    for (const part of ["cap", "fill"] as const) {
+      for (const variant of [0, 1, 2, 3] as const) {
+        const cell = shearWallCell(sheet, edge, part, variant);
+        assert.equal(cell.width, wall.width, `${edge}/${part}/${variant} width`);
+        assert.equal(cell.height, wall.height, `${edge}/${part}/${variant} height`);
+        assert.equal(cell.offsetX, wall.offsetX, `${edge}/${part}/${variant} offsetX`);
+        assert.equal(cell.offsetY, wall.offsetY, `${edge}/${part}/${variant} offsetY`);
+        assert.deepEqual(cellPixels(cell), expected, `${edge}/${part}/${variant} pixels`);
+      }
+    }
+  }
+});
+
+test("sheared wall cells sample the sheet column by column, cap and fill", () => {
+  const sheet = encodedSheet();
+  for (const edge of ["n", "w"] as const) {
+    const firstX = edge === "n" ? 32 : 0;
+    const wall = wallMask(edge, 1);
+    const columnTop = new Map<number, number>();
+    for (let py = 0; py < wall.height; py += 1) {
+      for (let px = 0; px < wall.width; px += 1) {
+        if (!wall.alpha[py * wall.width + px]) continue;
+        const x = wall.offsetX + px;
+        const y = wall.offsetY + py;
+        columnTop.set(x, Math.min(columnTop.get(x) ?? y, y));
+      }
+    }
+    for (const part of ["cap", "fill"] as const) {
+      const partRow = part === "cap" ? 0 : 16;
+      for (const variant of [0, 3] as const) {
+        const cell = shearWallCell(sheet, edge, part, variant);
+        for (const [x, top] of columnTop) {
+          for (let y = top; y < top + 16; y += 1) {
+            const cellAt = ((y - cell.offsetY) * cell.width + (x - cell.offsetX)) * 4;
+            const sheetAt = ((partRow + y - top) * sheet.width + variant * 32 + x - firstX) * 4;
+            assert.equal(cell.rgba[cellAt], sheet.data[sheetAt], `${edge}/${part}/${variant} r at ${x},${y}`);
+            assert.equal(cell.rgba[cellAt + 1], sheet.data[sheetAt + 1], `${edge}/${part}/${variant} g at ${x},${y}`);
+            assert.equal(cell.rgba[cellAt + 3], 255, `${edge}/${part}/${variant} alpha at ${x},${y}`);
+          }
+        }
       }
     }
   }

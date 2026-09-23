@@ -37,7 +37,7 @@ out of how the world is built, and the world reacts in ways that are correct but
 | Frontend | Phaser 3 for the world + HTML overlay for text, scenes and panels |
 | Type contract | Pydantic models → OpenAPI → generated TypeScript types |
 | Persistence | SQLite with real migrations (SQLAlchemy + Alembic). No "reset to change schema" |
-| Camera | Isometric 2:1, fixed (no rotation). A 1 m tile is a 64×32 px diamond; 0.5 m of height is 16 px. Own pixel art, drawn on the LimeZu packs as a base |
+| Camera | Isometric 2:1, fixed (no rotation). A 1 m tile is a 64×32 px diamond; 0.5 m of height is 16 px. Own pixel art. Terrain sheets and furniture sprites are generated with BitCanvas (`BitCanvas/`), seeded; the LimeZu packs remain a reference base |
 | Scale | 1 tile = 1 m, chunked |
 | Terrain | Fine heightmap surface (hills, slopes) + building floors + excavable underground |
 | Clock | 1 real s = 1 game min by default, configurable. Pause, x1/x3/x10. Autopause in scenes |

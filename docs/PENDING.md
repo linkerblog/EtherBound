@@ -61,8 +61,19 @@ Open decisions and loose ends. When one is settled, record the decision where it
       to 6 along x 159|160 and y 159|160.
       On 23/09/2026 the user's screenshot at x1 (Niko at `X 137.84 · Y 148.77 · Z 2 (6.0 m)`)
       confirmed 1 (soil sides with the grass lip on the top unit only), 2 (stone slab edges match
-      their tops; the light grey bands are gone) and 6 for the south-west base (no black gaps;
-      the east side was out of frame). Still open: 3, 4, 5, 7, 8, the east side of 6, seed 7 and x4.
+       their tops; the light grey bands are gone) and 6 for the south-west base (no black gaps;
+       the east side was out of frame). Still open: 3, 4, 5, 7, 8, the east side of 6, seed 7 and x4.
+- [ ] **Dev-009 BitCanvas:** GUI acceptance for real directory picking, persisted permission, writes
+      to a scratch folder, and game/Vite reload remains unverified; `file://` rendering works in
+      headless Chromium. See `done/Dev-009.md` [Sec. 5].
+- [ ] **Dev-010 asphalt:** in the running game, the road at x 120–123 is textured at about its old
+      flat tone, road edges with a height step show the asphalt side sheet, and the test building's
+      concrete floors show concrete, not cobblestone. See `done/Dev-010.md` [Sec. 4] step 5.
+- [ ] **Dev-011 roofing and brick:** in the running game on the roof (z 4), the slab is textured at
+      about its old tone and the brick walls show running-bond courses stepping 2:1 along each edge,
+      a header course on the top unit, mortar lines continuous from tile to tile and unit to unit;
+      windows still show the glass band, and walking next to a front wall still cuts it to a
+      one-unit stub. See `done/Dev-011.md` [Sec. 4] step 6.
 
 - [ ] **Fix03 walking:** acceptance 1 (no jump at start or stop) was confirmed by the user on
       22/09/2026 ("walking feels smooth"), and 5 (releasing the keys after `DIG` does not
@@ -82,6 +93,7 @@ Four design questions (abilities, city authoring, carry-over, event log retentio
 list is settled by `done/Dev-007.md`. There are no open or planned fixes. Three deferred items
 (input replay, events to the client, lost activity progress). Manual acceptances remain for
 Dev-003 browser, Dev-006 new game, Fix03 logging, Fix04 logging/movement, and Dev-008/Fix05/Fix06/Fix07
-isometric rendering and network, plus Fix08 reconnect and Fix09 side textures and building base;
-Dev-007 was fully accepted on 22/09/2026. Fix05–Fix09 automated validation passed; their GUI
-visual/performance checklists remain open.
+isometric rendering and network, plus Fix08 reconnect, Fix09 side textures and building base, and
+Dev-009 BitCanvas filesystem/game GUI acceptance, the Dev-010 asphalt road in the live game, and the
+Dev-011 roofing and brick walls in the live game; Dev-007 was fully accepted on 22/09/2026.
+Fix05–Fix09 automated validation passed; their GUI visual/performance checklists remain open.

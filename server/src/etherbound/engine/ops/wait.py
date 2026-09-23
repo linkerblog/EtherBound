@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import ClassVar
 
 from etherbound.engine.actions import Action, SelfTarget, Target, WaitAction
@@ -13,8 +14,11 @@ class WaitHandler:
     def applies(self, ctx: ActionContext, target: Target) -> bool:
         return isinstance(target, SelfTarget)
 
-    def build(self, ctx: ActionContext, target: Target) -> Action:
-        return WaitAction()
+    def builds(self, ctx: ActionContext, target: Target) -> Sequence[Action]:
+        return (WaitAction(),)
+
+    def subject(self, ctx: ActionContext, action: Action) -> str | None:
+        return None
 
     def validate(self, ctx: ActionContext, action: Action) -> str | None:
         return None

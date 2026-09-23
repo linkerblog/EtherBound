@@ -70,11 +70,27 @@ export function App(): ReactElement {
     const removeResult = client.onResult((result) => {
       const op = sentOps.current.get(result.sequence) ?? "ACTION";
       sentOps.current.delete(result.sequence);
+      if (result.text) pushFeed(result.text, "act");
       if (!result.accepted) {
         pushFeed(`CAN'T ${op} · ${result.reason ?? "not now"}`, "warn");
         return;
       }
-      if (result.text) pushFeed(result.text, "seen");
+      setWorld((current) => {
+        const actorKey = current.actors[PLAYER_ID] ? PLAYER_ID : current.actors.player ? "player" : null;
+        if (!actorKey) return current;
+        const actor = current.actors[actorKey]!;
+        return {
+          ...current,
+          actors: {
+            ...current.actors,
+            [actorKey]: {
+              ...actor,
+              carried: result.carried ?? actor.carried ?? [],
+              load_kg: result.load_kg ?? actor.load_kg ?? 0,
+            },
+          },
+        };
+      });
       if (result.activity) pushFeed(`${op} · ${result.activity.ends_minute - result.activity.started_minute} MIN`, "act");
     });
     const removeActivity = client.onActivity((activity) => {
@@ -187,6 +203,7 @@ export function App(): ReactElement {
         <div className="feed-label">▍FEED</div>
         {feed.map((item, index) => <div className={`feed-item ${item.kind}`} key={`${item.minute}-${index}-${item.text}`}><span className="time">{formatGameTime(item.minute)}</span>{item.text}</div>)}
       </div>
+      <CarryPanel actor={world.actors[PLAYER_ID] ?? world.actors.player} />
       <div className="hud-panel meters" onClick={(event) => event.stopPropagation()}>
         <div className="meter"><span className="label">HEALTH</span><span>{meter(100)}</span></div>
         <div className="meter"><span className="label">ENERGY</span><span>{meter(100)}</span></div>
@@ -200,6 +217,29 @@ export function App(): ReactElement {
     <DebugDrawer open={debugOpen} onClose={() => setDebugOpen(false)} />
     {menu && <ContextMenu state={menu} onPick={pickEntry} onClose={() => setMenu(null)} />}
   </main>;
+}
+
+function CarryPanel({ actor }: { actor: WorldState["actors"][string] | undefined }): ReactElement {
+  const carried = actor?.carried ?? [];
+  const both = carried.find((item) => item.slot === "both");
+  const left = carried.find((item) => item.slot === "left");
+  const right = carried.find((item) => item.slot === "right");
+  const back = carried.find((item) => item.slot === "back");
+  const itemText = (item: typeof carried[number] | undefined): string => item
+    ? `${item.name}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`
+    : "—";
+  return <div className="hud-panel carry" aria-label="Carried objects">
+    <h3>CARRY</h3>
+    {both
+      ? <CarryRow slot="HANDS" item={itemText(both)} />
+      : <><CarryRow slot="L" item={itemText(left)} /><CarryRow slot="R" item={itemText(right)} /></>}
+    <CarryRow slot="BACK" item={itemText(back)} />
+    <div className={`load ${((actor?.load_kg ?? 0) > 10) ? "warn" : ""}`}>LOAD {(actor?.load_kg ?? 0).toFixed(1)} kg</div>
+  </div>;
+}
+
+function CarryRow({ slot, item }: { slot: string; item: string }): ReactElement {
+  return <div className="row"><span className="slot">{slot}</span><span className="item">{item}</span></div>;
 }
 
 function DebugDrawer({ open, onClose }: { open: boolean; onClose: () => void }): ReactElement {
@@ -340,7 +380,7 @@ function ContextMenu({ state, onPick, onClose }: { state: ResolvedMenuState; onP
       disabled={!entry.available}
       onMouseEnter={() => setFocus(index)}
       onClick={() => (entry.available ? onPick(entry) : onClose())}>
-      <span>{entry.label}</span>{entry.reason && <small className="why">{entry.reason}</small>}
+      <span>{entry.label}{entry.subject ? ` ${entry.subject}` : ""}</span>{entry.reason && <small className="why">{entry.reason}</small>}
     </button>)}
   </div>;
 }

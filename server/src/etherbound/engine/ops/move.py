@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import ClassVar
 
 from etherbound.engine.actions import Action, MoveAction, Target
@@ -15,8 +16,11 @@ class MoveHandler:
         # Movement is WASD, never a menu entry.
         return False
 
-    def build(self, ctx: ActionContext, target: Target) -> Action:
+    def builds(self, ctx: ActionContext, target: Target) -> Sequence[Action]:
         raise NotImplementedError("move is never offered in a menu")
+
+    def subject(self, ctx: ActionContext, action: Action) -> str | None:
+        return None
 
     def validate(self, ctx: ActionContext, action: Action) -> str | None:
         return None
@@ -35,6 +39,7 @@ class MoveHandler:
             action.dy,
             WALKING_SPEED_METRES_PER_SECOND * ctx.delta_seconds,
             ctx.grid,
+            ctx.load_kg,
         )
         ctx.actor.z = ctx.actor.h // 6
         to_tile = ctx.actor_pos()

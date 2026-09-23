@@ -11,17 +11,28 @@ from etherbound.db.models import Chunk as ChunkRow
 from etherbound.db.models import ChunkLevel as ChunkLevelRow
 from etherbound.db.models import Event as EventRow
 from etherbound.db.models import Material as MaterialRow
+from etherbound.db.models import Object as ObjectRow
 from etherbound.engine.actions import (
     Action,
     ActionResult,
     ActivityState,
+    CarriedObject,
     MenuEntry,
     MoveAction,
+    ObjectTarget,
     SelfTarget,
     Target,
     TileTarget,
 )
 from etherbound.engine.movement import nearest_surface
+from etherbound.engine.objects import (
+    actor_load_kg,
+    children,
+    held_objects,
+    is_accessible,
+    tile_objects,
+    worn_objects,
+)
 from etherbound.engine.ops import ActionContext, handled_ops, handler_for
 from etherbound.engine.ops.base import metres
 from etherbound.events.bus import EventBus
@@ -36,12 +47,20 @@ from etherbound.events.models import (
     WorldGenerated,
 )
 from etherbound.world.chunk import CHUNK_SIZE, Chunk, ChunkLevel
-from etherbound.world.gen.testworld import GEN_VERSION, SPAWN_POINT, TestWorld, generate_test_world
+from etherbound.world.gen.testworld import (
+    GEN_VERSION,
+    SPAWN_POINT,
+    GeneratedObject,
+    TestWorld,
+    generate_test_world,
+)
 from etherbound.world.grid import WorldGrid
 from etherbound.world.materials import MaterialRegistry
+from etherbound.world.objects import ObjectCatalog
 
 PLAYER_ID = "niko"
 CHUNK_RADIUS = 2
+HANDLING_OPS = frozenset({"take", "drop", "put", "open", "close", "wear", "remove"})
 
 action_adapter: TypeAdapter[Action] = TypeAdapter(Action)
 
@@ -55,6 +74,8 @@ class ActorState:
     z: int
     h: int
     activity: ActivityState | None = None
+    carried: tuple[CarriedObject, ...] = ()
+    load_kg: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +100,17 @@ class ChunkLevelPayload:
 
 
 @dataclass(frozen=True, slots=True)
+class ObjectPayload:
+    id: int
+    kind: str
+    x: int
+    y: int
+    h: int
+    quantity: int
+    open: bool | None
+
+
+@dataclass(frozen=True, slots=True)
 class ChunkPayload:
     cx: int
     cy: int
@@ -86,6 +118,7 @@ class ChunkPayload:
     ground_h: tuple[int, ...]
     surface_mat: tuple[int, ...]
     levels: tuple[ChunkLevelPayload, ...]
+    objects: tuple[ObjectPayload, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,13 +145,16 @@ class WorldEngine:
         sessions: sessionmaker[Session],
         registry: MaterialRegistry | None = None,
         bus: EventBus | None = None,
+        catalog: ObjectCatalog | None = None,
     ) -> None:
         self.sessions = sessions
         self.registry = registry or MaterialRegistry.load()
-        self.grid = WorldGrid(registry=self.registry)
+        self.catalog = catalog or ObjectCatalog.load(registry=self.registry)
+        self.grid = WorldGrid(registry=self.registry, catalog=self.catalog)
         self._lock = asyncio.Lock()
         self.bus = bus or EventBus()
         self._next_seq = 1
+        self._load_cache: dict[str, float] = {}
 
     def _stamp_and_store(
         self,
@@ -141,7 +177,9 @@ class WorldEngine:
                         type=event.type,
                         actor_id=event.actor_id,
                         data=event.model_dump(
-                            mode="json", exclude={"seq", "game_minute", "type", "actor_id"}
+                            mode="json",
+                            by_alias=True,
+                            exclude={"seq", "game_minute", "type", "actor_id"},
                         ),
                     )
                 )
@@ -242,6 +280,58 @@ class WorldEngine:
     def _has_chunks(self, session: Session) -> bool:
         return session.scalar(select(ChunkRow.cx).limit(1)) is not None
 
+    def _delete_uncarried_objects(self, session: Session) -> None:
+        """Keep held and worn objects and everything inside them; drop the rest."""
+        keep: set[int] = {
+            row.id
+            for row in session.scalars(select(ObjectRow).where(ObjectRow.loc.in_(("held", "worn"))))
+        }
+        frontier = set(keep)
+        while frontier:
+            children = list(
+                session.scalars(
+                    select(ObjectRow).where(
+                        ObjectRow.loc == "in", ObjectRow.container_id.in_(frontier)
+                    )
+                )
+            )
+            frontier = {child.id for child in children} - keep
+            keep |= frontier
+        for row in session.scalars(select(ObjectRow).order_by(ObjectRow.id.desc())):
+            if row.id not in keep:
+                session.delete(row)
+
+    def _commit_objects(self, session: Session, objects: tuple[GeneratedObject, ...]) -> None:
+        ids: list[int] = []
+        for obj in objects:
+            row = ObjectRow(
+                kind=obj.kind,
+                loc="in" if obj.parent is not None else "tile",
+                quantity=obj.quantity,
+                state={"open": obj.open} if obj.open else {},
+            )
+            if obj.parent is not None:
+                row.container_id = ids[obj.parent]
+            else:
+                row.x, row.y, row.h = obj.x, obj.y, obj.h
+                row.cx, row.cy = obj.x // CHUNK_SIZE, obj.y // CHUNK_SIZE
+            session.add(row)
+            session.flush()
+            ids.append(row.id)
+
+    def _load_object_index(self, session: Session) -> None:
+        for cx, cy in self.grid.chunks:
+            self.grid.set_chunk_objects(cx, cy, tile_objects(session, self.catalog, cx, cy))
+
+    def _refresh_load(self, session: Session) -> None:
+        self._load_cache = {
+            actor.id: actor_load_kg(session, self.catalog, actor.id)
+            for actor in session.scalars(select(Actor))
+        }
+
+    def load_kg(self, actor_id: str) -> float:
+        return self._load_cache.get(actor_id, 0.0)
+
     def ensure_world(self, seed: int = 0) -> None:
         events: list[Event] = []
         with self.sessions() as session:
@@ -263,15 +353,19 @@ class WorldEngine:
                 if has_chunks:
                     session.query(ChunkLevelRow).delete(synchronize_session=False)
                     session.query(ChunkRow).delete(synchronize_session=False)
+                self._delete_uncarried_objects(session)
                 world = generate_test_world(meta.seed, self.registry)
                 self._commit_world(session, world)
+                self._commit_objects(session, world.objects)
                 meta.gen_version = world.gen_version
                 events.append(WorldGenerated(seed=meta.seed, gen_version=world.gen_version))
             chunks, levels = self._load_grid(session)
-            self.grid = WorldGrid(chunks, levels, self.registry)
+            self.grid = WorldGrid(chunks, levels, self.registry, catalog=self.catalog)
+            self._load_object_index(session)
             actor_event = self._ensure_actor(session)
             if actor_event is not None:
                 events.append(actor_event)
+            self._refresh_load(session)
             if generated_world:
                 events.append(ClockChanged(speed=meta.speed, paused=meta.paused))
             self._next_seq = (session.scalar(select(func.max(EventRow.seq))) or 0) + 1
@@ -353,12 +447,32 @@ class WorldEngine:
                     actor.z,
                     actor.h,
                     _activity(actor),
+                    self._carried(session, actor.id),
+                    self._load_cache.get(actor.id, 0.0),
                 )
                 for actor in session.scalars(select(Actor).order_by(Actor.id))
             )
             return WorldState(
                 world.seed, world.game_minute, world.speed, world.paused, actors, world.gen_version
             )
+
+    def _carried(self, session: Session, actor_id: str) -> tuple[CarriedObject, ...]:
+        carried: list[CarriedObject] = []
+        rows = session.scalars(
+            select(ObjectRow).where(ObjectRow.actor_id == actor_id).order_by(ObjectRow.id)
+        )
+        for row in rows:
+            kind = self.catalog.get(row.kind)
+            carried.append(
+                CarriedObject(
+                    id=row.id,
+                    kind=row.kind,
+                    name=kind.name if kind is not None else row.kind,
+                    quantity=row.quantity,
+                    slot=row.slot or "",
+                )
+            )
+        return tuple(carried)
 
     def clock_state(self) -> tuple[int, int, bool]:
         with self.sessions() as session:
@@ -393,6 +507,18 @@ class WorldEngine:
             ground_h=chunk.ground_h,
             surface_mat=chunk.surface_mat,
             levels=levels,
+            objects=tuple(
+                ObjectPayload(
+                    id=obj.id,
+                    kind=obj.kind,
+                    x=obj.x,
+                    y=obj.y,
+                    h=obj.h,
+                    quantity=obj.quantity,
+                    open=obj.open,
+                )
+                for obj in self.grid.objects_at_chunk(cx, cy)
+            ),
         )
 
     def chunks_near(self, cx: int, cy: int, radius: int = CHUNK_RADIUS) -> tuple[ChunkPayload, ...]:
@@ -408,6 +534,7 @@ class WorldEngine:
         async with self._lock:
             with self.sessions() as session:
                 session.query(EventRow).delete()
+                session.query(ObjectRow).delete()
                 session.query(ChunkLevelRow).delete()
                 session.query(ChunkRow).delete()
                 session.query(Actor).delete()
@@ -418,14 +545,20 @@ class WorldEngine:
                 world.paused = False
                 generated = generate_test_world(seed, self.registry)
                 self._commit_world(session, generated)
+                self._commit_objects(session, generated.objects)
                 world.gen_version = GEN_VERSION
                 self.grid = WorldGrid(
-                    generated.chunks.values(), generated.levels.values(), self.registry
+                    generated.chunks.values(),
+                    generated.levels.values(),
+                    self.registry,
+                    catalog=self.catalog,
                 )
+                self._load_object_index(session)
                 events: list[Event] = [WorldGenerated(seed=seed, gen_version=world.gen_version)]
                 actor_event = self._ensure_actor(session)
                 if actor_event is not None:
                     events.append(actor_event)
+                self._refresh_load(session)
                 events.append(ClockChanged(speed=world.speed, paused=world.paused))
                 next_seq = self._stamp_and_store(session, world, events, first_seq=1)
                 session.commit()
@@ -455,6 +588,8 @@ class WorldEngine:
                         z=actor.z,
                         h=actor.h,
                         reason="paused",
+                        carried=list(self._carried(session, actor_id)),
+                        load_kg=self.load_kg(actor_id),
                     )
                 if isinstance(action, MoveAction) and action.dx == 0 and action.dy == 0:
                     # Releasing WASD sends a zero vector; it is not an action, so it must not
@@ -468,9 +603,13 @@ class WorldEngine:
                         z=actor.z,
                         h=actor.h,
                         activity=_activity(actor),
+                        carried=list(self._carried(session, actor_id)),
+                        load_kg=self.load_kg(actor_id),
                     )
                 handler = handler_for(action.op)
-                ctx = ActionContext(session, world, actor, self.grid, delta_seconds)
+                ctx = ActionContext(
+                    session, world, actor, self.grid, delta_seconds, self.load_kg(actor_id)
+                )
                 reason = handler.validate(ctx, action)
                 if reason is not None:
                     # A rejection changes nothing, a running activity included.
@@ -484,6 +623,8 @@ class WorldEngine:
                         h=actor.h,
                         reason=reason,
                         activity=_activity(actor),
+                        carried=list(self._carried(session, actor_id)),
+                        load_kg=self.load_kg(actor_id),
                     )
                 running = _activity(actor)
                 if running is not None:
@@ -524,6 +665,8 @@ class WorldEngine:
                 session.commit()
                 self._next_seq = next_seq
                 self.bus.enqueue(events)
+                if action.op in HANDLING_OPS:
+                    self._refresh_load(session)
                 result = ActionResult(
                     accepted=True,
                     actor_id=actor_id,
@@ -534,6 +677,8 @@ class WorldEngine:
                     h=actor.h,
                     text=text,
                     activity=activity,
+                    carried=list(self._carried(session, actor_id)),
+                    load_kg=self.load_kg(actor_id),
                 )
         await self.bus.drain()
         return result
@@ -565,7 +710,7 @@ class WorldEngine:
             actor.activity = None
             action = action_adapter.validate_python(running.action)
             handler = handler_for(action.op)
-            ctx = ActionContext(session, world, actor, self.grid, 0)
+            ctx = ActionContext(session, world, actor, self.grid, 0, self.load_kg(actor.id))
             # The world may have changed since the start; effects apply only if still valid.
             reason = handler.validate(ctx, action)
             if reason is not None:
@@ -584,40 +729,70 @@ class WorldEngine:
         tile_x, tile_y = floor(x), floor(y)
         surfaces = self.grid.standing_surfaces(tile_x, tile_y)
         visible = [surface for surface in surfaces if surface.z == z] or list(surfaces)
-        candidates: list[Target] = []
+        chosen = None
         if visible:
-            surface = min(visible, key=lambda item: abs(item.z - z))
-            material = self.registry.get(surface.material_id)
+            chosen = min(visible, key=lambda item: abs(item.z - z))
+            material = self.registry.get(chosen.material_id)
             name = material.name if material is not None else "unknown"
-            label = f"{name} · {metres(surface.h)}"
-            candidates.append(TileTarget(x=tile_x, y=tile_y, h=surface.h))
+            label = f"{name} · {metres(chosen.h)}"
         else:
             label = "nothing"
+        surface_z = chosen.z if chosen is not None else z
         entries: list[MenuEntry] = []
         with self.sessions() as session:
             world = self._world_row(session)
             actor = session.get(Actor, actor_id)
             if actor is None:
                 raise KeyError(f"unknown actor: {actor_id}")
-            if (floor(actor.x), floor(actor.y)) == (tile_x, tile_y):
+            candidates: list[Target] = []
+            if chosen is not None:
+                candidates.append(TileTarget(x=tile_x, y=tile_y, h=chosen.h))
+            on_own_tile = (floor(actor.x), floor(actor.y)) == (tile_x, tile_y)
+            if on_own_tile:
                 candidates.append(SelfTarget())
-            ctx = ActionContext(session, world, actor, self.grid, 0)
+            tile_rows = [
+                row
+                for row in session.scalars(
+                    select(ObjectRow)
+                    .where(ObjectRow.loc == "tile", ObjectRow.x == tile_x, ObjectRow.y == tile_y)
+                    .order_by(ObjectRow.id)
+                )
+                if row.h is not None and row.h // 6 == surface_z
+            ]
+            candidates.extend(ObjectTarget(id=row.id) for row in tile_rows)
+            for row in tile_rows:
+                kind = self.catalog.get(row.kind)
+                if kind is not None and is_accessible(kind, row):
+                    candidates.extend(
+                        ObjectTarget(id=child.id) for child in children(session, row.id)
+                    )
+            if on_own_tile:
+                carried = held_objects(session, actor_id) + worn_objects(session, actor_id)
+                candidates.extend(ObjectTarget(id=row.id) for row in carried)
+                for row in worn_objects(session, actor_id):
+                    kind = self.catalog.get(row.kind)
+                    if kind is not None and is_accessible(kind, row):
+                        candidates.extend(
+                            ObjectTarget(id=child.id) for child in children(session, row.id)
+                        )
+            ctx = ActionContext(session, world, actor, self.grid, 0, self.load_kg(actor_id))
             for spec, handler in handled_ops():
                 for target in candidates:
                     if target.kind not in spec.targets or not handler.applies(ctx, target):
                         continue
-                    action = handler.build(ctx, target)
-                    reason = handler.validate(ctx, action)
-                    entries.append(
-                        MenuEntry(
-                            op=spec.key,
-                            label=spec.label,
-                            tags=list(spec.tags),
-                            available=reason is None,
-                            reason=reason,
-                            action=action,
+                    for action in handler.builds(ctx, target):
+                        reason = handler.validate(ctx, action)
+                        entries.append(
+                            MenuEntry(
+                                op=spec.key,
+                                label=spec.label,
+                                tags=list(spec.tags),
+                                available=reason is None,
+                                reason=reason,
+                                subject=handler.subject(ctx, action),
+                                action=action,
+                            )
                         )
-                    )
             session.rollback()
         return MenuPayload(x=x, y=y, z=z, target=label, entries=tuple(entries))
 

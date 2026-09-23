@@ -2,7 +2,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-from etherbound.engine.actions import Action
+from etherbound.engine.actions import Action, CarriedObject
 
 
 class InputMessage(BaseModel):
@@ -42,6 +42,8 @@ class ActorSnapshot(BaseModel):
     z: int
     h: int = 0
     activity: ActivitySnapshot | None = None
+    carried: list[CarriedObject] = Field(default_factory=lambda: [])
+    load_kg: float = 0.0
 
 
 class WorldInfo(BaseModel):
@@ -60,6 +62,16 @@ class ChunkLevelMessage(BaseModel):
     flags: list[int]
 
 
+class ObjectMessage(BaseModel):
+    id: int
+    kind: str
+    x: int
+    y: int
+    h: int
+    quantity: int
+    open: bool | None = None
+
+
 class ChunkMessage(BaseModel):
     type: Literal["chunk"]
     cx: int
@@ -68,6 +80,7 @@ class ChunkMessage(BaseModel):
     ground_h: list[int]
     surface_mat: list[int]
     levels: list[ChunkLevelMessage]
+    objects: list[ObjectMessage] = Field(default_factory=lambda: [])
 
 
 class SnapshotMessage(BaseModel):
@@ -110,6 +123,8 @@ class ResultMessage(BaseModel):
     reason: str | None = None
     text: str | None = None
     activity: ActivitySnapshot | None = None
+    carried: list[CarriedObject] = Field(default_factory=lambda: [])
+    load_kg: float = 0.0
 
 
 class ActivityMessage(BaseModel):

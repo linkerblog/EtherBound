@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { components } from "../src/net/schema";
 import { ChunkStore } from "../src/world/ChunkStore";
+import { pickTile } from "../src/world/pick";
 import {
   EDGE_N_DOORWAY,
   EDGE_N_WINDOW,
@@ -23,7 +24,13 @@ const materials = new Map([
   [2, { walkable: false, walk_cost: 1, solid: false }],
   [3, { walkable: true, walk_cost: 1, solid: true }],
   [4, { walkable: true, walk_cost: 1, solid: false }],
+  [5, { key: "wood", walkable: true, walk_cost: 1.2, solid: true }],
 ]);
+
+const chestKind: components["schemas"]["ObjectKindResponse"] = {
+  key: "chest", name: "Chest", material: "wood", mass: 15, bulk: 120, height: 2,
+  solid: true, surface: true, openable: true, container_capacity: 100,
+};
 
 function makeLevel(
   z: number,
@@ -53,7 +60,7 @@ function makeLevel(
   };
 }
 
-function makeChunk(options: { groundH?: number; targetMaterial?: number; levels?: Level[] } = {}): Chunk {
+function makeChunk(options: { groundH?: number; targetMaterial?: number; levels?: Level[]; objects?: Chunk["objects"] } = {}): Chunk {
   const ground = Array(CELL_COUNT).fill(options.groundH ?? 0) as number[];
   const surface = Array(CELL_COUNT).fill(1) as number[];
   surface[targetIndex] = options.targetMaterial ?? 1;
@@ -64,12 +71,14 @@ function makeChunk(options: { groundH?: number; targetMaterial?: number; levels?
     ground_h: ground,
     surface_mat: surface,
     levels: options.levels ?? [],
+    objects: options.objects ?? [],
   };
 }
 
 function makeStore(options: Parameters<typeof makeChunk>[0] = {}): ChunkStore {
   const store = new ChunkStore();
   store.setMaterials(materials);
+  store.setObjectKinds(new Map([[chestKind.key, chestKind]]));
   store.set(makeChunk(options));
   return store;
 }
@@ -113,6 +122,25 @@ test("standing surfaces and headroom mirror the server grid", async (t) => {
       assert.equal(canEnter(store, 0.5, 0.5, 1.1, 0.5, height), scenario.expected);
     });
   }
+});
+
+test("solid object volumes block the ground while their tops remain standable", () => {
+  const store = makeStore({ objects: [{ id: 1, kind: "chest", x: 1, y: 0, h: 0, quantity: 1, open: null }] });
+  assert.equal(store.isObjectSolidAt(1, 0, 1), true);
+  assert.equal(store.isObjectSolidAt(1, 0, 2), true);
+  assert.equal(store.isObjectSolidAt(1, 0, 3), false);
+  assert.equal(store.hasHeadroom(1, 0, 0), false);
+  assert.equal(store.standingH(1, 0, 0), undefined);
+  assert.equal(store.standingH(1, 0, 2), 2);
+  assert.equal(store.walkCost(1, 0, 2), 1.2);
+  assert.equal(canEnter(store, 0.5, 0.5, 1.1, 0.5, 0), false);
+});
+
+test("pickTile hits a table tile at the solid object's top", () => {
+  const table: components["schemas"]["ObjectKindResponse"] = { ...chestKind, key: "table", name: "Table" };
+  const store = makeStore({ objects: [{ id: 1, kind: "table", x: 1, y: 1, h: 0, quantity: 1, open: null }] });
+  store.setObjectKinds(new Map([[table.key, table]]));
+  assert.deepEqual(pickTile(store, 0, 1, 2, () => Number.POSITIVE_INFINITY), { x: 1, y: 1, z: 0 });
 });
 
 test("wall spans, floorless supports, and openings mirror the server grid", async (t) => {

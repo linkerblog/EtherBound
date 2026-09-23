@@ -1,6 +1,17 @@
 from typing import Any
 
-from sqlalchemy import JSON, BigInteger, Boolean, Float, Integer, LargeBinary, String
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    LargeBinary,
+    String,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -87,3 +98,47 @@ class Event(Base):
     type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     actor_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     data: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+
+
+class Object(Base):
+    """One instance of an object kind, at exactly one location (docs/Dev-012.md [Sec. 3])."""
+
+    __tablename__ = "object"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    kind: Mapped[str] = mapped_column(String(64), nullable=False)
+    loc: Mapped[str] = mapped_column(String(8), nullable=False)
+    x: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    y: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    h: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cx: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cy: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    container_id: Mapped[int | None] = mapped_column(
+        ForeignKey("object.id"), nullable=True, index=True
+    )
+    actor_id: Mapped[str | None] = mapped_column(ForeignKey("actor.id"), nullable=True, index=True)
+    slot: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    state: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    integrity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    owner: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    __table_args__ = (
+        Index("ix_object_cell", "cx", "cy"),
+        CheckConstraint("quantity > 0", name="ck_object_quantity"),
+        CheckConstraint(
+            "(loc = 'tile' AND x IS NOT NULL AND y IS NOT NULL AND h IS NOT NULL"
+            " AND cx IS NOT NULL AND cy IS NOT NULL AND container_id IS NULL"
+            " AND actor_id IS NULL AND slot IS NULL)"
+            " OR (loc = 'in' AND x IS NULL AND y IS NULL AND h IS NULL"
+            " AND cx IS NULL AND cy IS NULL AND container_id IS NOT NULL"
+            " AND actor_id IS NULL AND slot IS NULL)"
+            " OR (loc = 'held' AND x IS NULL AND y IS NULL AND h IS NULL"
+            " AND cx IS NULL AND cy IS NULL AND container_id IS NULL"
+            " AND actor_id IS NOT NULL AND slot IN ('left', 'right', 'both'))"
+            " OR (loc = 'worn' AND x IS NULL AND y IS NULL AND h IS NULL"
+            " AND cx IS NULL AND cy IS NULL AND container_id IS NULL"
+            " AND actor_id IS NOT NULL AND slot = 'back')",
+            name="ck_object_location",
+        ),
+    )

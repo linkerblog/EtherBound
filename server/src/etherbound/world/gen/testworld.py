@@ -17,9 +17,45 @@ from etherbound.world.chunk import (
 from etherbound.world.gen.noise import ValueNoise
 from etherbound.world.materials import MaterialRegistry
 
-GEN_VERSION = 3
+GEN_VERSION = 4
 WORLD_CHUNKS = 8
 SPAWN_POINT = (121.5, 128.5)
+
+
+@dataclass(frozen=True, slots=True)
+class GeneratedObject:
+    """One object the generator places. ``parent`` is the index of its container, if any."""
+
+    kind: str
+    x: int
+    y: int
+    h: int
+    quantity: int = 1
+    open: bool = False
+    parent: int | None = None
+
+
+def test_objects() -> tuple[GeneratedObject, ...]:
+    """The fixed v4 object layout; order is stable, so generated ids are stable."""
+    return (
+        # 1. Near spawn (grass at h = 2, within four tiles of 121.5, 128.5).
+        GeneratedObject(kind="shovel", x=124, y=126, h=2),
+        GeneratedObject(kind="backpack", x=125, y=126, h=2),
+        GeneratedObject(kind="chest", x=124, y=127, h=2),
+        GeneratedObject(kind="apple", x=124, y=127, h=2, quantity=3, parent=2),
+        GeneratedObject(kind="bottle", x=124, y=127, h=2, quantity=2, parent=2),
+        # 2. Building ground floor (interior at h = 12).
+        GeneratedObject(kind="table", x=137, y=133, h=12),
+        GeneratedObject(kind="bottle", x=137, y=133, h=14),
+        GeneratedObject(kind="chair", x=138, y=133, h=12),
+        GeneratedObject(kind="chair", x=137, y=134, h=12),
+        GeneratedObject(kind="shelf", x=139, y=133, h=12),
+        GeneratedObject(kind="apple", x=139, y=133, h=12, quantity=2, parent=9),
+        GeneratedObject(kind="barrel", x=140, y=133, h=12),
+        # 3. Climbing test: two chests stacked on open ground at h = 1.
+        GeneratedObject(kind="chest", x=126, y=127, h=1),
+        GeneratedObject(kind="chest", x=126, y=127, h=3),
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +64,7 @@ class TestWorld:
     levels: Mapping[tuple[int, int, int], ChunkLevel]
     spawn: tuple[float, float, int]
     gen_version: int = GEN_VERSION
+    objects: tuple[GeneratedObject, ...] = ()
 
     def blob_bytes(self) -> bytes:
         chunks = b"".join(
@@ -223,4 +260,4 @@ def generate_test_world(seed: int, registry: MaterialRegistry | None = None) -> 
         key: ChunkLevel(key[0], key[1], key[2], *[tuple(values) for values in fields])
         for key, fields in levels.items()
     }
-    return TestWorld(chunks, chunk_levels, (*SPAWN_POINT, 0))
+    return TestWorld(chunks, chunk_levels, (*SPAWN_POINT, 0), GEN_VERSION, test_objects())

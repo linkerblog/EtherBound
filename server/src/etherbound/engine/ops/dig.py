@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from math import ceil, floor
 from typing import ClassVar
 
@@ -6,11 +7,13 @@ from sqlalchemy import select
 from etherbound.db.models import Actor
 from etherbound.db.models import Chunk as ChunkRow
 from etherbound.engine.actions import Action, DigAction, Target, TileTarget
+from etherbound.engine.objects import held_objects, object_at_cell
 from etherbound.engine.ops.base import ActionContext, Resolution, in_close_reach
 from etherbound.events.models import ActorMoved, ChunkChanged, Event, TerrainDug, TilePos
 from etherbound.world.materials import Material
 
-# Until tools exist, everyone digs as if with a shovel: about 0.5 m³ an hour in soft soil.
+# Bare hands are about four times slower than a shovel.
+BARE_HAND_TOOL = 0.25
 HAND_DIG_MAX_COST = 2.0
 DIG_MINUTES_PER_COST = 30
 DIG_REACH_H = 2
@@ -29,6 +32,15 @@ class DigHandler:
         exposed = registry[ctx.grid.stratum_at(x, y, dug + 2)]
         return ground_h, dug, removed, exposed
 
+    def _tool_factor(self, ctx: ActionContext) -> float:
+        """The best `tool.dig` among the objects in the actor's hands, else bare hands."""
+        best = BARE_HAND_TOOL
+        for row in held_objects(ctx.session, ctx.actor.id):
+            kind = ctx.grid.catalog.get(row.kind)
+            if kind is not None and kind.tool is not None:
+                best = max(best, kind.tool.dig)
+        return best
+
     def applies(self, ctx: ActionContext, target: Target) -> bool:
         if not isinstance(target, TileTarget):
             return False
@@ -40,9 +52,12 @@ class DigHandler:
         # Hides asphalt, water and glass; concrete and rock stay visible, as too hard.
         return surface is not None and surface.diggable
 
-    def build(self, ctx: ActionContext, target: Target) -> Action:
+    def builds(self, ctx: ActionContext, target: Target) -> Sequence[Action]:
         assert isinstance(target, TileTarget)
-        return DigAction(target=target)
+        return (DigAction(target=target),)
+
+    def subject(self, ctx: ActionContext, action: Action) -> str | None:
+        return None
 
     def validate(self, ctx: ActionContext, action: Action) -> str | None:
         assert isinstance(action, DigAction)
@@ -67,6 +82,8 @@ class DigHandler:
             return "hollow below"
         if not exposed.walkable:
             return "hard layer below"
+        if object_at_cell(ctx, x, y, ground_h):
+            return "something is on it"
         if ctx.others_on(x, y, ground_h):
             return "someone is standing there"
         return None
@@ -74,7 +91,7 @@ class DigHandler:
     def duration(self, ctx: ActionContext, action: Action) -> int:
         assert isinstance(action, DigAction)
         _, _, removed, _ = self._layers(ctx, action.target.x, action.target.y)
-        return ceil(DIG_MINUTES_PER_COST * removed.dig_cost)
+        return ceil(DIG_MINUTES_PER_COST * removed.dig_cost / self._tool_factor(ctx))
 
     def resolve(self, ctx: ActionContext, action: Action) -> Resolution:
         raise NotImplementedError("dig is an activity; it completes, it never resolves")

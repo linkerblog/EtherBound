@@ -558,19 +558,19 @@ const PIXEL_FURNITURE = {
   },
   chest: {
     description: 'Cofre pixel art con tapa curva de tablones, herrajes y cerradura dorada.',
-    extent: { from: [2, 5, 0], to: [30, 27, 24] },
+    extent: { from: [2, 5, 0], to: [30, 27, 32] },
     build(random) {
       const trim = random() < 0.5 ? 'metal' : 'gold';
       return [
-        pxBox([3, 7, 0], [29, 25, 13], 'wood', { pattern: 'planks', axis: 0 }),
-        pxLog(16, 14, 9, 3, 29, 'wood', { pattern: 'planks', width: 4 }),
-        pxBox([2, 6, 12], [30, 26, 14], trim),
-        pxBox([6, 6, 0], [8, 26, 12], trim),
-        pxBox([24, 6, 0], [26, 26, 12], trim),
-        pxLog(16, 14, 9.5, 6, 8, trim),
-        pxLog(16, 14, 9.5, 24, 26, trim),
-        pxBox([14, 25, 6], [18, 27, 13], 'gold'),
-        pxBox([15, 26, 8], [16, 28, 10], 'hole'),
+        pxBox([3, 7, 0], [29, 25, 17.333333333333332], 'wood', { pattern: 'planks', axis: 0 }),
+        pxLog(16, 18.666666666666668, 9, 3, 29, 'wood', { pattern: 'planks', width: 4 }),
+        pxBox([2, 6, 16], [30, 26, 18.666666666666668], trim),
+        pxBox([6, 6, 0], [8, 26, 16], trim),
+        pxBox([24, 6, 0], [26, 26, 16], trim),
+        pxLog(16, 18.666666666666668, 9.5, 6, 8, trim),
+        pxLog(16, 18.666666666666668, 9.5, 24, 26, trim),
+        pxBox([14, 25, 8], [18, 27, 17.333333333333332], 'gold'),
+        pxBox([15, 26, 10.666666666666666], [16, 28, 13.333333333333334], 'hole'),
       ];
     },
   },
@@ -655,24 +655,24 @@ const PIXEL_FURNITURE = {
   },
   barrel: {
     description: 'Barril pixel art con duelas abombadas, flejes de hierro y tapa de tablones.',
-    extent: { from: [5, 5, 0], to: [27, 29, 24] },
+    extent: { from: [5, 5, 0], to: [27, 29, 32] },
     build(random) {
       const narrow = 8.5;
       const wide = 10;
       const lower = (z) => narrow + ((wide - narrow) * z) / 11;
       const upper = (z) => wide - ((wide - narrow) * (z - 11)) / 11;
       const prims = [
-        pxCyl(16, 16, 0, 11, narrow, wide, 'wood', { pattern: 'staves' }),
-        pxCyl(16, 16, 11, 22, wide, narrow, 'wood', { pattern: 'staves' }),
-        pxCyl(16, 16, 2, 4, lower(2) + 0.6, lower(4) + 0.6, 'metal'),
-        pxCyl(16, 16, 18, 20, upper(18) + 0.6, upper(20) + 0.6, 'metal'),
+        pxCyl(16, 16, 0, 14.666666666666666, narrow, wide, 'wood', { pattern: 'staves' }),
+        pxCyl(16, 16, 14.666666666666666, 29.333333333333332, wide, narrow, 'wood', { pattern: 'staves' }),
+        pxCyl(16, 16, 2.6666666666666665, 5.333333333333333, lower(2) + 0.6, lower(4) + 0.6, 'metal'),
+        pxCyl(16, 16, 24, 26.666666666666668, upper(18) + 0.6, upper(20) + 0.6, 'metal'),
       ];
       if (random() < 0.5) {
-        prims.push(pxCyl(16, 16, 9, 13, lower(9) + 0.6, upper(13) + 0.6, 'metal', { tone: -0.3 }));
+        prims.push(pxCyl(16, 16, 12, 17.333333333333332, lower(9) + 0.6, upper(13) + 0.6, 'metal', { tone: -0.3 }));
       }
       if (random() < 0.5) {
-        prims.push(pxBox([15, 25, 5], [17, 28, 7], 'metal'));
-        prims.push(pxBox([15, 27, 3], [17, 28, 5], 'metal', { tone: -0.5 }));
+        prims.push(pxBox([15, 25, 6.666666666666667], [17, 28, 9.333333333333334], 'metal'));
+        prims.push(pxBox([15, 27, 4], [17, 28, 6.666666666666667], 'metal', { tone: -0.5 }));
       }
       return prims;
     },

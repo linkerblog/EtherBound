@@ -1,7 +1,7 @@
 import type { ChunkStore } from "./ChunkStore";
 import { NO_FLOOR } from "./rules";
 
-export type RayHit = { x: number; y: number; h: number; kind: "floor" | "ground"; z: number };
+export type RayHit = { x: number; y: number; h: number; kind: "floor" | "ground" | "object"; z: number };
 export type CutoffAt = (x: number, y: number) => number;
 
 export function marchRay(
@@ -17,6 +17,14 @@ export function marchRay(
     if (h < toH) break;
     const x = Math.floor((s + t + h) / 2);
     const y = Math.floor((t + h - s) / 2);
+
+    for (const object of store.objectsAt(x, y)) {
+      const kind = store.objectKind(object.kind);
+      const top = kind?.solid ? object.h + kind.height : undefined;
+      if (top !== undefined && top <= cutoffAt(x, y) && h <= top && top < h + 0.5) {
+        return { x, y, h: top, kind: "object", z: Math.floor(top / 6) };
+      }
+    }
 
     for (const level of store.levelsAt(x, y)) {
       const cell = store.levelCell(x, y, level.z);

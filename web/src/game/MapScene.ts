@@ -4,6 +4,7 @@ import { EMPTY_POSITION, type Direction, type Position } from "../net/protocol";
 import { WebSocketClient } from "../net/client";
 import { ChunkStore } from "../world/ChunkStore";
 import { loadMaterials } from "../world/materials";
+import { loadObjectKinds } from "../world/objects";
 import type { components } from "../net/schema";
 import { defaultZoom, loadZoom, saveZoom, stepZoom, WheelAccumulator, type ZoomLevel } from "./zoom";
 import { H_PX, TILE_H, TILE_W, baseDepth, faceTile, keysToWorld, nikoDepth, rowDepth, screenToRay, toScreen } from "./iso";
@@ -14,8 +15,24 @@ import { cutoffChunkKeys, changedChunkKeys, materialChunkKeys, structureChunkKey
 import { diamondMask, edgeLineMask, faceMask, shearSideCell, shearWallCell, wallMask, type SideCell, type TileMask } from "./tileMasks";
 import { shadeColor, sideTint, sideVariant, spriteTint } from "./terrainSprites";
 import { TERRAIN_SHEETS, TERRAIN_SIDE_SHEETS } from "./terrainSheets";
+import { OBJECT_SHEETS } from "./objectSheets";
+import { OBJECT_SPRITES } from "./objectSprites";
 type Material = components["schemas"]["MaterialResponse"];
+type ObjectKind = components["schemas"]["ObjectKindResponse"];
+type TileObject = components["schemas"]["ObjectResponse"];
 type WorldChunk = components["schemas"]["ChunkResponse"];
+
+type ObjectFrame = { name: string; anchorX: number; anchorY: number };
+type ObjectFrameSet = { full: ObjectFrame; lower: Map<number, ObjectFrame>; upper: Map<number, ObjectFrame> };
+type PendingObjectFrame = {
+  name: string;
+  source: HTMLImageElement;
+  sourceY: number;
+  width: number;
+  height: number;
+  anchorX: number;
+  anchorY: number;
+};
 import { EDGE_N_DOORWAY, EDGE_N_WINDOW, EDGE_W_DOORWAY, EDGE_W_WINDOW, LEVEL_H, NO_FLOOR } from "../world/rules";
 
 const CUT_DEPTH = 8;
@@ -54,6 +71,9 @@ export class MapScene extends Phaser.Scene {
   private readonly chunks = new ChunkStore();
   private readonly chunkLayers = new Map<string, ChunkLayers>();
   private materials: Map<number, Material> | null = null;
+  private objectKinds = new Map<string, ObjectKind>();
+  private readonly objectFrames = new Map<string, ObjectFrameSet>();
+  private readonly objectSpriteKeys = new Set<string>();
   private niko!: Phaser.GameObjects.Graphics;
   private nikoGhost!: Phaser.GameObjects.Graphics;
   private prediction = new ClientPrediction(EMPTY_POSITION);
@@ -87,13 +107,16 @@ export class MapScene extends Phaser.Scene {
 
   preload(): void {
     this.load.on("loaderror", (file: Phaser.Loader.File) => {
-      console.error(`terrain sheet failed: ${file.key} ${file.url}`);
+      console.error(`game sheet failed: ${file.key} ${file.url}`);
     });
     for (const [key, sheet] of Object.entries(TERRAIN_SHEETS)) {
       this.load.spritesheet(`sheet:${key}`, sheet, { frameWidth: TILE_W, frameHeight: TILE_H });
     }
     for (const [key, sheet] of Object.entries(TERRAIN_SIDE_SHEETS)) {
       this.load.image(`side:${key}`, sheet);
+    }
+    for (const [key, sheet] of Object.entries(OBJECT_SHEETS)) {
+      this.load.image(`object:${key}`, sheet);
     }
   }
 
@@ -104,6 +127,11 @@ export class MapScene extends Phaser.Scene {
       this.materials = materials;
       this.chunks.setMaterials(materials);
       this.markDirty(materialChunkKeys(this.dirtyChunkInfo()));
+    });
+    void loadObjectKinds().then((kinds) => {
+      this.objectKinds = kinds;
+      this.chunks.setObjectKinds(kinds);
+      this.markDirty([...this.chunks.values()].map((chunk) => `${chunk.cx},${chunk.cy}`));
     });
 
     this.niko = this.add.graphics();
@@ -183,6 +211,7 @@ export class MapScene extends Phaser.Scene {
         this.applyCameraBounds(state.world.bounds);
       }
       const player = state.actors.player ?? state.actors.niko ?? Object.values(state.actors)[0];
+      if (player) this.prediction.setLoadKg(player.load_kg ?? 0);
       if (player && !this.hasAuthoritativePosition) {
         this.prediction.reset(player);
         this.hasAuthoritativePosition = true;
@@ -333,10 +362,13 @@ export class MapScene extends Phaser.Scene {
 
     const sideFrames: Array<[string, SideCell]> = [];
     const wallFrames: Array<[string, SideCell]> = [];
+    const pendingObjectFrames: PendingObjectFrame[] = [];
     let sideWidth = 0;
     let sideHeight = 0;
     let wallWidth = 0;
     let wallHeight = 0;
+    let objectWidth = 0;
+    let objectHeight = 0;
     for (const [key, file] of Object.entries(TERRAIN_SIDE_SHEETS)) {
       const texture = this.textures.get(`side:${key}`);
       const source = texture.getSourceImage() as HTMLImageElement | undefined;
@@ -381,11 +413,43 @@ export class MapScene extends Phaser.Scene {
       }
     }
 
+    for (const [kind, file] of Object.entries(OBJECT_SHEETS)) {
+      const texture = this.textures.get(`object:${kind}`);
+      const source = texture?.getSourceImage() as HTMLImageElement | undefined;
+      const sprite = OBJECT_SPRITES[kind];
+      if (!source || !sprite || source.width === 0 || source.height === 0) {
+        console.warn(`Skipping ${kind} object sprite: ${file} not loaded`);
+        continue;
+      }
+      const frames: PendingObjectFrame[] = [{
+        name: `object:${kind}:full`, source, sourceY: 0, width: source.width, height: source.height,
+        anchorX: sprite.anchorX, anchorY: sprite.anchorY,
+      }];
+      for (let relativeH = 1; relativeH <= 4; relativeH += 1) {
+        const cut = sprite.anchorY - relativeH * H_PX;
+        if (cut <= 0 || cut >= source.height) continue;
+        frames.push(
+          { name: `object:${kind}:upper:${relativeH}`, source, sourceY: 0, width: source.width, height: cut, anchorX: sprite.anchorX, anchorY: sprite.anchorY },
+          { name: `object:${kind}:lower:${relativeH}`, source, sourceY: cut, width: source.width, height: source.height - cut, anchorX: sprite.anchorX, anchorY: sprite.anchorY - cut },
+        );
+      }
+      const width = frames.reduce((sum, frame) => sum + frame.width, 0);
+      if (objectWidth + width > 4096) {
+        console.warn(`Skipping ${kind} object sprite: atlas object band would exceed 4096 px`);
+        continue;
+      }
+      pendingObjectFrames.push(...frames);
+      objectWidth += width;
+      objectHeight = Math.max(objectHeight, ...frames.map((frame) => frame.height));
+      this.objectSpriteKeys.add(kind);
+    }
+
     const slotCount = spriteSheets.length * 4 + masks.length;
+    const objectY = 160 + sideHeight + wallHeight;
     const atlas = this.textures.createCanvas(
       "terrain",
-      Math.max(slotCount * TILE_W, sideWidth, wallWidth),
-      160 + sideHeight + wallHeight,
+      Math.max(slotCount * TILE_W, sideWidth, wallWidth, objectWidth, 12),
+      objectY + objectHeight + 6,
     );
     if (!atlas) throw new Error("Failed to create terrain atlas");
     const context = atlas.context;
@@ -431,7 +495,40 @@ export class MapScene extends Phaser.Scene {
       this.maskOffsets.set(name, { x: cell.offsetX, y: cell.offsetY });
       wallX += cell.width;
     }
+    let objectX = 0;
+    for (const frame of pendingObjectFrames) {
+      context.drawImage(frame.source, 0, frame.sourceY, frame.width, frame.height, objectX, objectY, frame.width, frame.height);
+      atlas.add(frame.name, 0, objectX, objectY, frame.width, frame.height);
+      this.registerObjectFrame(frame);
+      objectX += frame.width;
+    }
+    const pile = context.createImageData(12, 6);
+    for (let y = 0; y < 6; y += 1) {
+      for (let x = 0; x < 12; x += 1) {
+        if (Math.abs(x - 5.5) / 6 + Math.abs(y - 2.5) / 3 > 1) continue;
+        const at = (y * 12 + x) * 4;
+        pile.data[at] = 255;
+        pile.data[at + 1] = 255;
+        pile.data[at + 2] = 255;
+        pile.data[at + 3] = 255;
+      }
+    }
+    context.putImageData(pile, 0, objectY + objectHeight);
+    atlas.add("object:pile", 0, 0, objectY + objectHeight, 12, 6);
     atlas.refresh();
+  }
+
+  private registerObjectFrame(frame: PendingObjectFrame): void {
+    const info = { name: frame.name, anchorX: frame.anchorX, anchorY: frame.anchorY };
+    const [, kind, part, heightText] = frame.name.split(":");
+    let set = this.objectFrames.get(kind!);
+    if (!set) {
+      set = { full: info, lower: new Map(), upper: new Map() };
+      this.objectFrames.set(kind!, set);
+    }
+    if (part === "upper") set.upper.set(Number(heightText), info);
+    else if (part === "lower") set.lower.set(Number(heightText), info);
+    else set.full = info;
   }
 
   /** Reads a loaded sheet's pixels so the pure shearing helper can run outside a Phaser texture. */
@@ -593,6 +690,7 @@ export class MapScene extends Phaser.Scene {
             }
           }
         }
+        this.drawTileObjects(layers, usedRows, chunk.objects ?? [], x, y, tileCutoff, row);
       }
     }
 
@@ -629,6 +727,101 @@ export class MapScene extends Phaser.Scene {
     const textured = materialKey !== undefined && this.spriteKeys.has(materialKey);
     const frame = textured ? `${materialKey}${this.variant(x, y)}` : "top";
     this.drawMask(layers, usedRows, frame, x, y, h, row, textured ? spriteTint(color, h) : this.shade(color, h));
+  }
+
+  private drawTileObjects(layers: ChunkLayers, usedRows: Set<number>, objects: TileObject[], x: number, y: number, cutoff: number, row: number): void {
+    const tileObjects = objects.filter((object) => object.x === x && object.y === y).sort((a, b) => a.id - b.id);
+    const pileHeights = new Map<number, TileObject>();
+    for (const object of tileObjects) {
+      const kind = this.objectKinds.get(object.kind);
+      if (!kind || !this.restingSurfaceDrawn(x, y, object.h, object.id, cutoff)) continue;
+      if (!kind.solid) {
+        pileHeights.set(object.h, object);
+        continue;
+      }
+      const materialColor = this.objectMaterialColor(kind.material);
+      const frames = this.objectFrames.get(kind.key);
+      if (!frames || !this.objectSpriteKeys.has(kind.key)) {
+        this.drawObjectPrism(layers, usedRows, x, y, object.h, kind.height, materialColor, row);
+        continue;
+      }
+      const relativeH = this.viewerH - object.h;
+      if (relativeH <= 0) {
+        this.drawObjectSprite(layers, usedRows, frames.full, x, y, object.h, row, true);
+      } else if (relativeH >= kind.height) {
+        this.drawObjectSprite(layers, usedRows, frames.full, x, y, object.h, row, false);
+      } else {
+        const split = Math.floor(relativeH);
+        const lower = frames.lower.get(split);
+        const upper = frames.upper.get(split);
+        if (lower && upper) {
+          this.drawObjectSprite(layers, usedRows, lower, x, y, object.h, row, false);
+          this.drawObjectSprite(layers, usedRows, upper, x, y, object.h, row, true);
+        } else {
+          this.drawObjectSprite(layers, usedRows, frames.full, x, y, object.h, row, relativeH < kind.height / 2);
+        }
+      }
+    }
+    for (const [h, object] of pileHeights) {
+      const kind = this.objectKinds.get(object.kind);
+      if (!kind) continue;
+      const at = toScreen(x + 0.5, y + 0.5, h);
+      const bob = this.blitterFor(layers, usedRows, row, h);
+      const marker = bob.create(at.sx - 6, at.sy - 3, "object:pile");
+      marker.setTint(this.objectMaterialColor(kind.material));
+    }
+  }
+
+  private drawObjectSprite(layers: ChunkLayers, usedRows: Set<number>, frame: ObjectFrame, x: number, y: number, h: number, row: number, aboveFeet: boolean): void {
+    const at = toScreen(x + 0.5, y + 0.5, h);
+    const bob = this.blitterFor(layers, usedRows, row, aboveFeet ? this.viewerH + 1 : this.viewerH);
+    bob.create(at.sx - frame.anchorX, at.sy - frame.anchorY, frame.name);
+  }
+
+  private drawObjectPrism(layers: ChunkLayers, usedRows: Set<number>, x: number, y: number, h: number, height: number, color: number, row: number): void {
+    if (height <= 0) return;
+    const top = h + height;
+    const topTint = this.shade(color, top);
+    this.drawMask(layers, usedRows, "top", x, y, top, row, topTint);
+    const lowerTop = Math.min(top, this.viewerH);
+    const upperBottom = Math.max(h, this.viewerH);
+    if (h < lowerTop) {
+      const south = faceTile("s", x, y);
+      const east = faceTile("e", x, y);
+      this.drawFaceRun(layers, usedRows, "s", south.x, south.y, h, lowerTop, row, this.scaleColor(topTint, 0.82), 1);
+      this.drawFaceRun(layers, usedRows, "e", east.x, east.y, h, lowerTop, row, this.scaleColor(topTint, 0.66), 1);
+    }
+    if (upperBottom < top) {
+      const upperTint = this.shade(color, top);
+      const south = faceTile("s", x, y);
+      const east = faceTile("e", x, y);
+      this.drawFaceRun(layers, usedRows, "s", south.x, south.y, upperBottom, top, row, this.scaleColor(upperTint, 0.82), 1);
+      this.drawFaceRun(layers, usedRows, "e", east.x, east.y, upperBottom, top, row, this.scaleColor(upperTint, 0.66), 1);
+    }
+  }
+
+  private objectMaterialColor(key: string): number {
+    const material = [...(this.materials?.values() ?? [])].find((entry) => entry.key === key);
+    return material ? this.materialColor(material.id) : 0x8b5d3c;
+  }
+
+  private restingSurfaceDrawn(x: number, y: number, h: number, excludeObjectId: number, cutoff: number, visited = new Set<number>()): boolean {
+    if (visited.has(excludeObjectId)) return false;
+    visited.add(excludeObjectId);
+    const ground = this.chunks.groundH(x, y);
+    const levels = this.chunks.levelsAt(x, y);
+    const hasFloor = levels.some((level) => {
+      const floorH = this.chunks.levelCell(x, y, level.z)?.floor_h;
+      return floorH !== undefined && floorH !== NO_FLOOR;
+    });
+    if (ground === h && !this.chunks.isVoid(x, y, ground) && (!hasFloor || ground <= cutoff)) return true;
+    if (levels.some((level) => this.chunks.levelCell(x, y, level.z)?.floor_h === h && h <= cutoff)) return true;
+    return this.chunks.objectsAt(x, y).some((object) => {
+      if (object.id === excludeObjectId) return false;
+      const kind = this.objectKinds.get(object.kind);
+      return kind?.surface && object.h + kind.height === h && object.h <= cutoff &&
+        this.restingSurfaceDrawn(x, y, object.h, object.id, cutoff, new Set(visited));
+    });
   }
 
   private variant(x: number, y: number): number {
@@ -844,6 +1037,11 @@ export class MapScene extends Phaser.Scene {
           maxH = Math.max(maxH, (level.z + 1) * LEVEL_H);
         }
       }
+    }
+    for (const object of chunk.objects ?? []) {
+      const kind = this.objectKinds.get(object.kind);
+      minH = Math.min(minH, object.h - 1);
+      maxH = Math.max(maxH, object.h + (kind?.height ?? 1));
     }
     const corners = [
       [chunk.cx * size, chunk.cy * size],

@@ -1,6 +1,8 @@
 from typing import Any, ClassVar, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from etherbound.engine.actions import Location
 
 
 class TilePos(BaseModel):
@@ -57,6 +59,27 @@ class TerrainDug(Event):
     removed: str
     exposed: str
     dug: int
+
+
+class ObjectMoved(Event):
+    type: Literal["object.moved"] = "object.moved"
+    object_id: int
+    kind: str
+    quantity: int
+    op: str
+    # Stored and sent as "from", a Python keyword, hence the field name and the serialization alias.
+    from_: Location = Field(serialization_alias="from")
+    to: Location
+    split_from: int | None = None
+    merged_into: int | None = None
+
+
+class ObjectChanged(Event):
+    type: Literal["object.changed"] = "object.changed"
+    object_id: int
+    kind: str
+    op: str
+    changes: dict[str, Any]
 
 
 class ChunkChanged(Event):

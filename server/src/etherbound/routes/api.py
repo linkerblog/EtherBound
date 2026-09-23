@@ -63,6 +63,29 @@ class ChunkLevelResponse(BaseModel):
     flags: list[int]
 
 
+class ObjectResponse(BaseModel):
+    id: int
+    kind: str
+    x: int
+    y: int
+    h: int
+    quantity: int
+    open: bool | None
+
+
+class ObjectKindResponse(BaseModel):
+    key: str
+    name: str
+    material: str
+    mass: float
+    bulk: float
+    height: int
+    solid: bool
+    surface: bool
+    openable: bool
+    container_capacity: float | None
+
+
 class ChunkResponse(BaseModel):
     cx: int
     cy: int
@@ -70,6 +93,7 @@ class ChunkResponse(BaseModel):
     ground_h: list[int]
     surface_mat: list[int]
     levels: list[ChunkLevelResponse]
+    objects: list[ObjectResponse]
 
 
 class MenuResponse(BaseModel):
@@ -202,7 +226,38 @@ def world_chunk(
             )
             for level in payload.levels
         ],
+        objects=[
+            ObjectResponse(
+                id=obj.id,
+                kind=obj.kind,
+                x=obj.x,
+                y=obj.y,
+                h=obj.h,
+                quantity=obj.quantity,
+                open=obj.open,
+            )
+            for obj in payload.objects
+        ],
     )
+
+
+@router.get("/objects", response_model=list[ObjectKindResponse])
+def objects(engine: WorldEngine = Depends(get_engine)) -> list[ObjectKindResponse]:  # noqa: B008
+    return [
+        ObjectKindResponse(
+            key=kind.key,
+            name=kind.name,
+            material=kind.material,
+            mass=kind.mass,
+            bulk=kind.bulk,
+            height=kind.height,
+            solid=kind.solid,
+            surface=kind.surface,
+            openable=kind.openable,
+            container_capacity=kind.container.capacity if kind.container is not None else None,
+        )
+        for kind in engine.catalog
+    ]
 
 
 @router.get("/menu", response_model=MenuResponse)

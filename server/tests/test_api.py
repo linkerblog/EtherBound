@@ -26,13 +26,22 @@ def test_rest_and_websocket_protocol(tmp_path: Path) -> None:
         assert health.json()["status"] == "ok"
         entries = client.get("/api/menu", params={"x": 2, "y": 2, "z": 0}).json()["ops"]
         assert [MenuEntry.model_validate(entry).op for entry in entries][:1] == ["inspect"]
+        objects = client.get("/api/objects")
+        assert objects.status_code == 200
+        kinds = {kind["key"]: kind for kind in objects.json()}
+        assert kinds["chest"]["container_capacity"] == 100.0
+        assert kinds["chest"]["solid"] is True
         with client.websocket_connect("/ws") as websocket:
             snapshot = websocket.receive_json()
             assert snapshot["type"] == "snapshot"
             assert snapshot["world"]["chunk_size"] == 32
             assert "h" in snapshot["actors"][0]
-            chunk_types = {websocket.receive_json()["type"] for _ in range(25)}
-            assert chunk_types == {"chunk"}
+            assert "carried" in snapshot["actors"][0]
+            assert "load_kg" in snapshot["actors"][0]
+            chunks = [websocket.receive_json() for _ in range(25)]
+            assert {chunk["type"] for chunk in chunks} == {"chunk"}
+            assert any("objects" in chunk for chunk in chunks)
+            assert all(isinstance(chunk.get("objects"), list) for chunk in chunks)
             websocket.send_json({"type": "input", "sequence": 7, "dx": 1, "dy": 0})
             ack = websocket.receive_json()
             while ack["type"] == "chunk":

@@ -2,6 +2,15 @@ from etherbound.engine.ops.base import ActionContext, OpHandler, Resolution
 from etherbound.engine.ops.catalog import OpSpec, catalog, spec_for
 from etherbound.engine.ops.climb import ClimbHandler
 from etherbound.engine.ops.dig import DigHandler
+from etherbound.engine.ops.handling import (
+    CloseHandler,
+    DropHandler,
+    OpenHandler,
+    PutHandler,
+    RemoveHandler,
+    TakeHandler,
+    WearHandler,
+)
 from etherbound.engine.ops.inspect import InspectHandler
 from etherbound.engine.ops.move import MoveHandler
 from etherbound.engine.ops.wait import WaitHandler
@@ -29,7 +38,20 @@ def handled_ops() -> list[tuple[OpSpec, OpHandler]]:
     return [(spec, _handlers[spec.key]) for spec in catalog() if spec.key in _handlers]
 
 
-for _handler in (MoveHandler(), ClimbHandler(), WaitHandler(), InspectHandler(), DigHandler()):
+for _handler in (
+    MoveHandler(),
+    ClimbHandler(),
+    WaitHandler(),
+    InspectHandler(),
+    DigHandler(),
+    TakeHandler(),
+    DropHandler(),
+    PutHandler(),
+    OpenHandler(),
+    CloseHandler(),
+    WearHandler(),
+    RemoveHandler(),
+):
     register(_handler)
 
 __all__ = [

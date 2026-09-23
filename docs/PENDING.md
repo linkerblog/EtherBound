@@ -21,7 +21,8 @@ Open decisions and loose ends. When one is settled, record the decision where it
 
 ## Planned work
 
-- (none)
+- [ ] **Dev-013 tile physics**: push, pull, drag, throw, hit, break, falling and integrity, on the
+      decisions recorded in `utils/VISION.md` [Sec. 5]. Written after Dev-012 lands.
 
 ## Deferred work
 
@@ -74,6 +75,19 @@ Open decisions and loose ends. When one is settled, record the decision where it
       a header course on the top unit, mortar lines continuous from tile to tile and unit to unit;
       windows still show the glass band, and walking next to a front wall still cuts it to a
       one-unit stub. See `done/Dev-011.md` [Sec. 4] step 6.
+- [ ] **Dev-012 rendering and cutaway:** a table, chest, shelf and barrel drawn in the right slots,
+      a bottle on the table and apples in piles, an occluded chest not drawn, and no frame-time
+      regression. See `done/Dev-012.md` [Sec. 7.2].
+- [ ] **Dev-012 menu, CARRY and feed:** `Take Bottle ×3`, `Put Bottle into Chest`, `L`/`R`/`BACK`
+      rows, `LOAD` amber above 10 kg, live load updates and an `act` confirmation line. See
+      `done/Dev-012.md` [Sec. 7.3].
+- [ ] **Dev-012 BitCanvas furniture:** the chest and barrel are about 1 m tall with tops at 32 px, and
+      the pixel-style `table`, `chair`, `chest`, `shelf` and `barrel` sprites are exported to
+      `src/sprites/object/`. See `done/Dev-012.md` [Sec. 7.4].
+- [ ] **Dev-012 seed-0 furniture positions:** confirm the generated objects against the recorded
+      coordinates in `done/Dev-012.md` [Sec. 8].
+- [ ] **Dev-012 save migration:** point the server at a real `data/etherbound.db` and confirm
+      `0005_object` upgrades it in place. See `done/Dev-012.md` [Sec. 10].
 
 - [ ] **Fix03 walking:** acceptance 1 (no jump at start or stop) was confirmed by the user on
       22/09/2026 ("walking feels smooth"), and 5 (releasing the keys after `DIG` does not
@@ -90,10 +104,11 @@ The Dev-005 GUI acceptance passed; details are recorded in `docs/done/Fix02.md`.
 ## TL;DR
 
 Four design questions (abilities, city authoring, carry-over, event log retention); the op
-list is settled by `done/Dev-007.md`. There are no open or planned fixes. Three deferred items
-(input replay, events to the client, lost activity progress). Manual acceptances remain for
+list is settled by `done/Dev-007.md` and the Matter primitive by `done/Dev-012.md`. There are no open fixes. Two deferred items
+(input replay, events to the client) plus lost activity progress. Manual acceptances remain for
 Dev-003 browser, Dev-006 new game, Fix03 logging, Fix04 logging/movement, and Dev-008/Fix05/Fix06/Fix07
-isometric rendering and network, plus Fix08 reconnect, Fix09 side textures and building base, and
-Dev-009 BitCanvas filesystem/game GUI acceptance, the Dev-010 asphalt road in the live game, and the
-Dev-011 roofing and brick walls in the live game; Dev-007 was fully accepted on 22/09/2026.
+isometric rendering and network, plus Fix08 reconnect, Fix09 side textures and building base,
+Dev-009 BitCanvas filesystem/game GUI acceptance, the Dev-010 asphalt road in the live game, the
+Dev-011 roofing and brick walls in the live game, and the Dev-012 rendering, CARRY/menu, BitCanvas
+furniture, seed-0 layout and save-migration checks; Dev-007 was fully accepted on 22/09/2026.
 Fix05–Fix09 automated validation passed; their GUI visual/performance checklists remain open.

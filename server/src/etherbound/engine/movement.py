@@ -6,6 +6,16 @@ SLOPE_UP_MULTIPLIER = 0.6
 SLOPE_DOWN_MULTIPLIER = 0.85
 SUBSTEP_METRES = 0.05
 BODY_RADIUS_METRES = 0.3
+FREE_LOAD_KG = 10.0
+LOAD_SLOWDOWN_KG = 60.0
+MIN_LOAD_MULTIPLIER = 0.5
+
+
+def load_multiplier(load_kg: float) -> float:
+    """Carried mass slows walking: free up to 10 kg, then linearly down to half."""
+    if load_kg <= FREE_LOAD_KG:
+        return 1.0
+    return max(MIN_LOAD_MULTIPLIER, 1.0 - (load_kg - FREE_LOAD_KG) / LOAD_SLOWDOWN_KG)
 
 
 def _tile(x: float, y: float) -> tuple[int, int]:
@@ -52,11 +62,13 @@ def move_in_world(
     dy: float,
     distance: float,
     grid: WorldGrid,
+    load_kg: float = 0.0,
 ) -> tuple[float, float, int]:
     """Advance a body one sub-step at a time, honouring the standing rule."""
     magnitude = math.hypot(dx, dy)
     if magnitude == 0 or distance <= 0:
         return x, y, h
+    distance *= load_multiplier(load_kg)
     ux, uy = dx / magnitude, dy / magnitude
     remaining = distance
     blocked_x = ux == 0

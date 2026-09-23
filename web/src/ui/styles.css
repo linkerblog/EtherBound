@@ -66,10 +66,19 @@ button:disabled { opacity: .35; cursor: not-allowed; }
 .feed-label { color: var(--dim); font-size: 10px; border-bottom: 1px solid var(--line); margin: -3px -4px 5px; padding: 0 4px 3px; }
 .feed-item { padding: 4px 8px; border-left: 2px solid var(--line-hi); background: var(--panel-a); margin-top: 3px; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .feed-item.seen { border-left-color: var(--cyan); }
+.feed-item.act { border-left-color: var(--green); }
 .feed-item.warn { border-left-color: var(--yellow); color: var(--yellow); }
 .feed-item.fail { border-left-color: var(--red); color: var(--red); }
 .feed-item .time { color: var(--dim); font-size: 10px; margin-right: 6px; }
 .meters { position: absolute; right: 12px; bottom: 64px; width: 250px; }
+.carry { position: absolute; right: 12px; bottom: 151px; width: 250px; margin-bottom: 6px; }
+.carry h3 { margin: -8px -12px 8px; padding: 4px 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); background: var(--bar); border-bottom: 1px solid var(--line); }
+.carry h3::before { content: "▍"; color: var(--cyan); margin-right: 6px; }
+.carry .row { display: grid; grid-template-columns: 42px 1fr; gap: 6px; font-size: 11px; }
+.carry .slot { color: var(--dim); text-transform: uppercase; }
+.carry .item { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.carry .load { margin-top: 4px; color: var(--dim); font-size: 11px; }
+.carry .load.warn { color: var(--yellow); }
 .meter { display: grid; grid-template-columns: 70px 1fr; gap: 6px; font-size: 11px; }
 .meter .label { color: var(--dim); text-transform: uppercase; }
 .meter span:last-child { color: var(--cyan); letter-spacing: -1px; white-space: nowrap; overflow: hidden; }
@@ -130,8 +139,9 @@ button:disabled { opacity: .35; cursor: not-allowed; }
   .clock .sep { margin: 0 2px; }
   .status { top: 50px; left: 8px; right: auto; }
   .telemetry { top: 84px; left: 8px; }
-  .feed { left: 8px; bottom: 62px; }
+  .feed { left: 8px; bottom: 180px; }
   .meters { display: none; }
+  .carry { right: 8px; bottom: 64px; width: min(250px, calc(100vw - 16px)); }
   .input-line { left: 8px; right: 8px; bottom: 8px; }
   .drawer { top: 56px; right: 8px; bottom: 56px; width: min(360px, calc(100vw - 32px)); }
 }

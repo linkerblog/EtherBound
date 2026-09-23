@@ -106,6 +106,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/objects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Objects */
+        get: operations["objects_api_objects_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/menu": {
         parameters: {
             query?: never;
@@ -173,6 +190,8 @@ export interface components {
             surface_mat: number[];
             /** Levels */
             levels: components["schemas"]["ChunkLevelResponse"][];
+            /** Objects */
+            objects: components["schemas"]["ObjectResponse"][];
         };
         /** ClimbAction */
         ClimbAction: {
@@ -183,6 +202,15 @@ export interface components {
             op: "climb";
             target: components["schemas"]["TileTarget"];
         };
+        /** CloseAction */
+        CloseAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "close";
+            target: components["schemas"]["ObjectTarget"];
+        };
         /** DigAction */
         DigAction: {
             /**
@@ -191,6 +219,15 @@ export interface components {
              */
             op: "dig";
             target: components["schemas"]["TileTarget"];
+        };
+        /** DropAction */
+        DropAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "drop";
+            target: components["schemas"]["ObjectTarget"];
         };
         /** EventRecord */
         EventRecord: {
@@ -231,7 +268,8 @@ export interface components {
              * @enum {string}
              */
             op: "inspect";
-            target: components["schemas"]["TileTarget"];
+            /** Target */
+            target: components["schemas"]["TileTarget"] | components["schemas"]["ObjectTarget"];
         };
         /** MaterialResponse */
         MaterialResponse: {
@@ -278,8 +316,10 @@ export interface components {
             available: boolean;
             /** Reason */
             reason?: string | null;
+            /** Subject */
+            subject?: string | null;
             /** Action */
-            action: components["schemas"]["MoveAction"] | components["schemas"]["InspectAction"] | components["schemas"]["WaitAction"] | components["schemas"]["DigAction"] | components["schemas"]["ClimbAction"];
+            action: components["schemas"]["MoveAction"] | components["schemas"]["InspectAction"] | components["schemas"]["WaitAction"] | components["schemas"]["DigAction"] | components["schemas"]["ClimbAction"] | components["schemas"]["TakeAction"] | components["schemas"]["DropAction"] | components["schemas"]["PutAction"] | components["schemas"]["OpenAction"] | components["schemas"]["CloseAction"] | components["schemas"]["WearAction"] | components["schemas"]["RemoveAction"];
         };
         /** MenuResponse */
         MenuResponse: {
@@ -314,6 +354,86 @@ export interface components {
              */
             seed: number;
         };
+        /** ObjectKindResponse */
+        ObjectKindResponse: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Material */
+            material: string;
+            /** Mass */
+            mass: number;
+            /** Bulk */
+            bulk: number;
+            /** Height */
+            height: number;
+            /** Solid */
+            solid: boolean;
+            /** Surface */
+            surface: boolean;
+            /** Openable */
+            openable: boolean;
+            /** Container Capacity */
+            container_capacity: number | null;
+        };
+        /** ObjectResponse */
+        ObjectResponse: {
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+            /** H */
+            h: number;
+            /** Quantity */
+            quantity: number;
+            /** Open */
+            open: boolean | null;
+        };
+        /** ObjectTarget */
+        ObjectTarget: {
+            /**
+             * Kind
+             * @default object
+             * @constant
+             */
+            kind: "object";
+            /** Id */
+            id: number;
+        };
+        /** OpenAction */
+        OpenAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "open";
+            target: components["schemas"]["ObjectTarget"];
+        };
+        /** PutAction */
+        PutAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "put";
+            target: components["schemas"]["ObjectTarget"];
+            /** Into */
+            into: components["schemas"]["ObjectTarget"] | components["schemas"]["TileTarget"];
+        };
+        /** RemoveAction */
+        RemoveAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "remove";
+            target: components["schemas"]["ObjectTarget"];
+        };
         /** SelfTarget */
         SelfTarget: {
             /**
@@ -335,6 +455,15 @@ export interface components {
             paused: boolean;
             /** Actors */
             actors: components["schemas"]["ActorResponse"][];
+        };
+        /** TakeAction */
+        TakeAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "take";
+            target: components["schemas"]["ObjectTarget"];
         };
         /** TileTarget */
         TileTarget: {
@@ -372,6 +501,15 @@ export interface components {
              */
             op: "wait";
             target?: components["schemas"]["SelfTarget"];
+        };
+        /** WearAction */
+        WearAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "wear";
+            target: components["schemas"]["ObjectTarget"];
         };
         /** InputMessage */
         InputMessage: {
@@ -420,7 +558,7 @@ export interface components {
             /** Sequence */
             sequence: number;
             /** Action */
-            action: components["schemas"]["MoveAction"] | components["schemas"]["InspectAction"] | components["schemas"]["WaitAction"] | components["schemas"]["DigAction"] | components["schemas"]["ClimbAction"];
+            action: components["schemas"]["MoveAction"] | components["schemas"]["InspectAction"] | components["schemas"]["WaitAction"] | components["schemas"]["DigAction"] | components["schemas"]["ClimbAction"] | components["schemas"]["TakeAction"] | components["schemas"]["DropAction"] | components["schemas"]["PutAction"] | components["schemas"]["OpenAction"] | components["schemas"]["CloseAction"] | components["schemas"]["WearAction"] | components["schemas"]["RemoveAction"];
         };
         /** AckMessage */
         AckMessage: {
@@ -461,6 +599,19 @@ export interface components {
             /** Ends Minute */
             ends_minute: number;
         };
+        /** CarriedObject */
+        CarriedObject: {
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Quantity */
+            quantity: number;
+            /** Slot */
+            slot: string;
+        };
         /** ResultMessage */
         ResultMessage: {
             /**
@@ -484,6 +635,13 @@ export interface components {
             text: string | null;
             /** @default null */
             activity: components["schemas"]["ActivitySnapshot"] | null;
+            /** Carried */
+            carried?: components["schemas"]["CarriedObject"][];
+            /**
+             * Load Kg
+             * @default 0
+             */
+            load_kg: number;
         };
         /** ActivityMessage */
         ActivityMessage: {
@@ -536,6 +694,13 @@ export interface components {
             h: number;
             /** @default null */
             activity: components["schemas"]["ActivitySnapshot"] | null;
+            /** Carried */
+            carried?: components["schemas"]["CarriedObject"][];
+            /**
+             * Load Kg
+             * @default 0
+             */
+            load_kg: number;
         };
         /** WorldInfo */
         WorldInfo: {
@@ -597,6 +762,65 @@ export interface components {
              * @default 0
              */
             gen_version: number;
+        };
+        /** ChunkLevelMessage */
+        ChunkLevelMessage: {
+            /** Z */
+            z: number;
+            /** Floor H */
+            floor_h: number[];
+            /** Floor Mat */
+            floor_mat: number[];
+            /** Wall N */
+            wall_n: number[];
+            /** Wall W */
+            wall_w: number[];
+            /** Edge Flags */
+            edge_flags: number[];
+            /** Flags */
+            flags: number[];
+        };
+        /** ObjectMessage */
+        ObjectMessage: {
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+            /** H */
+            h: number;
+            /** Quantity */
+            quantity: number;
+            /**
+             * Open
+             * @default null
+             */
+            open: boolean | null;
+        };
+        /** ChunkMessage */
+        ChunkMessage: {
+            /**
+             * Type
+             * @constant
+             */
+            type: "chunk";
+            /** Cx */
+            cx: number;
+            /** Cy */
+            cy: number;
+            /** Revision */
+            revision: number;
+            /** Ground H */
+            ground_h: number[];
+            /** Surface Mat */
+            surface_mat: number[];
+            /** Levels */
+            levels: components["schemas"]["ChunkLevelMessage"][];
+            /** Objects */
+            objects?: components["schemas"]["ObjectMessage"][];
         };
     };
     responses: never;
@@ -762,6 +986,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    objects_api_objects_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObjectKindResponse"][];
                 };
             };
         };

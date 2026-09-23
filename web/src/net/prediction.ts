@@ -4,6 +4,10 @@ import type { Direction, Position } from "./protocol";
 
 export const WALK_SPEED = 4;
 
+export function loadMultiplier(loadKg: number): number {
+  return loadKg <= 10 ? 1 : Math.max(0.5, 1 - (loadKg - 10) / 60);
+}
+
 type PendingInput = { sequence: number; direction: Direction; dt: number };
 
 function normalize(direction: Direction): Direction {
@@ -20,6 +24,7 @@ export class ClientPrediction {
   private pending: PendingInput[] = [];
   private direction: Direction = { x: 0, y: 0 };
   private partialSeconds = 0;
+  private loadKg = 0;
 
   constructor(initial: Position) {
     this.authoritative = { ...initial };
@@ -35,6 +40,10 @@ export class ClientPrediction {
     this.store = store;
   }
 
+  setLoadKg(loadKg: number): void {
+    this.loadKg = Math.max(0, loadKg);
+  }
+
   pushStep(step: PendingInput): void {
     const input = { ...step, direction: normalize(step.direction) };
     this.pending.push(input);
@@ -48,12 +57,13 @@ export class ClientPrediction {
 
   private advance(position: Position, direction: Direction, seconds: number): void {
     const store = this.store;
+    const distance = WALK_SPEED * loadMultiplier(this.loadKg) * seconds;
     if (!store) {
-      position.x += direction.x * WALK_SPEED * seconds;
-      position.y += direction.y * WALK_SPEED * seconds;
+      position.x += direction.x * distance;
+      position.y += direction.y * distance;
       return;
     }
-    let remaining = seconds * WALK_SPEED;
+    let remaining = distance;
     const substep = 0.05;
     let blockedX = direction.x === 0;
     let blockedY = direction.y === 0;

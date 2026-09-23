@@ -24,6 +24,7 @@ from etherbound.net.messages import (
     ClientMessage,
     ErrorMessage,
     InputMessage,
+    ObjectMessage,
     ResultMessage,
     ServerMessage,
     SnapshotMessage,
@@ -57,6 +58,8 @@ def _actors(state: WorldState) -> list[ActorSnapshot]:
             z=actor.z,
             h=actor.h,
             activity=_activity(actor.activity),
+            carried=list(actor.carried),
+            load_kg=actor.load_kg,
         )
         for actor in state.actors
     ]
@@ -112,6 +115,18 @@ def chunk_message(payload: ChunkPayload) -> ChunkMessage:
                 flags=list(level.flags),
             )
             for level in payload.levels
+        ],
+        objects=[
+            ObjectMessage(
+                id=obj.id,
+                kind=obj.kind,
+                x=obj.x,
+                y=obj.y,
+                h=obj.h,
+                quantity=obj.quantity,
+                open=obj.open,
+            )
+            for obj in payload.objects
         ],
     )
 
@@ -255,6 +270,8 @@ class WebSocketHub:
                     reason=result.reason,
                     text=result.text,
                     activity=_activity(result.activity),
+                    carried=result.carried,
+                    load_kg=result.load_kg,
                 ),
             )
             return

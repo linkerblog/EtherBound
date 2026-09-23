@@ -110,10 +110,27 @@ neighbour takes the `climb` op; anything higher needs a ladder or another vertic
   standing spots with those vertical links and the same edge rules as movement. Flight is a
   movement mode over the same world.
 - **Beyond the city:** forest, river, hills, simulated at lower detail.
+- **Objects:** items, containers and furniture are instances of data-defined kinds made of
+  registered materials. A solid object fills the half-metre cells above its resting surface, so it
+  blocks, can be climbed and can be stacked; a surface object's top is a standing surface. Actors
+  carry objects in two hands and in worn slots; carried mass slows them (`Dev-012`).
 - **Physics (tile-based, not a physics engine):** bodies have mass; a hit is an impulse; the body
   travels tile by tile; on collision, impact energy against material resistance decides whether the
   wall breaks (becomes rubble and an opening) or the body takes the damage. Phaser only animates the
-  trajectory the server computed.
+  trajectory the server computed. Decided on 23/09/2026 (`Dev-013`):
+  - **Resolved at action time, not per tick.** The 1 Hz clock cannot simulate seconds; a push
+    computes the whole path inside one `submit` and commits one event carrying it.
+  - **SI units:** kg, m/s, joules. Material `resistance` becomes the energy half a metre of the
+    material withstands, calibrated on real cases (a fist does not break brick, a sledgehammer
+    takes several blows, a car at 50 km/h goes through).
+  - **Cumulative damage.** Objects and wall edges have an integrity that each impact lowers;
+    at zero they become rubble objects, and a wall edge becomes an opening.
+  - **Gravity.** Unsupported objects and bodies fall to the next surface; a fall hurts with
+    height (over about 3 m).
+  - **Physics does not know health.** It emits `impact {target, energy}`; turning that into
+    injury belongs to the body system.
+  - Out of scope: structural collapse of buildings, fluids and fire. Hole collapse comes later,
+    from soil stability.
 
 ## 6. Primitives
 

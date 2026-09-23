@@ -149,11 +149,11 @@ async def test_dig_lifecycle_is_logged_and_survives_restart(
     result = await engine.submit(PLAYER_ID, DigAction(target=TileTarget(x=124, y=128, h=2)))
     assert result.accepted
     assert result.activity is not None
-    assert result.activity.ends_minute - result.activity.started_minute == 24
+    assert result.activity.ends_minute - result.activity.started_minute == 96
     assert actor(engine).activity is not None
     assert [row.data["op"] for row in stored(engine, "activity.started")] == ["dig"]
 
-    await ticks(engine, 23)
+    await ticks(engine, 95)
     assert stored(engine, "terrain.dug") == []
     await ticks(engine, 1)
     dug = stored(engine, "terrain.dug")
@@ -179,7 +179,7 @@ async def test_digging_own_tile_lowers_niko_who_can_still_walk(engine: WorldEngi
     assert (
         await engine.submit(PLAYER_ID, DigAction(target=TileTarget(x=124, y=128, h=2)))
     ).accepted
-    await ticks(engine, 24)
+    await ticks(engine, 96)
     niko = actor(engine)
     assert (niko.h, niko.z) == (1, 0)
     moved = stored(engine, "actor.moved")
@@ -195,7 +195,7 @@ async def test_strata_stay_anchored_to_the_original_ground(engine: WorldEngine) 
         await engine.submit(
             PLAYER_ID, DigAction(target=TileTarget(x=124, y=128, h=actor(engine).h))
         )
-        await ticks(engine, 30)
+        await ticks(engine, 96)
     exposed = [row.data["exposed"] for row in stored(engine, "terrain.dug")]
     # Test-world strata: topsoil from 0 m, dirt from 4 m (depth 8), measured from the original.
     assert exposed == ["topsoil"] * 6 + ["dirt"]
@@ -277,10 +277,10 @@ async def test_climb_up_a_ledge_and_down_a_drop(engine: WorldEngine) -> None:
     set_ground(engine, 125, 128, h=4)
     set_ground(engine, 126, 128, h=1)
     set_ground(engine, 124, 129, h=6)
-    set_ground(engine, 124, 127, h=3)
+    set_ground(engine, 123, 127, h=3)
     assert menu_ops(engine, 125, 128)["climb"] == (True, None)
     assert menu_ops(engine, 124, 129)["climb"] == (False, "too high to climb")
-    assert "climb" not in menu_ops(engine, 124, 127)
+    assert "climb" not in menu_ops(engine, 123, 127)
 
     assert (
         await engine.submit(PLAYER_ID, ClimbAction(target=TileTarget(x=125, y=128, h=4)))

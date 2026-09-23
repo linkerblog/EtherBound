@@ -140,9 +140,24 @@ Placement:
 │                                                          │
 │                        world                     drawer ▸│
 │                                                          │
-│ [event feed]                                  [meters]   │
+│ [event feed]                                  [carry]    │
+│                                               [meters]   │
 │ > input line                                             │
 └──────────────────────────────────────────────────────────┘
+```
+
+The `CARRY` panel sits directly above the meters: one row per hand slot (`L`, `R`, or a single
+`HANDS` row for a two-handed object) and a `BACK` row for a worn slot, each either the object and
+its count or `—`. Its last row is `LOAD 12.4 kg`, shown in `--dim` up to the free 10 kg and in
+`--yellow` above it.
+
+```css
+.carry { margin-bottom: 6px; }
+.carry .row { display: grid; grid-template-columns: 42px 1fr; gap: 6px; font-size: 11px; }
+.carry .slot { color: var(--dim); text-transform: uppercase; }
+.carry .item .count { color: var(--dim); }
+.carry .load { color: var(--dim); }
+.carry .load.warn { color: var(--yellow); }
 ```
 
 ---
@@ -215,11 +230,15 @@ only renders them.
 .menu .op.illegal { color: var(--red); }
 .menu .op.ether { color: var(--magenta); }
 .menu .op.off { color: var(--line-hi); cursor: not-allowed; }
+.menu .op .sub { color: var(--dim); }
+.menu .op:hover .sub, .menu .op.focus .sub { color: var(--bg); }
 .menu .op .why { margin-left: auto; color: var(--dim); font-size: 10px; }
 ```
 
 - Arrow keys move `.focus`, Enter picks, Esc closes.
 - An op that exists but cannot be done now (`.off`) shows why in `.why` ("locked", "too heavy").
+- `.sub` is the entry's `subject`, the object it acts on, right after the label
+  (`Take Bottle ×3`, `Put Bottle into Chest`). The label alone is identical for every object.
 
 ---
 
@@ -337,6 +356,9 @@ function meter(pct, cells = 16) {
   return `${"█".repeat(on)}<span class="off">${"░".repeat(cells - on)}</span>`;
 }
 ```
+
+The `CARRY` panel [Sec. 5] is not a meter: `LOAD` is a plain kilogram figure that turns amber
+above the free 10 kg, the same warning colour as a `.bar.warn`.
 
 ---
 

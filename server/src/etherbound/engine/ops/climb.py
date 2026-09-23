@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import ClassVar
 
 from etherbound.engine.actions import Action, ClimbAction, Target, TileTarget
@@ -31,12 +32,15 @@ class ClimbHandler:
             abs(surface.h - ctx.actor.h) <= WALKABLE_H for surface in surfaces
         )
 
-    def build(self, ctx: ActionContext, target: Target) -> Action:
+    def builds(self, ctx: ActionContext, target: Target) -> Sequence[Action]:
         assert isinstance(target, TileTarget)
         surfaces = ctx.grid.standing_surfaces(target.x, target.y)
         climbable = [surface for surface in surfaces if self._climbable(ctx, surface)]
         nearest = min(climbable or surfaces, key=lambda surface: abs(surface.h - ctx.actor.h))
-        return ClimbAction(target=TileTarget(x=target.x, y=target.y, h=nearest.h))
+        return (ClimbAction(target=TileTarget(x=target.x, y=target.y, h=nearest.h)),)
+
+    def subject(self, ctx: ActionContext, action: Action) -> str | None:
+        return None
 
     def validate(self, ctx: ActionContext, action: Action) -> str | None:
         assert isinstance(action, ClimbAction)

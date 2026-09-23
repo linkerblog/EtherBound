@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { components } from "../src/net/schema";
-import { ClientPrediction } from "../src/net/prediction";
+import { ClientPrediction, loadMultiplier } from "../src/net/prediction";
 import { ChunkStore } from "../src/world/ChunkStore";
 import { NO_FLOOR } from "../src/world/rules";
 
@@ -30,6 +30,7 @@ function storeWithWall(edge: "north" | "west", wallIndex: number): ChunkStore {
     ground_h: Array(CELL_COUNT).fill(0) as number[],
     surface_mat: Array(CELL_COUNT).fill(1) as number[],
     levels,
+    objects: [],
   };
   const store = new ChunkStore();
   store.setMaterials(new Map([
@@ -54,4 +55,13 @@ test("prediction keeps the 0.3 m body radius from blocked wall edges", () => {
     const result = prediction.render(scenario.direction, 0.25);
     assert.ok(Math.abs(result[scenario.axis] - scenario.expected) < 1e-9);
   }
+});
+
+test("movement prediction applies the server load multiplier", () => {
+  assert.equal(loadMultiplier(10), 1);
+  assert.equal(loadMultiplier(25), 0.75);
+  assert.equal(loadMultiplier(40), 0.5);
+  const prediction = new ClientPrediction({ x: 0, y: 0, z: 0, h: 0 });
+  prediction.setLoadKg(40);
+  assert.deepEqual(prediction.render({ x: 1, y: 0 }, 0.25), { x: 0.5, y: 0, z: 0, h: 0 });
 });

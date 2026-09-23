@@ -12,6 +12,7 @@ from etherbound.world.chunk import (
     ChunkLevel,
 )
 from etherbound.world.materials import MaterialRegistry
+from etherbound.world.objects import ObjectCatalog, ObjectKind
 
 ChunkLoader = Callable[[int, int], tuple[Chunk, Iterable[ChunkLevel]] | None]
 
@@ -23,6 +24,19 @@ class StandingSurface:
     z: int
 
 
+@dataclass(frozen=True, slots=True)
+class TileObject:
+    """An object lying directly on a tile, as the standing rule needs to know it."""
+
+    id: int
+    kind: str
+    x: int
+    y: int
+    h: int
+    quantity: int
+    open: bool | None = None
+
+
 class WorldGrid:
     """In-memory sparse world cache used by movement and navigation."""
 
@@ -32,11 +46,14 @@ class WorldGrid:
         levels: Iterable[ChunkLevel] | None = None,
         registry: MaterialRegistry | None = None,
         chunk_loader: ChunkLoader | None = None,
+        catalog: ObjectCatalog | None = None,
     ) -> None:
         self.registry = registry or MaterialRegistry.load()
+        self.catalog = catalog or ObjectCatalog.load()
         self._chunks: dict[tuple[int, int], Chunk] = {}
         self._levels: dict[tuple[int, int, int], ChunkLevel] = {}
         self._levels_by_chunk: dict[tuple[int, int], dict[int, ChunkLevel]] = {}
+        self._object_chunks: dict[tuple[int, int], tuple[TileObject, ...]] = {}
         self._chunk_loader = chunk_loader
         self._missing_chunks: set[tuple[int, int]] = set()
         for chunk in chunks or ():
@@ -83,6 +100,36 @@ class WorldGrid:
 
     def level(self, cx: int, cy: int, z: int) -> ChunkLevel | None:
         return self._levels.get((cx, cy, z))
+
+    def set_chunk_objects(self, cx: int, cy: int, objects: Iterable[TileObject]) -> None:
+        """Replace a chunk's tile-object index; the engine calls this after every commit."""
+        loaded = tuple(objects)
+        if loaded:
+            self._object_chunks[(cx, cy)] = loaded
+        else:
+            self._object_chunks.pop((cx, cy), None)
+
+    def objects_at(self, x: int, y: int) -> tuple[TileObject, ...]:
+        cx, cy, _, _ = self.chunk_coords(x, y)
+        return tuple(
+            obj for obj in self._object_chunks.get((cx, cy), ()) if obj.x == x and obj.y == y
+        )
+
+    def objects_at_chunk(self, cx: int, cy: int) -> tuple[TileObject, ...]:
+        return tuple(sorted(self._object_chunks.get((cx, cy), ()), key=lambda obj: obj.id))
+
+    def kind_of(self, obj: TileObject) -> ObjectKind | None:
+        return self.catalog.get(obj.kind)
+
+    def _object_solid_at(self, x: int, y: int, h: int) -> bool:
+        for obj in self.objects_at(x, y):
+            kind = self.kind_of(obj)
+            if kind is None or not kind.solid:
+                continue
+            # A solid object resting at `obj.h` fills the cells `obj.h + 1 .. obj.h + height`.
+            if obj.h < h <= obj.h + kind.height:
+                return True
+        return False
 
     @staticmethod
     def chunk_coords(x: int, y: int) -> tuple[int, int, int, int]:
@@ -179,7 +226,12 @@ class WorldGrid:
         return lowered
 
     def solid_at(self, x: int, y: int, h: int) -> bool:
-        """Return whether a half-metre volume is occupied by implicit ground."""
+        """Return whether a half-metre volume is occupied, by terrain or a solid object."""
+        if self._terrain_solid_at(x, y, h):
+            return True
+        return self._object_solid_at(x, y, h)
+
+    def _terrain_solid_at(self, x: int, y: int, h: int) -> bool:
         cell = self._cell(x, y)
         if cell is None:
             return True
@@ -216,6 +268,50 @@ class WorldGrid:
             material = self._material(level.floor_mat[index])
             if material is not None and material.walkable:
                 result.append(StandingSurface(floor_h, material.id, floor_h // 6))
+        result.extend(self._object_surfaces(x, y))
+        return tuple(
+            sorted({surface.h: surface for surface in result}.values(), key=lambda item: item.h)
+        )
+
+    def _object_surfaces(self, x: int, y: int) -> list[StandingSurface]:
+        surfaces: list[StandingSurface] = []
+        for obj in self.objects_at(x, y):
+            kind = self.kind_of(obj)
+            if kind is None or not kind.surface:
+                continue
+            top = obj.h + kind.height
+            material = self.registry.get(kind.material)
+            if material is not None and material.walkable and self._headroom(x, y, top):
+                surfaces.append(StandingSurface(top, material.id, top // 6))
+        return surfaces
+
+    def resting_surfaces(self, x: int, y: int) -> tuple[StandingSurface, ...]:
+        """Where an object can be placed: standable surfaces without headroom, plus surface tops."""
+        cell = self._cell(x, y)
+        if cell is None:
+            return ()
+        chunk, _, _, index = cell
+        result: list[StandingSurface] = []
+        ground_h = chunk.ground_h[index]
+        ground_material = self._material(chunk.surface_mat[index])
+        if not self._void_at(x, y, ground_h) and ground_material is not None:
+            if ground_material.walkable:
+                result.append(StandingSurface(ground_h, ground_material.id, ground_h // 6))
+        for level in self._levels_by_chunk.get((chunk.cx, chunk.cy), {}).values():
+            floor_h = level.floor_h[index]
+            if floor_h == NO_FLOOR:
+                continue
+            material = self._material(level.floor_mat[index])
+            if material is not None and material.walkable:
+                result.append(StandingSurface(floor_h, material.id, floor_h // 6))
+        for obj in self.objects_at(x, y):
+            kind = self.kind_of(obj)
+            if kind is None or not kind.surface:
+                continue
+            top = obj.h + kind.height
+            material = self.registry.get(kind.material)
+            if material is not None and material.walkable:
+                result.append(StandingSurface(top, material.id, top // 6))
         return tuple(
             sorted({surface.h: surface for surface in result}.values(), key=lambda item: item.h)
         )

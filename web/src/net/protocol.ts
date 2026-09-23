@@ -7,6 +7,7 @@ export type GameAction = MenuEntry["action"];
 export type ActivitySnapshot = components["schemas"]["ActivitySnapshot"];
 export type ResultMessage = components["schemas"]["ResultMessage"];
 export type ActivityMessage = components["schemas"]["ActivityMessage"];
+export type CarriedObject = components["schemas"]["CarriedObject"];
 
 export type Position = {
   x: number;
@@ -19,6 +20,8 @@ export type ActorState = Position & {
   id: string;
   kind?: string;
   activity?: ActivitySnapshot | null;
+  carried?: CarriedObject[];
+  load_kg?: number;
 };
 
 export type WorldState = {
@@ -71,7 +74,7 @@ export function readActors(value: unknown): Record<string, ActorState> {
     return value.reduce<Record<string, ActorState>>((result, entry) => {
       const actor = asRecord(entry);
       const id = typeof actor?.id === "string" ? actor.id : typeof actor?.actor_id === "string" ? actor.actor_id : undefined;
-      if (id) result[id] = { id, kind: typeof actor?.kind === "string" ? actor.kind : undefined, activity: readActivity(actor?.activity), ...readPosition(actor) };
+      if (id) result[id] = readActor(actor!, id);
       return result;
     }, {});
   }
@@ -82,9 +85,20 @@ export function readActors(value: unknown): Record<string, ActorState> {
   for (const [id, rawActor] of Object.entries(actors)) {
     const actor = asRecord(rawActor);
     if (!actor) continue;
-    result[id] = { id, kind: typeof actor.kind === "string" ? actor.kind : undefined, activity: readActivity(actor.activity), ...readPosition(actor) };
+    result[id] = readActor(actor, id);
   }
   return result;
+}
+
+function readActor(actor: Record<string, unknown>, id: string): ActorState {
+  return {
+    id,
+    kind: typeof actor.kind === "string" ? actor.kind : undefined,
+    activity: readActivity(actor.activity),
+    carried: Array.isArray(actor.carried) ? actor.carried as CarriedObject[] : undefined,
+    load_kg: numberValue(actor.load_kg) ?? 0,
+    ...readPosition(actor),
+  };
 }
 
 export function readMessage(data: unknown): ServerMessage | null {

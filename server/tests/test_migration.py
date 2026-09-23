@@ -3,7 +3,9 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.orm import Session, sessionmaker
 
+from etherbound.engine.world import WorldEngine
 from etherbound.world.chunk import CELL_COUNT, Chunk
 
 
@@ -76,3 +78,40 @@ def test_upgrade_0004_keeps_rows_and_reads_null_dug_as_zeros(tmp_path: Path) -> 
     loaded = Chunk.from_blobs(0, 0, ground, surface, dug_blob=dug)
     assert loaded.dug == (0,) * CELL_COUNT
     assert loaded.ground_h == chunk.ground_h
+
+
+def test_upgrade_0004_keeps_the_actor_and_fills_v4_objects(tmp_path: Path) -> None:
+    database = tmp_path / "objects.db"
+    config = Config(str(Path(__file__).parents[1] / "alembic.ini"))
+    config.set_main_option("script_location", str(Path(__file__).parents[1] / "alembic"))
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{database.as_posix()}")
+    command.upgrade(config, "0004_dig_activity")
+    url = f"sqlite:///{database.as_posix()}"
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(
+            text("INSERT INTO actor (id, kind, x, y, z, h) VALUES ('niko', 'player', 1, 1, 0, 2)")
+        )
+
+    command.upgrade(config, "head")
+
+    with engine.connect() as connection:
+        assert connection.execute(text("SELECT id FROM actor")).one() == ("niko",)
+        assert connection.execute(text("SELECT count(*) FROM object")).scalar_one() == 0
+
+    sessions = sessionmaker(bind=engine, expire_on_commit=False, class_=Session)
+    world = WorldEngine(sessions)
+    world.ensure_world(0)
+    with sessions() as session:
+        kinds = {row[0] for row in session.execute(text("SELECT DISTINCT kind FROM object"))}
+    assert kinds == {
+        "shovel",
+        "backpack",
+        "chest",
+        "apple",
+        "bottle",
+        "table",
+        "chair",
+        "shelf",
+        "barrel",
+    }

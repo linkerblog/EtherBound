@@ -14,7 +14,39 @@ class TileTarget(BaseModel):
     h: int
 
 
-Target = Annotated[SelfTarget | TileTarget, Field(discriminator="kind")]
+class ObjectTarget(BaseModel):
+    kind: Literal["object"] = "object"
+    id: int
+
+
+Target = Annotated[SelfTarget | TileTarget | ObjectTarget, Field(discriminator="kind")]
+
+
+class TileLoc(BaseModel):
+    kind: Literal["tile"] = "tile"
+    x: int
+    y: int
+    h: int
+
+
+class InLoc(BaseModel):
+    kind: Literal["in"] = "in"
+    object_id: int
+
+
+class HeldLoc(BaseModel):
+    kind: Literal["held"] = "held"
+    actor_id: str
+    hand: Literal["left", "right", "both"]
+
+
+class WornLoc(BaseModel):
+    kind: Literal["worn"] = "worn"
+    actor_id: str
+    slot: Literal["back"]
+
+
+Location = Annotated[TileLoc | InLoc | HeldLoc | WornLoc, Field(discriminator="kind")]
 
 
 class MoveAction(BaseModel):
@@ -25,7 +57,7 @@ class MoveAction(BaseModel):
 
 class InspectAction(BaseModel):
     op: Literal["inspect"] = "inspect"
-    target: TileTarget
+    target: TileTarget | ObjectTarget
 
 
 class WaitAction(BaseModel):
@@ -43,8 +75,55 @@ class ClimbAction(BaseModel):
     target: TileTarget
 
 
+class TakeAction(BaseModel):
+    op: Literal["take"] = "take"
+    target: ObjectTarget
+
+
+class DropAction(BaseModel):
+    op: Literal["drop"] = "drop"
+    target: ObjectTarget
+
+
+class PutAction(BaseModel):
+    op: Literal["put"] = "put"
+    target: ObjectTarget
+    into: ObjectTarget | TileTarget
+
+
+class OpenAction(BaseModel):
+    op: Literal["open"] = "open"
+    target: ObjectTarget
+
+
+class CloseAction(BaseModel):
+    op: Literal["close"] = "close"
+    target: ObjectTarget
+
+
+class WearAction(BaseModel):
+    op: Literal["wear"] = "wear"
+    target: ObjectTarget
+
+
+class RemoveAction(BaseModel):
+    op: Literal["remove"] = "remove"
+    target: ObjectTarget
+
+
 Action = Annotated[
-    MoveAction | InspectAction | WaitAction | DigAction | ClimbAction,
+    MoveAction
+    | InspectAction
+    | WaitAction
+    | DigAction
+    | ClimbAction
+    | TakeAction
+    | DropAction
+    | PutAction
+    | OpenAction
+    | CloseAction
+    | WearAction
+    | RemoveAction,
     Field(discriminator="op"),
 ]
 
@@ -55,6 +134,14 @@ class ActivityState(BaseModel):
     action: dict[str, Any]
     started_minute: int
     ends_minute: int
+
+
+class CarriedObject(BaseModel):
+    id: int
+    kind: str
+    name: str
+    quantity: int
+    slot: str
 
 
 class ActionResult(BaseModel):
@@ -68,6 +155,8 @@ class ActionResult(BaseModel):
     reason: str | None = None
     text: str | None = None
     activity: ActivityState | None = None
+    carried: list[CarriedObject] = Field(default_factory=lambda: [])
+    load_kg: float = 0.0
 
 
 class MenuEntry(BaseModel):
@@ -76,5 +165,7 @@ class MenuEntry(BaseModel):
     tags: list[str]
     available: bool
     reason: str | None = None
+    # What the op acts on, when it is not the tile itself ("Bottle ×3", "Bottle into Chest").
+    subject: str | None = None
     # Submitted back unchanged, so the menu never offers what submit would build differently.
     action: Action

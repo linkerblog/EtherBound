@@ -1,7 +1,16 @@
+from collections.abc import Sequence
 from math import hypot
 from typing import ClassVar
 
-from etherbound.engine.actions import Action, InspectAction, Target, TileTarget
+from etherbound.db.models import Object as ObjectRow
+from etherbound.engine.actions import (
+    Action,
+    InspectAction,
+    ObjectTarget,
+    Target,
+    TileTarget,
+)
+from etherbound.engine.objects import children, object_total_mass
 from etherbound.engine.ops.base import ActionContext, Resolution, metres
 from etherbound.engine.ops.dig import HAND_DIG_MAX_COST
 from etherbound.events.models import Event
@@ -13,20 +22,41 @@ class InspectHandler:
     op: ClassVar[str] = "inspect"
 
     def applies(self, ctx: ActionContext, target: Target) -> bool:
+        if isinstance(target, ObjectTarget):
+            return ctx.session.get(ObjectRow, target.id) is not None
         return isinstance(target, TileTarget) and bool(
             ctx.grid.standing_surfaces(target.x, target.y)
         )
 
-    def build(self, ctx: ActionContext, target: Target) -> Action:
-        assert isinstance(target, TileTarget)
-        return InspectAction(target=target)
+    def builds(self, ctx: ActionContext, target: Target) -> Sequence[Action]:
+        return (InspectAction(target=target),)  # type: ignore[arg-type]
+
+    def subject(self, ctx: ActionContext, action: Action) -> str | None:
+        assert isinstance(action, InspectAction)
+        if isinstance(action.target, ObjectTarget):
+            row = ctx.session.get(ObjectRow, action.target.id)
+            if row is not None:
+                kind = ctx.grid.catalog.get(row.kind)
+                if kind is not None:
+                    return kind.name
+        return None
 
     def validate(self, ctx: ActionContext, action: Action) -> str | None:
         assert isinstance(action, InspectAction)
         target = action.target
+        ax, ay = ctx.actor_tile()
+        if isinstance(target, ObjectTarget):
+            row = ctx.session.get(ObjectRow, target.id)
+            if row is None:
+                return "nothing to see"
+            if row.loc == "tile":
+                if row.x is None or row.y is None:
+                    return "nothing to see"
+                if hypot(row.x - ax, row.y - ay) > INSPECT_RANGE_M:
+                    return "too far to see"
+            return None
         if not any(s.h == target.h for s in ctx.grid.standing_surfaces(target.x, target.y)):
             return "nothing to see"
-        ax, ay = ctx.actor_tile()
         # No line of sight yet: that arrives with perception.
         if hypot(target.x - ax, target.y - ay) > INSPECT_RANGE_M:
             return "too far to see"
@@ -39,6 +69,8 @@ class InspectHandler:
         # Looking changes nothing and emits no event; witnesses noticing it come later.
         assert isinstance(action, InspectAction)
         target = action.target
+        if isinstance(target, ObjectTarget):
+            return Resolution(text=self._object_text(ctx, target.id))
         surface = next(s for s in ctx.grid.standing_surfaces(target.x, target.y) if s.h == target.h)
         material = ctx.grid.registry.get(surface.material_id)
         name = material.name if material is not None else "Unknown"
@@ -58,6 +90,23 @@ class InspectHandler:
         if visible:
             parts.append(", ".join(visible))
         return Resolution(text=" · ".join(parts))
+
+    def _object_text(self, ctx: ActionContext, object_id: int) -> str:
+        row = ctx.session.get(ObjectRow, object_id)
+        if row is None:
+            return "Unknown"
+        kind = ctx.grid.catalog[row.kind]
+        material = ctx.grid.registry.get(kind.material)
+        parts = [kind.name, material.name if material is not None else kind.material]
+        if kind.openable:
+            parts.append("open" if bool((row.state or {}).get("open", False)) else "closed")
+        if kind.container is not None and (
+            not kind.openable or bool((row.state or {}).get("open"))
+        ):
+            parts.append(f"holds {len(children(ctx.session, row.id))} things")
+        if row.loc in ("held", "worn"):
+            parts.append(f"{object_total_mass(ctx.session, ctx.grid.catalog, row):.1f} kg")
+        return " · ".join(parts)
 
     def complete(self, ctx: ActionContext, action: Action) -> list[Event]:
         return []

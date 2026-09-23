@@ -2,6 +2,8 @@ import type { components } from "../net/schema";
 import { LEVEL_H, LEVEL_VOID, NO_FLOOR } from "./rules";
 type ChunkLevel = components["schemas"]["ChunkLevelResponse"];
 type WorldChunk = components["schemas"]["ChunkResponse"];
+type ObjectKind = components["schemas"]["ObjectKindResponse"];
+type TileObject = components["schemas"]["ObjectResponse"];
 
 export type LevelCell = {
   z: number;
@@ -21,10 +23,30 @@ export class ChunkStore {
   private readonly chunks = new Map<string, WorldChunk>();
   private chunkSize = DEFAULT_CHUNK_SIZE;
   private boundsValue: WorldBounds | null = null;
-  private materials = new Map<number, { walkable: boolean; walk_cost: number; solid: boolean }>();
+  private materials = new Map<number, { key?: string; walkable: boolean; walk_cost: number; solid: boolean }>();
+  private objectKinds = new Map<string, ObjectKind>();
 
-  setMaterials(materials: Map<number, { walkable: boolean; walk_cost: number; solid: boolean }>): void {
+  setMaterials(materials: Map<number, { key?: string; walkable: boolean; walk_cost: number; solid: boolean }>): void {
     this.materials = materials;
+  }
+
+  setObjectKinds(kinds: Map<string, ObjectKind>): void {
+    this.objectKinds = kinds;
+  }
+
+  objectsAt(x: number, y: number): TileObject[] {
+    return this.cellIndex(x, y)?.chunk.objects?.filter((object) => object.x === x && object.y === y) ?? [];
+  }
+
+  objectKind(kind: string): ObjectKind | undefined {
+    return this.objectKinds.get(kind);
+  }
+
+  isObjectSolidAt(x: number, y: number, h: number): boolean {
+    return this.objectsAt(x, y).some((object) => {
+      const kind = this.objectKind(object.kind);
+      return Boolean(kind?.solid && object.h < h && h <= object.h + kind.height);
+    });
   }
 
   setWorldInfo(chunkSize: number, bounds: number[]): void {
@@ -104,13 +126,21 @@ export class ChunkStore {
       const index = cell.index;
       return entry.floor_h[index] === h;
     });
+    const objectSurface = this.objectsAt(x, y).find((object) => {
+      const kind = this.objectKind(object.kind);
+      return kind?.surface && object.h + kind.height === h;
+    });
     const materialId = level ? level.floor_mat[cell.index] :
-      cell.chunk.ground_h[cell.index] === h ? cell.chunk.surface_mat[cell.index] : undefined;
-    const cost = materialId === undefined ? undefined : this.materials.get(materialId)?.walk_cost;
+      objectSurface ? undefined : cell.chunk.ground_h[cell.index] === h ? cell.chunk.surface_mat[cell.index] : undefined;
+    const materialCost = materialId === undefined ? undefined : this.materials.get(materialId)?.walk_cost;
+    const objectMaterial = objectSurface ? this.objectKind(objectSurface.kind)?.material : undefined;
+    const cost = objectSurface
+      ? this.materialsByKey(objectMaterial ?? "")?.walk_cost
+      : materialCost;
     return cost !== undefined && cost > 0 ? cost : 1;
   }
 
-  /** The standing surface of a tile closest to `h`: a stored floor, else the ground. */
+  /** The nearest standable floor, object top, or ground surface within one step of `h`. */
   standingH(x: number, y: number, h: number): number | undefined {
     const ground = this.groundH(x, y);
     let best: number | undefined;
@@ -122,6 +152,14 @@ export class ChunkStore {
       const cell = this.levelCell(x, y, level.z);
       if (cell && cell.floor_h !== NO_FLOOR && this.isWalkable(cell.floor_mat) && this.hasHeadroom(x, y, cell.floor_h)) {
         consider(cell.floor_h);
+      }
+    }
+    for (const object of this.objectsAt(x, y)) {
+      const kind = this.objectKind(object.kind);
+      if (kind?.surface) {
+        const top = object.h + kind.height;
+        const material = this.materialsByKey(kind.material);
+        if (material?.walkable && this.hasHeadroom(x, y, top)) consider(top);
       }
     }
     if (ground !== undefined && !this.isVoid(x, y, ground) && this.hasHeadroom(x, y, ground)) {
@@ -149,21 +187,27 @@ export class ChunkStore {
     return z * LEVEL_H;
   }
 
-  private hasHeadroom(x: number, y: number, h: number): boolean {
+  hasHeadroom(x: number, y: number, h: number): boolean {
     for (let offset = 1; offset <= 3; offset += 1) {
       if (this.isSolid(x, y, h + offset)) return false;
     }
     return true;
   }
 
-  private isSolid(x: number, y: number, h: number): boolean {
+  isSolid(x: number, y: number, h: number): boolean {
     const tile = this.cellIndex(x, y);
     if (!tile) return true;
     const slab = tile.chunk.levels.find((level) => level.floor_h[tile.index] === h);
-    if (slab) return this.materials.get(slab.floor_mat[tile.index])?.solid ?? true;
-    if (h >= tile.chunk.ground_h[tile.index] || this.isVoid(x, y, h)) return false;
-    // Strata are not streamed to the client; below-ground volumes are conservatively solid.
-    return true;
+    const terrainSolid = slab
+      ? this.materials.get(slab.floor_mat[tile.index])?.solid ?? true
+      : h >= tile.chunk.ground_h[tile.index] || this.isVoid(x, y, h)
+        ? false
+        : true;
+    return terrainSolid || this.isObjectSolidAt(x, y, h);
+  }
+
+  private materialsByKey(key: string): { walkable: boolean; walk_cost: number; solid: boolean } | undefined {
+    return [...this.materials.values()].find((material) => material.key === key);
   }
 
   levelsAt(x: number, y: number): ChunkLevel[] {

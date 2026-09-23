@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import type { components } from "../src/net/schema";
 import { ChunkStore } from "../src/world/ChunkStore";
+import { pickTile } from "../src/world/pick";
 import { NO_FLOOR, wallBetween } from "../src/world/rules";
 
 type Chunk = components["schemas"]["ChunkResponse"];
@@ -44,9 +45,10 @@ const materialInfo = {
 } as const;
 const materialKeys = Object.keys(materialInfo) as (keyof typeof materialInfo)[];
 const materialIds = new Map(materialKeys.map((key, index) => [key, index + 1]));
-const materials = new Map(
-  materialKeys.map((key) => [materialIds.get(key)!, materialInfo[key]]),
+const materials = new Map<number, { key?: string; walkable: boolean; walk_cost: number; solid: boolean }>(
+  materialKeys.map((key) => [materialIds.get(key)!, { key, ...materialInfo[key] }]),
 );
+materials.set(6, { key: "wood", walkable: true, walk_cost: 1.2, solid: true });
 const parity = JSON.parse(
   readFileSync(new URL("../../server/tests/world-parity.json", import.meta.url), "utf8"),
 ) as { standing: StandingCase[]; walls: WallCase[] };
@@ -77,7 +79,7 @@ function makeLevel(spec: LevelSpec): Level {
   };
 }
 
-function makeStore(groundH: number, groundMaterial: string, levels: LevelSpec[]): ChunkStore {
+function makeStore(groundH: number, groundMaterial: string, levels: LevelSpec[], objects: Chunk["objects"] = []): ChunkStore {
   const chunk: Chunk = {
     cx: 0,
     cy: 0,
@@ -85,9 +87,15 @@ function makeStore(groundH: number, groundMaterial: string, levels: LevelSpec[])
     ground_h: Array(CELL_COUNT).fill(groundH) as number[],
     surface_mat: Array(CELL_COUNT).fill(materialIds.get(groundMaterial as keyof typeof materialInfo)!) as number[],
     levels: levels.map(makeLevel),
+    objects,
   };
   const store = new ChunkStore();
   store.setMaterials(materials);
+  store.setObjectKinds(new Map([
+    ["chest", { key: "chest", name: "Chest", material: "wood", mass: 15, bulk: 120, height: 2, solid: true, surface: true, openable: true, container_capacity: 100 }],
+    ["table", { key: "table", name: "Table", material: "wood", mass: 20, bulk: 400, height: 2, solid: true, surface: true, openable: false, container_capacity: null }],
+    ["bottle", { key: "bottle", name: "Bottle", material: "glass", mass: 0.4, bulk: 1, height: 0, solid: false, surface: false, openable: false, container_capacity: null }],
+  ]));
   store.set(chunk);
   return store;
 }
@@ -111,6 +119,24 @@ test("client wall rules match the shared server parity table", () => {
       : wallBetween(store, 1, 1, 0, 1, scenario.actor_h);
     assert.equal(blocked, scenario.expected_blocked, scenario.name);
   }
+});
+
+test("solid chest volume blocks ground and adds a standable top like server acceptance 2", () => {
+  const store = makeStore(0, "grass", [], [{ id: 1, kind: "chest", x: 1, y: 1, h: 0, quantity: 1, open: false }]);
+  assert.equal(store.isSolid(1, 1, 1), true);
+  assert.equal(store.isSolid(1, 1, 2), true);
+  assert.equal(store.standingH(1, 1, 0), undefined);
+  assert.equal(store.standingH(1, 1, 2), 2);
+  assert.equal(store.walkCost(1, 1, 2), 1.2);
+});
+
+test("non-solid tile objects add no volume, and object tops are pickable", () => {
+  const bottleStore = makeStore(0, "grass", [], [{ id: 1, kind: "bottle", x: 1, y: 1, h: 0, quantity: 1, open: null }]);
+  assert.equal(bottleStore.isSolid(1, 1, 1), false);
+  assert.equal(bottleStore.standingH(1, 1, 0), 0);
+
+  const tableStore = makeStore(0, "grass", [], [{ id: 2, kind: "table", x: 1, y: 1, h: 0, quantity: 1, open: null }]);
+  assert.deepEqual(pickTile(tableStore, 0, 1, 2, () => Number.POSITIVE_INFINITY), { x: 1, y: 1, z: 0 });
 });
 
 test("snapshot clearing accepts reset chunk revisions for a regenerated world", () => {

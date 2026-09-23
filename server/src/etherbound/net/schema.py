@@ -8,6 +8,7 @@ from etherbound.net.messages import (
     AckMessage,
     ActionMessage,
     ActivityMessage,
+    ChunkMessage,
     ClockMessage,
     ErrorMessage,
     InputMessage,
@@ -26,6 +27,7 @@ WS_MODELS = (
     ErrorMessage,
     SnapshotMessage,
     TickMessage,
+    ChunkMessage,
 )
 
 

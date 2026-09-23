@@ -6,6 +6,10 @@ export const H_PX = 16;
 
 export const BASE_DEPTH = -1_000_000;
 
+export function faceTile(_side: "s" | "e", tileX: number, tileY: number): { x: number; y: number } {
+  return { x: tileX, y: tileY };
+}
+
 export function toScreen(x: number, y: number, h: number): { sx: number; sy: number } {
   return {
     sx: (x - y) * TILE_W / 2,

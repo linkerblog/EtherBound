@@ -6,13 +6,17 @@ import { ChunkStore } from "../world/ChunkStore";
 import { loadMaterials } from "../world/materials";
 import type { components } from "../net/schema";
 import { defaultZoom, loadZoom, saveZoom, stepZoom, WheelAccumulator, type ZoomLevel } from "./zoom";
-import { H_PX, TILE_H, TILE_W, baseDepth, keysToWorld, nikoDepth, rowDepth, screenToRay, toScreen } from "./iso";
+import { H_PX, TILE_H, TILE_W, baseDepth, faceTile, keysToWorld, nikoDepth, rowDepth, screenToRay, toScreen } from "./iso";
 import { cutoffH } from "../world/cutaway";
 import { pickTile } from "../world/pick";
-import grassSprites from "../../../src/sprites/grass/grass_x4_2.png";
+import { isCovered, occludingStructures, type Structure } from "../world/occlusion";
+import { cutoffChunkKeys, changedChunkKeys, materialChunkKeys, structureChunkKeys, tileChunkKeys, viewerHeightChunkKeys, type DirtyChunk } from "./dirty";
+import { diamondMask, edgeLineMask, faceMask, wallMask, type TileMask } from "./tileMasks";
+import { shadeColor, spriteTint } from "./terrainSprites";
+import { TERRAIN_SHEETS } from "./terrainSheets";
 type Material = components["schemas"]["MaterialResponse"];
 type WorldChunk = components["schemas"]["ChunkResponse"];
-import { EDGE_N_DOORWAY, EDGE_N_WINDOW, EDGE_W_DOORWAY, EDGE_W_WINDOW, LEVEL_H, NO_FLOOR, LEVEL_VOID } from "../world/rules";
+import { EDGE_N_DOORWAY, EDGE_N_WINDOW, EDGE_W_DOORWAY, EDGE_W_WINDOW, LEVEL_H, NO_FLOOR } from "../world/rules";
 
 const CUT_DEPTH = 8;
 const CUT_WIDTH = 3;
@@ -37,10 +41,12 @@ type MapSceneOptions = {
 };
 
 type ChunkLayers = {
-  base: Phaser.GameObjects.Graphics;
-  rows: Map<number, Phaser.GameObjects.Graphics>;
-  grass: Phaser.GameObjects.Image[];
+  base: Phaser.GameObjects.Blitter;
+  rows: Map<number, Phaser.GameObjects.Blitter>;
   bbox: { minX: number; minY: number; maxX: number; maxY: number };
+  hMin: number;
+  hMax: number;
+  visible: boolean;
 };
 
 export class MapScene extends Phaser.Scene {
@@ -49,6 +55,7 @@ export class MapScene extends Phaser.Scene {
   private readonly chunkLayers = new Map<string, ChunkLayers>();
   private materials: Map<number, Material> | null = null;
   private niko!: Phaser.GameObjects.Graphics;
+  private nikoGhost!: Phaser.GameObjects.Graphics;
   private prediction = new ClientPrediction(EMPTY_POSITION);
   private hasAuthoritativePosition = false;
   private viewerH = 0;
@@ -60,7 +67,10 @@ export class MapScene extends Phaser.Scene {
   private inputElapsed = 0;
   private nikoTile = "";
   private cutoff = Number.POSITIVE_INFINITY;
-  private lastView: { x: number; y: number; width: number; height: number } | null = null;
+  private readonly dirtyChunks = new Set<string>();
+  private readonly maskOffsets = new Map<string, { x: number; y: number }>();
+  private readonly spriteKeys = new Set<string>();
+  private structures: Structure[] = [];
   private telemetryOrigin: { x: number; y: number } | null = null;
   private telemetryElapsed = 0;
   private removeStateListener?: () => void;
@@ -74,15 +84,21 @@ export class MapScene extends Phaser.Scene {
   }
 
   preload(): void {
-    this.load.spritesheet("grass", grassSprites, { frameWidth: TILE_W, frameHeight: TILE_H });
+    this.load.on("loaderror", (file: Phaser.Loader.File) => {
+      console.error(`terrain sheet failed: ${file.key} ${file.url}`);
+    });
+    for (const [key, sheet] of Object.entries(TERRAIN_SHEETS)) {
+      this.load.spritesheet(`sheet:${key}`, sheet, { frameWidth: TILE_W, frameHeight: TILE_H });
+    }
   }
 
   create(): void {
+    this.createTerrainAtlas();
     this.prediction.attachStore(this.chunks);
     void loadMaterials().then((materials) => {
       this.materials = materials;
       this.chunks.setMaterials(materials);
-      this.redrawAll();
+      this.markDirty(materialChunkKeys(this.dirtyChunkInfo()));
     });
 
     this.niko = this.add.graphics();
@@ -93,6 +109,13 @@ export class MapScene extends Phaser.Scene {
     this.niko.lineStyle(2, 0xffffff, 1);
     this.niko.strokeRoundedRect(-9, -60, 18, 58, 6);
     this.cameras.main.startFollow(this.niko, true, 0.12, 0.12);
+
+    this.nikoGhost = this.add.graphics();
+    this.nikoGhost.fillStyle(0x2583ff, 0.35);
+    this.nikoGhost.fillRoundedRect(-9, -60, 18, 58, 6);
+    this.nikoGhost.lineStyle(2, 0xffffff, 0.9);
+    this.nikoGhost.strokeRoundedRect(-9, -60, 18, 58, 6);
+    this.nikoGhost.setDepth(Number.MAX_SAFE_INTEGER).setVisible(false);
 
     this.keys = {
       up: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.W),
@@ -126,7 +149,7 @@ export class MapScene extends Phaser.Scene {
     this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       if (!pointer.rightButtonDown()) return;
       const ray = screenToRay(pointer.worldX, pointer.worldY);
-      const target = pickTile(this.chunks, ray.s, ray.t, this.viewerH, this.cutoff);
+      const target = pickTile(this.chunks, ray.s, ray.t, this.viewerH, (x, y) => this.cutoffAt(x, y));
       if (!target) return;
       const canvasBounds = this.game.canvas.getBoundingClientRect();
       this.options.onContextMenu({
@@ -141,6 +164,8 @@ export class MapScene extends Phaser.Scene {
     this.removeSnapshotListener = this.options.client.onSnapshot(() => {
       this.clearChunkLayers();
       this.chunks.clear();
+      this.structures = [];
+      this.nikoGhost.setVisible(false);
       this.hasAuthoritativePosition = false;
       this.telemetryOrigin = null;
       this.telemetryElapsed = 0;
@@ -155,7 +180,6 @@ export class MapScene extends Phaser.Scene {
       const player = state.actors.player ?? state.actors.niko ?? Object.values(state.actors)[0];
       if (player && !this.hasAuthoritativePosition) {
         this.prediction.reset(player);
-        this.setViewer(player.x, player.y, player.h ?? player.z * LEVEL_H);
         this.hasAuthoritativePosition = true;
         this.telemetryOrigin = null;
       } else if (player && this.prediction.idle()) {
@@ -164,23 +188,23 @@ export class MapScene extends Phaser.Scene {
         const drift = Math.hypot(player.x - predicted.x, player.y - predicted.y);
         if (drift > RESYNC_METRES || (player.h !== undefined && player.h !== predicted.h)) {
           this.prediction.reset(player);
-          this.setViewer(player.x, player.y, player.h ?? player.z * LEVEL_H);
         }
       }
     });
     this.removeAckListener = this.options.client.onAck((position, sequence) => {
       if (!position) return;
       this.prediction.reconcile(position, sequence);
-      this.setViewer(position.x, position.y, position.h ?? this.viewerH);
     });
     this.removeChunkListener = this.options.client.onChunk((chunk) => {
       if (!this.chunks.set(chunk)) return;
-      this.drawChunk(chunk);
-      // A changed border tile moves the cliff lines its neighbours draw along their edges.
-      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
-        const neighbour = this.chunks.get(chunk.cx + dx, chunk.cy + dy);
-        if (neighbour) this.drawChunk(neighbour);
+      const key = `${chunk.cx},${chunk.cy}`;
+      if (this.chunkLayers.has(key)) this.updateChunkBounds(chunk);
+      else this.layersFor(chunk);
+      if (this.structures.some((structure) => this.chunkTouchesStructure(chunk.cx, chunk.cy, structure))) {
+        const [x, y] = this.nikoTile.split(",").map(Number);
+        this.refreshStructures(x, y, this.viewerH, this.cutoff);
       }
+      this.markDirty(changedChunkKeys(this.dirtyChunkInfo(), `${chunk.cx},${chunk.cy}`));
     });
   }
 
@@ -205,10 +229,14 @@ export class MapScene extends Phaser.Scene {
       this.paused ? 0 : this.inputElapsed,
     );
     this.setViewer(position.x, position.y, position.h ?? this.viewerH);
+    this.flushDirtyQueue();
     const screen = toScreen(position.x, position.y, position.h ?? this.viewerH);
     this.niko.setPosition(screen.sx, screen.sy);
     this.niko.setDepth(nikoDepth(position.x, position.y));
-    this.refreshView();
+    this.nikoGhost.setPosition(screen.sx, screen.sy).setVisible(
+      isCovered(this.chunks, position.x, position.y, position.h ?? this.viewerH, (x, y) => this.cutoffAt(x, y)),
+    );
+    this.updateCulling();
     this.sampleTelemetry(position, seconds);
   }
 
@@ -260,8 +288,7 @@ export class MapScene extends Phaser.Scene {
     this.zoom = level;
     saveZoom(level);
     this.options.onZoom(level);
-    this.lastView = null;
-    this.refreshView();
+    this.updateCulling();
   }
 
   private applyCameraBounds(bounds: number[]): void {
@@ -280,17 +307,68 @@ export class MapScene extends Phaser.Scene {
     return parseInt(raw.slice(1), 16);
   }
 
+  private createTerrainAtlas(): void {
+    const masks: Array<[string, TileMask]> = [["top", diamondMask()]];
+    for (const side of ["s", "e"] as const) {
+      for (const units of [1, 2, 4, 8] as const) masks.push([`face${side.toUpperCase()}${units}`, faceMask(side, units)]);
+    }
+    for (const edge of ["n", "w"] as const) {
+      for (const units of [1, 2, 4] as const) masks.push([`wall${edge.toUpperCase()}${units}`, wallMask(edge, units)]);
+      masks.push([`line${edge.toUpperCase()}`, edgeLineMask(edge)]);
+    }
+
+    const spriteSheets = Object.entries(TERRAIN_SHEETS).flatMap(([key]) => {
+      const source = this.textures.get(`sheet:${key}`).getSourceImage() as HTMLImageElement;
+      if (source.width !== 256 || source.height !== 32) {
+        console.warn(`Skipping ${key} terrain sprite sheet: expected 256x32, received ${source.width}x${source.height}`);
+        return [];
+      }
+      return [[key, source] as const];
+    });
+    const slotCount = spriteSheets.length * 4 + masks.length;
+    const atlas = this.textures.createCanvas("terrain", slotCount * TILE_W, 160);
+    if (!atlas) throw new Error("Failed to create terrain atlas");
+    const context = atlas.context;
+    let spriteSlot = 0;
+    for (const [key, source] of spriteSheets) {
+      context.drawImage(source, spriteSlot * TILE_W, 0);
+      for (let frame = 0; frame < 4; frame += 1) {
+        atlas.add(`${key}${frame}`, 0, (spriteSlot + frame) * TILE_W, 0, TILE_W, TILE_H);
+      }
+      this.spriteKeys.add(key);
+      spriteSlot += 4;
+    }
+    masks.forEach(([name, mask], index) => {
+      const x = (spriteSlot + index) * TILE_W;
+      const image = context.createImageData(mask.width, mask.height);
+      for (let pixel = 0; pixel < mask.alpha.length; pixel += 1) {
+        const at = pixel * 4;
+        image.data[at] = 255;
+        image.data[at + 1] = 255;
+        image.data[at + 2] = 255;
+        image.data[at + 3] = mask.alpha[pixel] ?? 0;
+      }
+      context.putImageData(image, x, 0);
+      atlas.add(name, 0, x, 0, mask.width, mask.height);
+      this.maskOffsets.set(name, { x: mask.offsetX, y: mask.offsetY });
+    });
+    atlas.refresh();
+  }
+
   private layersFor(chunk: WorldChunk): ChunkLayers {
     const key = `${chunk.cx},${chunk.cy}`;
-    let layers = this.chunkLayers.get(key);
-    if (layers) return layers;
-    const base = this.add.graphics();
+    const existing = this.chunkLayers.get(key);
+    if (existing) return existing;
+    const base = this.add.blitter(0, 0, "terrain");
     base.setDepth(baseDepth(chunk.cx, chunk.cy));
-    layers = {
+    const { bbox, hMin, hMax } = this.chunkBounds(chunk);
+    const layers: ChunkLayers = {
       base,
       rows: new Map(),
-      grass: [],
-      bbox: { minX: 0, minY: 0, maxX: 0, maxY: 0 },
+      bbox,
+      hMin,
+      hMax,
+      visible: true,
     };
     this.chunkLayers.set(key, layers);
     return layers;
@@ -300,40 +378,62 @@ export class MapScene extends Phaser.Scene {
     for (const layers of this.chunkLayers.values()) {
       layers.base.destroy();
       for (const row of layers.rows.values()) row.destroy();
-      for (const grass of layers.grass) grass.destroy();
     }
     this.chunkLayers.clear();
+    this.dirtyChunks.clear();
   }
 
   private setViewer(x: number, y: number, h: number): void {
     const tile = `${Math.floor(x)},${Math.floor(y)}`;
     const nextCutoff = cutoffH(this.chunks, x, y, h);
     if (h === this.viewerH && tile === this.nikoTile && nextCutoff === this.cutoff) return;
+    const oldH = this.viewerH;
+    const oldTile = this.nikoTile;
+    const oldCutoff = this.cutoff;
     this.viewerH = h;
     this.nikoTile = tile;
     this.cutoff = nextCutoff;
-    this.redrawVisible();
+    if (oldH !== h || oldTile !== tile || oldCutoff !== nextCutoff) {
+      this.refreshStructures(Math.floor(x), Math.floor(y), h, nextCutoff);
+    }
+    const chunks = this.dirtyChunkInfo();
+    if (oldH !== h) this.markDirty(viewerHeightChunkKeys(chunks, oldH, h));
+    if (oldCutoff !== nextCutoff) this.markDirty(cutoffChunkKeys(chunks));
+    if (oldTile !== tile) {
+      const [oldX, oldY] = oldTile ? oldTile.split(",").map(Number) : [x, y];
+      this.markDirty(tileChunkKeys(chunks, this.chunks.size, { x: oldX, y: oldY }, { x: Math.floor(x), y: Math.floor(y) }));
+    }
+  }
+
+  private cutoffAt(x: number, y: number): number {
+    const tile = `${Math.floor(x)},${Math.floor(y)}`;
+    const structureCutoff = this.structures.find((structure) => structure.tiles.has(tile))?.cutoff ?? Infinity;
+    return Math.min(this.cutoff, structureCutoff);
+  }
+
+  private refreshStructures(x: number, y: number, h: number, cutoff: number): void {
+    const previous = this.structures;
+    const next = occludingStructures(this.chunks, x, y, h, cutoff);
+    const signature = (structures: Structure[]): string[] => structures
+      .map((structure) => `${[...structure.tiles].sort().join(";")}|${structure.cutoff}`)
+      .sort();
+    if (JSON.stringify(signature(previous)) === JSON.stringify(signature(next))) return;
+    this.structures = next;
+    const bounds = [...previous, ...next].map((structure) => structure.bounds);
+    this.markDirty(structureChunkKeys(this.dirtyChunkInfo(), this.chunks.size, bounds));
+  }
+
+  private chunkTouchesStructure(cx: number, cy: number, structure: Structure): boolean {
+    const minX = cx * this.chunks.size;
+    const minY = cy * this.chunks.size;
+    const maxX = minX + this.chunks.size;
+    const maxY = minY + this.chunks.size;
+    const bounds = structure.bounds;
+    return minX < bounds.maxX && maxX > bounds.minX && minY < bounds.maxY && maxY > bounds.minY;
   }
 
   private shade(base: number, h: number): number {
-    const offset = Math.max(-20, Math.min(48, -h * 3));
-    const red = Math.max(0, Math.min(255, (base >> 16) + offset));
-    const green = Math.max(0, Math.min(255, ((base >> 8) & 0xff) + offset));
-    const blue = Math.max(0, Math.min(255, (base & 0xff) + offset));
-    return (red << 16) | (green << 8) | blue;
-  }
-
-  private tintGrass(h: number): number {
-    const shaded = this.shade(0x6a9f4b, h);
-    const ratio = (channel: number, base: number): number => Math.min(255, Math.round(channel * 255 / base));
-    return (ratio((shaded >> 16) & 0xff, 0x6a) << 16) |
-      (ratio((shaded >> 8) & 0xff, 0x9f) << 8) |
-      ratio(shaded & 0xff, 0x4b);
-  }
-
-  private redrawAll(): void {
-    for (const chunk of this.chunks.values()) this.drawChunk(chunk);
-    this.updateCulling();
+    return shadeColor(base, h);
   }
 
   private drawChunk(chunk: WorldChunk): void {
@@ -342,8 +442,6 @@ export class MapScene extends Phaser.Scene {
     const orderedLevels = [...chunk.levels].sort((a, b) => a.z - b.z);
     layers.base.clear();
     for (const row of layers.rows.values()) row.clear();
-    for (const sprite of layers.grass) sprite.destroy();
-    layers.grass.length = 0;
     const usedRows = new Set<number>();
 
     for (let band = 0; band <= 2 * size - 2; band += 1) {
@@ -355,35 +453,35 @@ export class MapScene extends Phaser.Scene {
         const x = chunk.cx * size + lx;
         const y = chunk.cy * size + ly;
         const row = x + y;
+        const tileCutoff = this.cutoffAt(x, y);
         const h = chunk.ground_h[index] ?? 0;
         const materialId = chunk.surface_mat[index] ?? 0;
         const hasFloor = chunk.levels.some((level) => level.floor_h[index] !== NO_FLOOR);
-        const groundShown = !hasFloor || h <= this.cutoff;
+        const groundShown = (!hasFloor || h <= tileCutoff) && !this.chunks.isVoid(x, y, h);
         if (groundShown) {
-          this.drawTop(layers, usedRows, x, y, h, materialId, row, chunk);
+          this.drawTop(layers, usedRows, x, y, h, materialId, row);
           const eastH = this.chunks.groundH(x + 1.5, y + 0.5);
           const southH = this.chunks.groundH(x + 0.5, y + 1.5);
           if (eastH === undefined || h > eastH) {
-            this.drawVertical(layers, usedRows, x + 1, y, x + 1, y + 1, eastH ?? h - 4, h, this.shade(this.materialColor(materialId), h), 0.66, row);
+            this.drawVertical("e", layers, usedRows, x, y, eastH ?? h - 4, h, this.shade(this.materialColor(materialId), h), 0.66, row);
           }
           if (southH === undefined || h > southH) {
-            this.drawVertical(layers, usedRows, x, y + 1, x + 1, y + 1, southH ?? h - 4, h, this.shade(this.materialColor(materialId), h), 0.82, row);
+            this.drawVertical("s", layers, usedRows, x, y, southH ?? h - 4, h, this.shade(this.materialColor(materialId), h), 0.82, row);
           }
         }
 
         for (const level of orderedLevels) {
           const floorH = level.floor_h[index];
-          const flags = level.flags[index];
-          if (floorH !== NO_FLOOR && floorH <= this.cutoff && (flags & LEVEL_VOID) === 0) {
+          if (floorH !== NO_FLOOR && floorH <= tileCutoff) {
             const floorMaterial = level.floor_mat[index] ?? 0;
-            this.drawDiamond(layers, usedRows, x, y, floorH, this.shade(this.materialColor(floorMaterial), floorH), row);
+            this.drawSurface(layers, usedRows, x, y, floorH, floorMaterial, row);
             const southCell = this.chunks.levelCell(x, y + 1, level.z);
             const eastCell = this.chunks.levelCell(x + 1, y, level.z);
             if (southCell?.floor_h !== floorH) {
-              this.drawVertical(layers, usedRows, x, y + 1, x + 1, y + 1, floorH - 1, floorH, this.shade(this.materialColor(floorMaterial), floorH), 0.82, row);
+              this.drawVertical("s", layers, usedRows, x, y, floorH - 1, floorH, this.shade(this.materialColor(floorMaterial), floorH), 0.82, row);
             }
             if (eastCell?.floor_h !== floorH) {
-              this.drawVertical(layers, usedRows, x + 1, y, x + 1, y + 1, floorH - 1, floorH, this.shade(this.materialColor(floorMaterial), floorH), 0.66, row);
+              this.drawVertical("e", layers, usedRows, x, y, floorH - 1, floorH, this.shade(this.materialColor(floorMaterial), floorH), 0.66, row);
             }
           }
 
@@ -391,14 +489,14 @@ export class MapScene extends Phaser.Scene {
           const wallN = level.wall_n[index];
           const wallW = level.wall_w[index];
           const edgeFlags = level.edge_flags[index];
-          if (wallBase <= this.cutoff) {
+          if (wallBase <= tileCutoff) {
             if (wallN && (edgeFlags & EDGE_N_DOORWAY) === 0) {
               const stub = this.isFrontWall("n", x, y, wallBase);
-              this.drawWall(layers, usedRows, x, y, x + 1, y, wallBase, wallN, (edgeFlags & EDGE_N_WINDOW) !== 0, stub, row);
+              this.drawWall("n", layers, usedRows, x, y, wallBase, wallN, tileCutoff, (edgeFlags & EDGE_N_WINDOW) !== 0, stub, row);
             }
             if (wallW && (edgeFlags & EDGE_W_DOORWAY) === 0) {
               const stub = this.isFrontWall("w", x, y, wallBase);
-              this.drawWall(layers, usedRows, x, y, x, y + 1, wallBase, wallW, (edgeFlags & EDGE_W_WINDOW) !== 0, stub, row);
+              this.drawWall("w", layers, usedRows, x, y, wallBase, wallW, tileCutoff, (edgeFlags & EDGE_W_WINDOW) !== 0, stub, row);
             }
           }
         }
@@ -411,75 +509,69 @@ export class MapScene extends Phaser.Scene {
         layers.rows.delete(row);
       }
     }
-    layers.bbox = this.chunkBounds(chunk);
   }
 
-  private targetGraphics(layers: ChunkLayers, usedRows: Set<number>, row: number): Phaser.GameObjects.Graphics {
+  private targetBlitter(layers: ChunkLayers, usedRows: Set<number>, row: number): Phaser.GameObjects.Blitter {
     usedRows.add(row);
-    let graphics = layers.rows.get(row);
-    if (!graphics) {
-      graphics = this.add.graphics();
-      graphics.setDepth(rowDepth(row));
-      layers.rows.set(row, graphics);
+    let blitter = layers.rows.get(row);
+    if (!blitter) {
+      blitter = this.add.blitter(0, 0, "terrain");
+      blitter.setDepth(rowDepth(row)).setVisible(layers.visible);
+      layers.rows.set(row, blitter);
     }
-    return graphics;
+    return blitter;
   }
 
-  private graphicsFor(layers: ChunkLayers, usedRows: Set<number>, row: number, h: number): Phaser.GameObjects.Graphics {
-    return h <= this.viewerH ? layers.base : this.targetGraphics(layers, usedRows, row);
+  private blitterFor(layers: ChunkLayers, usedRows: Set<number>, row: number, h: number): Phaser.GameObjects.Blitter {
+    return h <= this.viewerH ? layers.base : this.targetBlitter(layers, usedRows, row);
   }
 
-  private drawTop(layers: ChunkLayers, usedRows: Set<number>, x: number, y: number, h: number, materialId: number, row: number, chunk: WorldChunk): void {
-    const material = this.materials?.get(materialId);
-    if (material?.key === "grass") {
-      const at = toScreen(x + 0.5, y + 0.5, h);
-      this.drawDiamond(layers, usedRows, x, y, h, this.shade(this.materialColor(materialId), h), row);
-      if (!this.inGrassView(at.sx, at.sy)) return;
-      const sprite = this.add.image(at.sx, at.sy, "grass", this.grassFrame(x, y));
-      sprite.setOrigin(0.5, 0.5).setTint(this.tintGrass(h));
-      sprite.setDepth(h <= this.viewerH ? baseDepth(chunk.cx, chunk.cy) : rowDepth(row));
-      layers.grass.push(sprite);
-      if (h > this.viewerH) usedRows.add(row);
-      return;
-    }
-    this.drawDiamond(layers, usedRows, x, y, h, this.shade(this.materialColor(materialId), h), row);
+  private drawTop(layers: ChunkLayers, usedRows: Set<number>, x: number, y: number, h: number, materialId: number, row: number): void {
+    this.drawSurface(layers, usedRows, x, y, h, materialId, row);
   }
 
-  private grassFrame(x: number, y: number): number {
+  private drawSurface(layers: ChunkLayers, usedRows: Set<number>, x: number, y: number, h: number, materialId: number, row: number): void {
+    const materialKey = this.materials?.get(materialId)?.key;
+    const color = this.materialColor(materialId);
+    const textured = materialKey !== undefined && this.spriteKeys.has(materialKey);
+    const frame = textured ? `${materialKey}${this.variant(x, y)}` : "top";
+    this.drawMask(layers, usedRows, frame, x, y, h, row, textured ? spriteTint(color, h) : this.shade(color, h));
+  }
+
+  private variant(x: number, y: number): number {
     let hash = Math.imul(x, 0x45d9f3b) ^ Math.imul(y, 0x119de1f3);
     hash = Math.imul(hash ^ (hash >>> 16), 0x45d9f3b);
     return (hash ^ (hash >>> 16)) & 3;
   }
 
-  private drawDiamond(layers: ChunkLayers, usedRows: Set<number>, x: number, y: number, h: number, color: number, row: number): void {
-    const top = toScreen(x, y, h);
-    const right = toScreen(x + 1, y, h);
-    const bottom = toScreen(x + 1, y + 1, h);
-    const left = toScreen(x, y + 1, h);
-    const graphics = this.graphicsFor(layers, usedRows, row, h);
-    this.fillTriangle(graphics, top, right, bottom, color, 1);
-    this.fillTriangle(graphics, top, bottom, left, color, 1);
-  }
-
-  private fillTriangle(
-    graphics: Phaser.GameObjects.Graphics,
-    a: { sx: number; sy: number },
-    b: { sx: number; sy: number },
-    c: { sx: number; sy: number },
-    color: number,
-    alpha: number,
+  private drawMask(
+    layers: ChunkLayers,
+    usedRows: Set<number>,
+    frame: string,
+    x: number,
+    y: number,
+    h: number,
+    row: number,
+    tint: number,
+    alpha = 1,
   ): void {
-    graphics.fillStyle(color, alpha);
-    graphics.fillTriangle(a.sx, a.sy, b.sx, b.sy, c.sx, c.sy);
+    const at = toScreen(x, y, h);
+    const offset = this.maskOffsets.get(frame) ?? { x: 0, y: 0 };
+    const bob = this.blitterFor(layers, usedRows, row, h).create(
+      at.sx - TILE_W / 2 + offset.x,
+      at.sy + offset.y,
+      frame,
+    );
+    bob.setTint(tint);
+    bob.alpha = alpha;
   }
 
   private drawVertical(
+    side: "s" | "e",
     layers: ChunkLayers,
     usedRows: Set<number>,
-    x1: number,
-    y1: number,
-    x2: number,
-    y2: number,
+    tileX: number,
+    tileY: number,
     h0: number,
     h1: number,
     color: number,
@@ -487,19 +579,31 @@ export class MapScene extends Phaser.Scene {
     row: number,
     alpha = 1,
   ): void {
+    const tile = faceTile(side, tileX, tileY);
     const lowerTop = Math.min(h1, this.viewerH);
-    if (h0 < lowerTop) this.quad(layers.base, x1, y1, x2, y2, h0, lowerTop, this.scaleColor(color, light), alpha);
+    if (h0 < lowerTop) this.drawFaceRun(layers, usedRows, side, tile.x, tile.y, h0, lowerTop, row, this.scaleColor(color, light), alpha);
     const upperBottom = Math.max(h0, this.viewerH);
-    if (upperBottom < h1) this.quad(this.targetGraphics(layers, usedRows, row), x1, y1, x2, y2, upperBottom, h1, this.scaleColor(color, light), alpha);
+    if (upperBottom < h1) this.drawFaceRun(layers, usedRows, side, tile.x, tile.y, upperBottom, h1, row, this.scaleColor(color, light), alpha);
   }
 
-  private quad(gfx: Phaser.GameObjects.Graphics, x1: number, y1: number, x2: number, y2: number, h0: number, h1: number, color: number, alpha: number): void {
-    const a = toScreen(x1, y1, h0);
-    const b = toScreen(x2, y2, h0);
-    const c = toScreen(x2, y2, h1);
-    const d = toScreen(x1, y1, h1);
-    this.fillTriangle(gfx, a, b, c, color, alpha);
-    this.fillTriangle(gfx, a, c, d, color, alpha);
+  private drawFaceRun(
+    layers: ChunkLayers,
+    usedRows: Set<number>,
+    side: "s" | "e",
+    x: number,
+    y: number,
+    bottom: number,
+    top: number,
+    row: number,
+    tint: number,
+    alpha: number,
+  ): void {
+    let current = bottom;
+    while (current < top) {
+      const units = ([8, 4, 2, 1] as const).find((size) => size <= top - current)!;
+      this.drawMask(layers, usedRows, `face${side.toUpperCase()}${units}`, x, y, current + units, row, tint, alpha);
+      current += units;
+    }
   }
 
   private scaleColor(color: number, factor: number): number {
@@ -519,39 +623,56 @@ export class MapScene extends Phaser.Scene {
   }
 
   private drawWall(
+    edge: "n" | "w",
     layers: ChunkLayers,
     usedRows: Set<number>,
-    x1: number,
-    y1: number,
-    x2: number,
-    y2: number,
+    x: number,
+    y: number,
     base: number,
     materialId: number,
+    cutoff: number,
     window: boolean,
     stub: boolean,
     row: number,
   ): void {
     const color = this.materialColor(materialId);
-    const light = y1 === y2 ? 0.82 : 0.66;
-    const cap = Math.min(base + MAX_WALL_H, this.cutoff);
+    const light = edge === "n" ? 0.82 : 0.66;
+    const cap = Math.min(base + MAX_WALL_H, cutoff);
     const top = stub ? Math.min(base + 1, cap) : cap;
     if (top <= base) return;
     if (stub || !window) {
-      this.drawVertical(layers, usedRows, x1, y1, x2, y2, base, top, color, light, row);
+      this.drawWallRun(layers, usedRows, edge, x, y, base, top, row, this.scaleColor(color, light));
     } else {
-      this.drawVertical(layers, usedRows, x1, y1, x2, y2, base, Math.min(base + 2, top), color, light, row);
-      if (top > base + 4) this.drawVertical(layers, usedRows, x1, y1, x2, y2, base + 4, top, color, light, row);
-      if (top > base + 2) this.drawVertical(layers, usedRows, x1, y1, x2, y2, base + 2, Math.min(base + 4, top), 0xd8e6f0, light, row, 0.45);
+      this.drawWallRun(layers, usedRows, edge, x, y, base, Math.min(base + 2, top), row, this.scaleColor(color, light));
+      if (top > base + 4) this.drawWallRun(layers, usedRows, edge, x, y, base + 4, top, row, this.scaleColor(color, light));
+      if (top > base + 2) this.drawWallRun(layers, usedRows, edge, x, y, base + 2, Math.min(base + 4, top), row, this.scaleColor(0xd8e6f0, light), 0.45);
     }
     if (!stub && top === base + MAX_WALL_H) {
-      const a = toScreen(x1, y1, top);
-      const b = toScreen(x2, y2, top);
-      const graphics = this.graphicsFor(layers, usedRows, row, top);
-      graphics.lineStyle(1, this.scaleColor(color, 1.12), 1).lineBetween(a.sx, a.sy, b.sx, b.sy);
+      this.drawMask(layers, usedRows, `line${edge.toUpperCase()}`, x, y, top, row, this.scaleColor(color, 1.12));
     }
   }
 
-  private chunkBounds(chunk: WorldChunk): ChunkLayers["bbox"] {
+  private drawWallRun(
+    layers: ChunkLayers,
+    usedRows: Set<number>,
+    edge: "n" | "w",
+    x: number,
+    y: number,
+    bottom: number,
+    top: number,
+    row: number,
+    tint: number,
+    alpha = 1,
+  ): void {
+    let current = bottom;
+    while (current < top) {
+      const units = ([4, 2, 1] as const).find((size) => size <= top - current)!;
+      this.drawMask(layers, usedRows, `wall${edge.toUpperCase()}${units}`, x, y, current + units, row, tint, alpha);
+      current += units;
+    }
+  }
+
+  private chunkBounds(chunk: WorldChunk): { bbox: ChunkLayers["bbox"]; hMin: number; hMax: number } {
     const size = this.chunks.size;
     let minH = Math.min(...chunk.ground_h) - 4;
     let maxH = Math.max(...chunk.ground_h);
@@ -575,49 +696,94 @@ export class MapScene extends Phaser.Scene {
     ];
     const points = corners.flatMap(([x, y]) => [toScreen(x, y, minH), toScreen(x, y, maxH)]);
     return {
-      minX: Math.min(...points.map((point) => point.sx)) - TILE_W,
-      minY: Math.min(...points.map((point) => point.sy)) - TILE_H,
-      maxX: Math.max(...points.map((point) => point.sx)) + TILE_W,
-      maxY: Math.max(...points.map((point) => point.sy)) + TILE_H,
+      hMin: minH,
+      hMax: maxH,
+      bbox: {
+        minX: Math.min(...points.map((point) => point.sx)) - TILE_W,
+        minY: Math.min(...points.map((point) => point.sy)) - TILE_H,
+        maxX: Math.max(...points.map((point) => point.sx)) + TILE_W,
+        maxY: Math.max(...points.map((point) => point.sy)) + TILE_H,
+      },
     };
+  }
+
+  private updateChunkBounds(chunk: WorldChunk): void {
+    const layers = this.chunkLayers.get(`${chunk.cx},${chunk.cy}`);
+    if (!layers) return;
+    const bounds = this.chunkBounds(chunk);
+    layers.bbox = bounds.bbox;
+    layers.hMin = bounds.hMin;
+    layers.hMax = bounds.hMax;
   }
 
   private updateCulling(): void {
     const view = this.cameras.main.worldView;
     for (const layers of this.chunkLayers.values()) {
-      const visible = layers.bbox.maxX >= view.x - TILE_W && layers.bbox.minX <= view.right + TILE_W &&
-        layers.bbox.maxY >= view.y - TILE_H && layers.bbox.minY <= view.bottom + TILE_H;
+      const visible = this.intersectsView(layers.bbox);
+      if (visible === layers.visible) continue;
+      layers.visible = visible;
       layers.base.setVisible(visible);
       for (const row of layers.rows.values()) row.setVisible(visible);
-      for (const grass of layers.grass) grass.setVisible(visible);
     }
   }
 
-  private refreshView(): void {
-    const view = this.cameras.main.worldView;
-    const previous = this.lastView;
-    const moved = !previous || Math.hypot(view.centerX - previous.x, view.centerY - previous.y) > 96 ||
-      view.width !== previous.width || view.height !== previous.height;
-    if (moved) {
-      this.lastView = { x: view.centerX, y: view.centerY, width: view.width, height: view.height };
-      this.redrawVisible();
-    } else {
-      this.updateCulling();
+  private dirtyChunkInfo(): DirtyChunk[] {
+    return [...this.chunkLayers].map(([key, layers]) => {
+      const [cx, cy] = key.split(",").map(Number);
+      return {
+        key,
+        cx,
+        cy,
+        hMin: layers.hMin,
+        hMax: layers.hMax,
+        hasLevels: (this.chunks.get(cx, cy)?.levels.length ?? 0) > 0,
+      };
+    });
+  }
+
+  private markDirty(keys: string[]): void {
+    for (const key of keys) {
+      const [cx, cy] = key.split(",").map(Number);
+      if (this.chunks.get(cx, cy)) this.dirtyChunks.add(key);
     }
   }
 
-  private redrawVisible(): void {
-    for (const chunk of this.chunks.values()) {
-      if (this.intersectsView(this.chunkBounds(chunk))) this.drawChunk(chunk);
+  private flushDirtyQueue(): void {
+    const [viewerX, viewerY] = this.nikoTile ? this.nikoTile.split(",").map(Number) : [0, 0];
+    const inCore = (key: string): boolean => {
+      const [cx, cy] = key.split(",").map(Number);
+      return Math.abs(cx - Math.floor(viewerX / this.chunks.size)) <= 1 &&
+        Math.abs(cy - Math.floor(viewerY / this.chunks.size)) <= 1;
+    };
+    for (const key of [...this.dirtyChunks].filter(inCore)) {
+      this.drawDirtyChunk(key);
+    }
+
+    const started = performance.now();
+    const pending = [...this.dirtyChunks].map((key) => {
+      const [cx, cy] = key.split(",").map(Number);
+      const layers = this.chunkLayers.get(key)!;
+      const x = (cx + 0.5) * this.chunks.size;
+      const y = (cy + 0.5) * this.chunks.size;
+      return { key, layers, distance: (x - viewerX) ** 2 + (y - viewerY) ** 2 };
+    }).sort((a, b) => a.distance - b.distance);
+    for (const { key, layers } of pending) {
+      if (!this.intersectsView(layers.bbox)) continue;
+      if (performance.now() - started >= 4) break;
+      this.drawDirtyChunk(key);
     }
     this.updateCulling();
   }
 
-  private inGrassView(x: number, y: number): boolean {
-    const view = this.cameras.main.worldView;
-    const margin = 256;
-    return x + TILE_W / 2 >= view.x - margin && x - TILE_W / 2 <= view.right + margin &&
-      y + TILE_H / 2 >= view.y - margin && y - TILE_H / 2 <= view.bottom + margin;
+  private drawDirtyChunk(key: string): void {
+    const [cx, cy] = key.split(",").map(Number);
+    const chunk = this.chunks.get(cx, cy);
+    if (!chunk) {
+      this.dirtyChunks.delete(key);
+      return;
+    }
+    this.dirtyChunks.delete(key);
+    this.drawChunk(chunk);
   }
 
   private intersectsView(bbox: ChunkLayers["bbox"]): boolean {

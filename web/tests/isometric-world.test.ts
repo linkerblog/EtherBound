@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { components } from "../src/net/schema";
-import { baseDepth, keysToWorld, nikoDepth, rowDepth, screenToRay, toScreen } from "../src/game/iso";
+import { baseDepth, faceTile, keysToWorld, nikoDepth, rowDepth, screenToRay, toScreen } from "../src/game/iso";
 import { ChunkStore } from "../src/world/ChunkStore";
 import { cutoffH } from "../src/world/cutaway";
 import { pickTile } from "../src/world/pick";
+import { marchRay } from "../src/world/ray";
 import { EDGE_N_DOORWAY, EDGE_N_WINDOW, LEVEL_VOID, NO_FLOOR } from "../src/world/rules";
 
 type Chunk = components["schemas"]["ChunkResponse"];
@@ -60,6 +61,8 @@ test("isometric projection, ray coordinates, key vectors, and depths follow the 
   assert.equal(baseDepth(3, 4), -999_993);
   assert.equal(rowDepth(7), 14);
   assert.equal(nikoDepth(2.8, 3.1), 11);
+  assert.deepEqual(faceTile("s", 4, 7), { x: 4, y: 7 });
+  assert.deepEqual(faceTile("e", 4, 7), { x: 4, y: 7 });
 });
 
 test("roof cutoff uses nearby slabs and preserves doorway versus window connectivity", () => {
@@ -92,16 +95,38 @@ test("a directly overhead roof triggers cutaway and hides its higher floors", ()
   const roofed = makeStore({ levels: [makeLevel(2, { [cellIndex(1, 1)]: { floor_h: 12 } })] });
   const cutoff = cutoffH(roofed, 1.5, 1.5, 0);
   assert.equal(cutoff, 4);
-  assert.equal(pickTile(roofed, 0, -10, 0, cutoff), null);
+  assert.equal(pickTile(roofed, 0, -10, 0, () => cutoff), null);
 });
 
 test("height-aware picking selects ground and visible floors, but skips cutaway floors", () => {
   const groundStore = makeStore();
-  assert.deepEqual(pickTile(groundStore, 0, 3, 0, Infinity), { x: 1, y: 1, z: 0 });
+  assert.deepEqual(pickTile(groundStore, 0, 3, 0, () => Infinity), { x: 1, y: 1, z: 0 });
+  assert.deepEqual(marchRay(groundStore, 0, 3, 40, -40, () => Infinity), {
+    x: 1, y: 1, h: 0, kind: "ground", z: 0,
+  });
 
   const floorStore = makeStore({ levels: [makeLevel(1, {
     [cellIndex(1, 1)]: { floor_h: 6 },
   })] });
-  assert.deepEqual(pickTile(floorStore, 0, -3, 0, Infinity), { x: 1, y: 1, z: 1 });
-  assert.equal(pickTile(floorStore, 0, -3, 0, 4), null);
+  assert.deepEqual(pickTile(floorStore, 0, -3, 0, () => Infinity), { x: 1, y: 1, z: 1 });
+  assert.deepEqual(marchRay(floorStore, 0, -3, 40, -40, () => Infinity), {
+    x: 1, y: 1, h: 6, kind: "floor", z: 1,
+  });
+  assert.equal(pickTile(floorStore, 0, -3, 0, () => 4), null);
+});
+
+test("height-aware picking includes VOID floors and skips VOID ground to find the basement", () => {
+  const voidFloor = makeStore({ levels: [makeLevel(1, {
+    [cellIndex(1, 1)]: { floor_h: 6, flags: LEVEL_VOID },
+  })] });
+  assert.deepEqual(pickTile(voidFloor, 0, -3, 0, () => Infinity), { x: 1, y: 1, z: 1 });
+
+  const voidBand = makeLevel(2);
+  voidBand.flags.fill(LEVEL_VOID);
+  const voidGround = makeStore({ groundH: 12, levels: [
+    makeLevel(1, { [cellIndex(1, 1)]: { floor_h: 6 } }),
+    voidBand,
+  ] });
+  assert.equal(voidGround.isVoid(1, 1, 12), true);
+  assert.deepEqual(pickTile(voidGround, 0, -3, 0, () => Infinity), { x: 1, y: 1, z: 1 });
 });

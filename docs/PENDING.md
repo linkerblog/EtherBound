@@ -25,13 +25,8 @@ Open decisions and loose ends. When one is settled, record the decision where it
 
 ## Deferred work
 
-- [ ] **RNG stream persistence.** `RNGStreams` restarts from the seed on every launch, so a
-      loaded game does not continue its random sequence. Save each stream's state together with
-      the first dice roll, in the character-sheet doc (`done/Dev-007.md` has no rolls). Deferred by `done/Dev-005.md` [Sec. 1].
 - [ ] **Input replay.** The event log stores outcomes, not the 20 Hz inputs, so a run cannot
-       yet be replayed exactly (`utils/VISION.md` [Sec. 11]). This depends on RNG persistence.
-- [ ] **Input rate limit (multiplayer only).** Timed movement input is bounded per message, but
-      the local single-player game has no rate limit. Add one only if multiplayer is introduced.
+      yet be replayed exactly (`utils/VISION.md` [Sec. 11]).
 - [ ] **Events to the client.** Only one event reaches the WebSocket: the `activity` notice when
       one of Niko's activities finishes (`done/Dev-007.md`). Everything else stays server-side
       until there is something to narrate (witnesses).
@@ -41,7 +36,6 @@ Open decisions and loose ends. When one is settled, record the decision where it
 
 ## Manual checks not run
 
-- [ ] **Dev-004 zoom:** acceptance 1–10 in Chromium and Firefox (`done/Dev-004.md` [Sec. 6]).
 - [ ] **Dev-003 launcher:** `O` with the browser closed opens the game, and quitting the
       launcher leaves the browser open (`done/Dev-003.md` [Sec. 9]).
 - [ ] **Dev-006 new game:** manual GUI acceptance 1–10, including same-seed regeneration and
@@ -50,6 +44,15 @@ Open decisions and loose ends. When one is settled, record the decision where it
       20 fps in Chromium DevTools (`done/Fix04.md` [Sec. 6]).
 - [ ] **Dev-008 isometric renderer:** manual visual, picking, movement, zoom and performance
       acceptance 1–12 (`done/Dev-008.md` [Sec. 7]).
+- [ ] **Fix05 renderer:** GUI acceptance 1–9 for VOID floors, terrain overlap and x1 redraw/performance
+      behavior (`done/Fix05.md` [Sec. 7]); automated checks pass, GUI profiling was not run here.
+- [ ] **Fix06 renderer review:** GUI acceptance 1–9 for ledge faces, structure cutaway, silhouette and
+      grass/planks/stone textures (`done/Fix06.md` [Sec. 7]); automated checks pass.
+- [ ] **Fix07 renderer/network review:** GUI acceptance 1–6 for textured sheets loading through Vite
+      and the world surviving reloads (`done/Fix07.md` [Sec. 7]); automated checks pass.
+- [ ] **Fix08 reconnect:** a tab loaded with the API server down recovers to `LINKED` once the server
+      is up, without a reload (`done/Fix08.md` [Sec. 6]); verified in a headless browser and by
+      automated tests.
 
 - [ ] **Fix03 walking:** acceptance 1 (no jump at start or stop) was confirmed by the user on
       22/09/2026 ("walking feels smooth"), and 5 (releasing the keys after `DIG` does not
@@ -61,24 +64,13 @@ Open decisions and loose ends. When one is settled, record the decision where it
 
 The Dev-005 GUI acceptance passed; details are recorded in `docs/done/Fix02.md`.
 
-## Loose ends
-
-- [ ] **Notion.** `Dev-018` and `Dev-019` from NikoStory still hang under the EtherBound page;
-      delete them.
-- [ ] **NikoStory working tree.** 11 modified files uncommitted in the old repo (`schema.ts`,
-      `movement.ts`, `grid.ts`, `Dev-018.md`, ...). Commit them as the closing state or discard
-      them.
-- [ ] **Fractional-DPR canvas blur.** At Windows display scaling of 125% or 150%, the browser
-      rescales the Phaser canvas unevenly at every integer zoom. A DPR-aware canvas is a separate
-      rendering change; see `docs/done/Dev-004.md` [Sec. 3].
-
 ---
 
 ## TL;DR
 
 Four design questions (abilities, city authoring, carry-over, event log retention); the op
-list is settled by `done/Dev-007.md`. There are no open fixes. Five
-deferred items (RNG persistence, input replay, multiplayer input rate limit, events to the
-client, lost activity progress). Six manual acceptances not run (Dev-004 zoom, Dev-003 browser,
-Dev-006 new game, Fix03 walking, Fix04 logging/movement, Dev-008 isometric renderer); Dev-007 was fully accepted on 22/09/2026. Three loose ends (NikoStory Notion pages,
-NikoStory's uncommitted changes, fractional-DPR blur).
+list is settled by `done/Dev-007.md`. There are no open or planned fixes. Three deferred items
+(input replay, events to the client, lost activity progress). Manual acceptances remain for
+Dev-003 browser, Dev-006 new game, Fix03 logging, Fix04 logging/movement, and Dev-008/Fix05/Fix06/Fix07
+isometric rendering and network, plus Fix08 reconnect; Dev-007 was fully accepted on 22/09/2026. Fix05,
+Fix06, Fix07 and Fix08 automated validation passed; their GUI visual/performance checklists remain open.

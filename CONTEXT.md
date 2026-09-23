@@ -19,9 +19,9 @@ vocabulary, generated menus and activities.
 | server.net | `server/src/etherbound/net/` | WS hub with per-connection chunk tracking; movement chunk changes use the position returned by `submit`, not a world-state DB read per input; Pydantic timed `input` (`dt` 0 < dt ≤ 0.1 s, default 0.05); combined OpenAPI + WS schema export |
 | server.db | `server/src/etherbound/db/`, `server/alembic/` | SQLAlchemy models, engine/session factory, Alembic upgrade on start |
 | server.rng | `server/src/etherbound/rng.py` | `RNGStreams.stream(system)` — one seeded stream per system (`worldgen` drives generation) |
-| web.world | `web/src/world/` | `ChunkStore`, `rules.ts` (server-parity standing/headroom/wall rules, slope and material costs), `cutaway.ts` (roof connectivity and height cutoff), `pick.ts` (height-aware tile picking), `materials.ts` |
-| web.game | `web/src/game/` | Phaser scene: fixed 64×32 isometric projection (16 px per `h`), chunk base layers and lazily sorted diagonal rows split at Niko's feet, terraced ground/floor faces and walls, grass atlas plus vector placeholders, roofed cutaway and front-wall stubs, chunk culling, screen-relative WASD, isometric bounds and height-aware right-click picking; integer zoom x1–x4 (wheel, `+`/`-`/`0`, saved per browser); timed 50 ms movement steps plus final partial step; clears and redraws arriving-chunk neighbours; resyncs idle prediction on ticks |
-| web.net | `web/src/net/` | WS client, prediction/reconciliation by replaying unacknowledged timed steps (no wall clock, 0.3 m wall clearance), generated `schema.d.ts`, protocol types; snapshot listeners run before state listeners, and `requestNewGame(seed)` calls the existing REST endpoint; `sendAction` and pause flush the current partial movement step, `onResult`, `onActivity` |
+| web.world | `web/src/world/` | `ChunkStore` (public `isVoid` query), `rules.ts` (server-parity standing/headroom/wall rules, slope and material costs), `cutaway.ts` (roof connectivity and height cutoff), `ray.ts` (shared height-stepped floor/ground ray march), `occlusion.ts` (connected structures, storey cutoffs and Niko coverage probes), `pick.ts` (height-aware picking through `ray.ts`, includes VOID floors and skips VOID ground), `materials.ts` |
+| web.game | `web/src/game/` | Phaser scene: fixed 64×32 isometric projection (16 px per `h`), ordered per-layer `Blitter` batches over runtime `terrain` atlas masks and the grass/wood/concrete sprite table (statically imported in `terrainSheets.ts`), chunk base and diagonal rows split at Niko's feet, explicitly anchored terraced ground/floor faces and walls; roofed and structure cutaways with front-wall stubs and a topmost silhouette when Niko remains occluded; redraws use a time-budgeted dirty queue and culling uses cached chunk bounds; screen-relative WASD, isometric bounds and per-tile-cutoff right-click picking; integer zoom x1–x4 (wheel, `+`/`-`/`0`, saved per browser); timed 50 ms movement steps plus final partial step; redraws arriving-chunk neighbours; resyncs idle prediction on ticks |
+| web.net | `web/src/net/` | WS client, prediction/reconciliation by replaying unacknowledged timed steps (no wall clock, 0.3 m wall clearance), generated `schema.d.ts`, protocol types; snapshot listeners run before state listeners, and `requestNewGame(seed)` calls the existing REST endpoint; the client caches every chunk it receives and replays the cache to a late `onChunk` listener, clearing it on snapshot and on `disconnect`; it also reconnects a closed or failed socket with a 250 ms→4 s backoff and stops on `disconnect`; `sendAction` and pause flush the current partial movement step, `onResult`, `onActivity` |
 | web.ui | `web/src/ui/` | React overlay framed around the Phaser viewport: clock, speeds, pills, meters, `FEED` (kinds `seen`, `act`, `warn`, `fail`, `echo`), `ACT` telemetry row, input, generated context menu (server `target` line, arrow keys, Enter, Esc) that submits each entry's `action`; `NEW` control opens a confirmation popover with a seed field; `DEBUG` opens a right-side drawer with a placeholder tab |
 | launcher | `launcher/` | `EtherBound.exe`, the dev launcher (C#, .NET 10, Native AOT): starts server + web without shells, each in its own job inside a kill-on-close launcher job, health checks, hot reload by restart, leftover and port handling, UTF-8 logs, framed version/services banner |
 | tooling | root config: `package.json`, `global.json`, `.gitignore`, `.env.example` | Build and check scripts, pinned .NET SDK |
@@ -191,13 +191,40 @@ its process to stop it, and its job takes the services with it. The logs are
   such as `clock.ticked` and `chunk.changed` are skipped; `/api/events` remains the structured log.
 - **Pytest warnings are third-party** (FastAPI/Starlette/pytest-asyncio deprecations), not project
   issues. The current server suite is 79 tests, all passing.
-- **Current automated validation:** 79 server tests, 25 web tests, and 55 launcher tests pass;
+- **Current automated validation:** 79 server tests, 45 web tests, and 55 launcher tests pass;
   generated API types are unchanged. The production web build passes with the existing large-bundle
   advisory. Manual isometric visual and performance acceptance remains in `docs/PENDING.md`.
+- **VOID is a ground-volume flag, not a missing-floor flag.** Render and pick stored floors even
+  when their band is VOID; suppress only a ground top whose own band is void.
+- **Do not mix separate sprites with a same-depth terrain batch.** Phaser preserves display-list
+  order at equal depth, so a later grass `Image` can cover every cliff, wall, floor and road surface
+  in the chunk's base `Graphics`. Terrain tops, faces and walls share ordered `Blitter` batches.
+- **Repeated display-list removal is costly.** Destroying thousands of tile sprites can become
+  quadratic in the display-list size; dirty chunk redraws reuse their `Blitter` batches instead.
+  Browser frame-time estimates remain unmeasured until the manual Fix05 acceptance is run.
+- **A face mask is anchored to its owner tile, not inferred from its first edge vertex.** Pass its
+  side and owner coordinates separately so south and east faces cannot drift across a ledge.
+- **Select structure cutaways from uncut world geometry, but apply their cutoff per tile at draw and
+  pick time.** Re-probing the already cut map can make a building alternate between cut and visible.
+- **Assets outside `web/` must be static imports.** Vite refuses a `new URL(…, import.meta.url)`
+  request for a file outside its serving allow list, silently (Phaser just fails the load). A file
+  in the module graph is let through, so the sheets in the root `src/sprites/` are imported
+  statically in `web/src/game/terrainSheets.ts`; `terrainSprites.ts` keeps only the pure
+  key → file-name table for node tests.
+- **The server sends each chunk once per connection.** The hub records it in `_known_chunks` and
+  never re-sends it, so the client must cache and replay every chunk it receives to a late
+  `onChunk` listener, or a scene that starts after `connect()` loses the world for good.
+- **The client must reconnect.** Vite is ready seconds before the API server and hot reload restarts
+  it, so a socket can fail to open or drop mid-session. `WebSocketClient` retries a closed socket
+  with a backoff; without it the tab stays `OFFLINE` with a black world, because only a new
+  connection gets the snapshot and the chunks.
+- **Texture mappings are visual only.** `terrainSprites.ts` maps registered material keys to sheet
+  file names and `terrainSheets.ts` imports them; movement, collision and menus must continue to use
+  material data, never sprite availability.
 
 ## Not yet present
 
 The other seven primitives as data models, handlers for the 53 ops beyond `move`, `inspect`,
 `wait`, `dig` and `climb`, modifiers, rolls, witnesses/knowledge, tile physics,
 water simulation, NPCs, LLM, Jev, LimeZu art pipeline and the city generator. Vector placeholders
-remain for materials without dedicated sprites.
+remain for materials not mapped in `web/src/game/terrainSprites.ts`.

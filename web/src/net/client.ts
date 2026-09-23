@@ -41,6 +41,11 @@ function asChunk(value: ServerMessage): WorldChunk | null {
 
 const initialWorld: WorldState = { gameMinute: 0, paused: false, speed: 1, actors: {} };
 
+// The Vite dev server is ready seconds before the API server, and hot reload restarts it, so a
+// socket can fail to open or drop mid-session. Retry with a small backoff until it holds.
+const RECONNECT_MIN_MS = 250;
+const RECONNECT_MAX_MS = 4000;
+
 function defaultSocketUrl(): string {
   if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -63,7 +68,14 @@ export async function requestNewGame(seed: number): Promise<void> {
 
 export class WebSocketClient {
   private socket: WebSocket | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectDelay = RECONNECT_MIN_MS;
+  private url: string | null = null;
+  private closed = false;
   private world: WorldState = initialWorld;
+  // The server sends each chunk once per connection, so the client must keep every one it has
+  // received and replay it to listeners that appear later (the Phaser scene loads after connect).
+  private readonly chunks = new Map<string, WorldChunk>();
   private sequence = 0;
   private readonly listeners = new Set<Listener>();
   private readonly connectionListeners = new Set<ConnectionListener>();
@@ -75,17 +87,18 @@ export class WebSocketClient {
   private beforeCommand: (() => void) | null = null;
 
   connect(url = defaultSocketUrl()): void {
-    this.emitConnection("connecting");
-    this.socket = new WebSocket(url);
-    this.socket.addEventListener("open", () => this.emitConnection("open"));
-    this.socket.addEventListener("close", () => this.emitConnection("closed"));
-    this.socket.addEventListener("error", () => this.emitConnection("error"));
-    this.socket.addEventListener("message", (event) => this.receive(event.data));
+    this.closed = false;
+    this.url = url;
+    this.open(url);
   }
 
   disconnect(): void {
+    this.closed = true;
+    this.url = null;
+    this.clearReconnect();
     this.socket?.close();
     this.socket = null;
+    this.chunks.clear();
   }
 
   get current(): WorldState {
@@ -137,6 +150,7 @@ export class WebSocketClient {
 
   onChunk(listener: ChunkListener): () => void {
     this.chunkListeners.add(listener);
+    for (const chunk of this.chunks.values()) listener(chunk);
     return () => this.chunkListeners.delete(listener);
   }
 
@@ -155,6 +169,45 @@ export class WebSocketClient {
     return () => this.activityListeners.delete(listener);
   }
 
+  private open(url: string): void {
+    this.emitConnection("connecting");
+    const socket = new WebSocket(url);
+    this.socket = socket;
+    socket.addEventListener("open", () => {
+      if (this.socket !== socket) return;
+      this.reconnectDelay = RECONNECT_MIN_MS;
+      this.emitConnection("open");
+    });
+    socket.addEventListener("close", () => {
+      if (this.socket !== socket) return;
+      this.emitConnection("closed");
+      this.scheduleReconnect();
+    });
+    socket.addEventListener("error", () => {
+      if (this.socket !== socket) return;
+      this.emitConnection("error");
+    });
+    socket.addEventListener("message", (event) => this.receive(event.data));
+  }
+
+  private scheduleReconnect(): void {
+    if (this.closed || this.url === null || this.reconnectTimer !== null) return;
+    const delay = this.reconnectDelay;
+    this.reconnectDelay = Math.min(this.reconnectDelay * 2, RECONNECT_MAX_MS);
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      if (!this.closed && this.url !== null) this.open(this.url);
+    }, delay);
+  }
+
+  private clearReconnect(): void {
+    if (this.reconnectTimer !== null) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.reconnectDelay = RECONNECT_MIN_MS;
+  }
+
   private send(message: Record<string, unknown>): void {
     if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(message));
   }
@@ -170,7 +223,12 @@ export class WebSocketClient {
     if (!message) return;
     if (message.type === "snapshot" || message.type === "tick") {
       this.world = readWorldState(message, this.world);
-      if (message.type === "snapshot") this.snapshotListeners.forEach((listener) => listener(this.world));
+      if (message.type === "snapshot") {
+        // Clear before the listeners run: the scene drops its own store on snapshot, so replaying
+        // cached chunks from the previous world afterwards would bring them back.
+        this.chunks.clear();
+        this.snapshotListeners.forEach((listener) => listener(this.world));
+      }
       this.listeners.forEach((listener) => listener(this.world));
     }
     if (message.type === "ack") {
@@ -180,7 +238,11 @@ export class WebSocketClient {
     }
     if (message.type === "chunk") {
       const chunk = asChunk(message);
-      if (chunk) this.chunkListeners.forEach((listener) => listener(chunk));
+      if (!chunk) return;
+      const key = `${chunk.cx},${chunk.cy}`;
+      const cached = this.chunks.get(key);
+      if (!cached || chunk.revision > cached.revision) this.chunks.set(key, chunk);
+      this.chunkListeners.forEach((listener) => listener(chunk));
     }
     if (message.type === "result" && typeof message.sequence === "number" && typeof message.accepted === "boolean") {
       const result = message as unknown as ResultMessage;

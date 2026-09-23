@@ -94,8 +94,10 @@ neighbour takes the `climb` op; anything higher needs a ladder or another vertic
 - **Buildings:** sit on a levelled base; floors are about 3 m, relative to that base. A building on
   a slope can have a basement exposed on one side. Niko is roofed when a slab lies above him in his
   column or an unwalled neighbour, or when he is underground. While roofed, floors, walls and
-  in-building ground more than 2 m above him are hidden; otherwise nothing is hidden. Walls on his
-  floor that stand in front of him are cut down to a stub.
+  in-building ground more than 2 m above him are hidden. Otherwise, a building that stands between
+  him and the camera hides its storeys above him in the same way. Whatever still covers him, he is
+  drawn as a silhouette on top. Walls on his floor that stand in front of him are cut down to a
+  stub.
 - **Underground:** discrete z-levels of material layers (soil, rock, pipes, water) that can be
   excavated. A dug hole is a space: it shelters, floods, collapses. Digging from the surface
   lowers the heightmap and records a per-tile `dug` depth, so the strata stay anchored to the

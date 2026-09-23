@@ -131,7 +131,7 @@ export class ChunkStore {
     return best;
   }
 
-  private isVoid(x: number, y: number, h: number): boolean {
+  isVoid(x: number, y: number, h: number): boolean {
     const cell = this.levelCell(x, y, Math.floor(h / 6));
     return cell !== null && (cell.flags & LEVEL_VOID) !== 0;
   }

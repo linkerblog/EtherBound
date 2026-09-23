@@ -164,7 +164,6 @@ const BitCanvasGameSync = (() => {
     if (result.failure) return { kind: 'fail', message: result.failure };
     if (!result.handle) return { kind: 'warn', message: result.error };
 
-    const folderName = folder;
     let directory;
     try {
       directory = await result.handle.getDirectoryHandle(folderName, { create: true });

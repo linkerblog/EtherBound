@@ -87,28 +87,27 @@ The user sets the overall project version at commit.
 ## 7. Todo
 
 ### Decisions
-- [ ] Approve [Sec. 2]
+- [x] Approve [Sec. 2]
 
 ### Code
-- [ ] Delete `gamesync.js:167` [Sec. 3.1]
-- [ ] `check:bitcanvas` script [Sec. 3.2]
+- [x] Delete `gamesync.js:167` [Sec. 3.1]
+- [x] `check:bitcanvas` script [Sec. 3.2]
 
 ### Checks
-- [ ] [Sec. 6] steps 1–3
+- [x] [Sec. 6] steps 1–3 (headless Edge/Chromium)
 - [ ] [Sec. 6] step 4 (user)
 
 ### Closing
-- [ ] `CONTEXT.md`, `Dev-012.md`, `Dev-014.md`, `PENDING.md` [Sec. 3.3]; `docs/utils/VERSION.md` [Sec. 4]
-- [ ] Notion: Work Report for the date
-- [ ] Move this doc to `docs/done/`
+- [x] `CONTEXT.md`, `Dev-012.md`, `Dev-014.md`, `PENDING.md` [Sec. 3.3]; `docs/utils/VERSION.md` [Sec. 4]
+- [x] Notion: Work Report and Dev Blog entry for the date
+- [x] Move this doc to `docs/done/`
 
 ---
 
 ## TL;DR
 
-- `gamesync.js:167` redeclares the `folderName` parameter, so the script does not parse.
-  `app.js` then stops at startup: an empty preview and grey swatches on open, errors in texture
-  mode and a dead Send to game. Furniture mode hides it.
-- Fix: delete that line. Add `npm run check:bitcanvas` (`node --check` on every BitCanvas script)
-  so no check misses this again.
-- `bitcanvas` v0.0.4, `tooling` v0.0.10. `Dev-012`'s BitCanvas bump moves to v0.0.5.
+- `gamesync.js` previously redeclared its `folderName` parameter, preventing the script from parsing.
+  Removing that line restored BitCanvas startup and `npm run check:bitcanvas` guards all scripts.
+- Headless Edge verified the Grass preview and all terrain/furniture, palette and slider controls
+  without console errors. The live folder-write/persistence acceptance remains open for the user.
+- Current versions: `bitcanvas` v0.0.5, `tooling` v0.0.10, project v0.8.2.

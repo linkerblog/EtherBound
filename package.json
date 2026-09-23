@@ -5,6 +5,7 @@
   "description": "EtherBound development launcher",
   "scripts": {
     "bitcanvas": "start \"\" BitCanvas\\index.html",
+    "check:bitcanvas": "node --check BitCanvas/pixelart.js && node --check BitCanvas/gamesync.js && node --check BitCanvas/app.js",
     "launcher:build": "set \"PATH=%PATH%;%ProgramFiles(x86)%\\Microsoft Visual Studio\\Installer\" && dotnet publish launcher/src -c Release",
     "check:launcher": "dotnet build launcher/src -c Release && dotnet test launcher/tests",
     "check:server": "cd server && uv run ruff check && uv run ruff format --check && uv run pyright && uv run pytest",

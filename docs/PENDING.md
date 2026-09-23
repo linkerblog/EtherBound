@@ -17,8 +17,6 @@ Open decisions and loose ends. When one is settled, record the decision where it
 
 ## Open fixes
 
-- [ ] **Fix10 BitCanvas startup** (`Fix10.md`): `gamesync.js:167` does not parse, so `app.js`
-      stops at startup; add `npm run check:bitcanvas`.
 - [ ] **Fix11 Dev Blog database** (`Fix11.md`): the Notion Dev Blog becomes a database with one
       entry per plan; Fix02 and Dev-001 entries merge; the `AGENTS.md` Notion rule narrows.
 
@@ -30,8 +28,8 @@ Open decisions and loose ends. When one is settled, record the decision where it
 - [ ] **Dev-013 tile physics**: push, pull, drag, throw, hit, break, falling and integrity, on the
       decisions recorded in `utils/VISION.md` [Sec. 5]. Written after Dev-012 lands.
 - [ ] **Dev-014 AI furniture** (`Dev-014.md`): an LLM proposes furniture as a validated primitive
-      spec that BitCanvas renders; lands after Dev-012. Its first step, the `gamesync.js` syntax
-      error that breaks texture mode and Send to game in BitCanvas, can land on its own.
+      spec that BitCanvas renders; lands after Dev-012. The `gamesync.js` syntax error was fixed
+      independently by Fix10.
 
 ## Deferred work
 
@@ -46,6 +44,9 @@ Open decisions and loose ends. When one is settled, record the decision where it
 
 ## Manual checks not run
 
+- [ ] **Fix10 BitCanvas Send to game:** in Chromium, send into a scratch `sprites` folder with a
+      `grass` directory; confirm `grass_x4.png` and `grass_side_x4.png` are written and the folder
+      name survives reload. See `done/Fix10.md` [Sec. 6] step 4.
 - [ ] **Dev-003 launcher:** `O` with the browser closed opens the game, and quitting the
       launcher leaves the browser open (`done/Dev-003.md` [Sec. 9]).
 - [ ] **Dev-006 new game:** manual GUI acceptance 1–10, including same-seed regeneration and
@@ -113,8 +114,8 @@ The Dev-005 GUI acceptance passed; details are recorded in `docs/done/Fix02.md`.
 ## TL;DR
 
 Four design questions (abilities, city authoring, carry-over, event log retention); the op
-list is settled by `done/Dev-007.md` and the Matter primitive by `done/Dev-012.md`. Two open fixes
-(Fix10, BitCanvas startup; Fix11, Dev Blog database). Two deferred items
+list is settled by `done/Dev-007.md` and the Matter primitive by `done/Dev-012.md`. One open fix
+(Fix11, Dev Blog database); Fix10's manual Send to game acceptance remains open. Two deferred items
 (input replay, events to the client) plus lost activity progress. Manual acceptances remain for
 Dev-003 browser, Dev-006 new game, Fix03 logging, Fix04 logging/movement, and Dev-008/Fix05/Fix06/Fix07
 isometric rendering and network, plus Fix08 reconnect, Fix09 side textures and building base,

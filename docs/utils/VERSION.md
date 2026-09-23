@@ -1,6 +1,6 @@
 # Versions
 
-Overall project version: `v0.8.1`
+Overall project version: `v0.8.2`
 
 Every module and its current version. Modules start at `v0.0.0`; each modification bumps its
 version by `0.0.1`, and the bump ships in the same change. The overall project version tracks the
@@ -21,5 +21,5 @@ version assigned to the latest commit.
 | web.net | `web/src/net/` | v0.0.11 |
 | web.ui | `web/src/ui/` | v0.0.9 |
 | launcher | `launcher/` | v0.0.4 |
-| bitcanvas | `BitCanvas/` | v0.0.4 |
-| tooling | root config: `package.json`, `global.json`, `.gitignore`, `.env.example` | v0.0.9 |
+| bitcanvas | `BitCanvas/` | v0.0.5 |
+| tooling | root config: `package.json`, `global.json`, `.gitignore`, `.env.example` | v0.0.10 |

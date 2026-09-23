@@ -154,6 +154,7 @@ cd server && uv run etherbound-schema      # writes server/schema.json
 cd web && npm run gen:types                # server/schema.json -> src/net/schema.d.ts
 
 # Checks
+npm run check:bitcanvas         # node --check for all BitCanvas scripts
 cd server && uv run pytest && uv run ruff check && uv run ruff format --check && uv run pyright
 cd web && npm run gen:types && git diff --exit-code src/net/schema.d.ts && npm run build
 npm run check:launcher        # dotnet build -c Release (warnings are errors) + dotnet test
@@ -259,7 +260,7 @@ its process to stop it, and its job takes the services with it. The logs are
 - **A void ground's faces start at its solid top.** `ChunkStore.solidTopH` walks down through
   contiguous VOID bands, and `drawChunk` measures both the face bottom and the "is it higher" test
   with it; void-cut faces are fill only, so the excavated side has no grass lip.
-- **BitCanvas (`bitcanvas` v0.0.4; tooling v0.0.9; project v0.7.0) sends only game-ready terrain sheets.** The File System Access API is Chromium-only
+- **BitCanvas (`bitcanvas` v0.0.5; tooling v0.0.10; project v0.8.2) sends only game-ready terrain sheets.** The File System Access API is Chromium-only
   and requires a user-picked directory named `sprites` containing a `grass` or `floor` directory.
   A send overwrites files: `git restore src/sprites` restores tracked sheets, but newly created
   material PNGs are untracked and need separate cleanup if they were only test outputs. New material

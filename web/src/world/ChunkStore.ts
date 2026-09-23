@@ -1,5 +1,5 @@
 import type { components } from "../net/schema";
-import { isCutawayVisible, LEVEL_H, LEVEL_VOID, NO_FLOOR } from "./rules";
+import { LEVEL_H, LEVEL_VOID, NO_FLOOR } from "./rules";
 type ChunkLevel = components["schemas"]["ChunkLevelResponse"];
 type WorldChunk = components["schemas"]["ChunkResponse"];
 
@@ -186,22 +186,6 @@ export class ChunkStore {
       edge_flags: level.edge_flags[index],
       flags: level.flags[index],
     };
-  }
-
-  /** Topmost visible standing z at a tile, for the right-click menu. */
-  topmostZ(x: number, y: number, viewerH: number): number {
-    const tileX = Math.floor(x);
-    const tileY = Math.floor(y);
-    const candidates: number[] = [];
-    for (const level of this.levelsAt(tileX, tileY)) {
-      const cell = this.levelCell(tileX, tileY, level.z);
-      if (cell && cell.floor_h !== NO_FLOOR) candidates.push(cell.floor_h);
-    }
-    const ground = this.groundH(tileX, tileY);
-    if (ground !== undefined) candidates.push(ground);
-    const visible = candidates.filter((h) => isCutawayVisible(this, tileX, tileY, h, viewerH));
-    const h = visible.length > 0 ? Math.max(...visible) : (candidates[0] ?? 0);
-    return Math.floor(h / 6);
   }
 
   private key(cx: number, cy: number): string {

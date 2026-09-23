@@ -186,13 +186,13 @@ not change. There is no schema change and no migration.
 - [x] H1: overall project version set to `v0.4.1`; rebuilt the stale root `EtherBound.exe` from the
       launcher source, which reads the project version from the checkout's `VERSION.md`
 - [x] Verify the visible banner on next GUI launch (confirmed by the user: `v0.4.1`)
-- [ ] H2: manual GUI acceptance not run; startup-log item 1 is verified at 15:59:11, but the
-      remaining walkthrough would mutate the active save or require stopping the user's launcher.
-      Item 2 failed in the user's walkthrough: see H3
+- [x] H2: manual GUI acceptance 1–5 confirmed by the user on 23/09/2026. The log confirms startup,
+      movement, clock changes, and the seed-7 new-game event sequence; the user confirmed the full
+      walkthrough, including client redraw and relaunch persistence.
 - [x] H3 (blocking): `_ensure_actor` snaps a loaded actor's `h` to the nearest surface within ±1
       (`movement.nearest_surface`, formerly `_arrival_surface`; `_stands` removed); three tests
       (±1 snap then walk, relocation), the two snap tests fail on the old code. The user's save
-      now loads Niko at (2, 2) with `h = 1`. Rerun H2 from item 2
+      now loads Niko at (2, 2) with `h = 1`. H2 subsequently passed; see its acceptance above.
 
 ### Medium
 - [x] M1: `ensure_world` emits `clock.changed` on first generation; API test asserts 3 events
@@ -212,8 +212,8 @@ not change. There is no schema change and no migration.
 - [x] `CONTEXT.md`: bus contract (M2, `seq` reuse), fresh-save log order, test count
 - [x] `docs/utils/VERSION.md` per [Sec. 5] and H1
 - [x] Notion: Systems Index and Dev Blog page updated
-- [x] Notion Work Report for 22/09/2026 updated under the existing chronological `16:18` section
-- [ ] Move this doc to `docs/done/`
+- [x] Notion Work Reports for 22/09/2026 (`16:18`) and 23/09/2026 (`05:26`) updated in chronological sections
+- [x] Move this doc to `docs/done/`
 
 ## 8. Out of scope
 
@@ -226,11 +226,7 @@ per-task queues are also out of scope, unless [Sec. 1] is answered the other way
 ## TL;DR
 
 Dev-005 is sound: the pipeline, the ordering rules and the migration match the plan. Fix 02
-implements the missing initial clock event and documents/tests the accepted drain behavior. To
-close the remaining manual acceptance:
-
-- Fix H3 (blocking): a loaded actor whose saved `h` is off by one is frozen inside its tile, so
-  the user's save logs no `actor.moved`. Snap `h` to the tile's surface on load.
-- Rerun the Dev-005 GUI acceptance from item 2.
+implements the missing initial clock event, documents/tests the accepted drain behavior, repairs
+stale actor height on load, and passes the full GUI acceptance confirmed by the user on 23/09/2026.
 
 There is no schema change. `server.engine` and `server.events` get one bump each.

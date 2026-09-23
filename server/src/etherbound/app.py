@@ -1,9 +1,11 @@
 import json
 import logging
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from uvicorn.logging import DefaultFormatter
 
 from etherbound.clock import Clock
 from etherbound.config import Settings, get_settings
@@ -26,6 +28,17 @@ from etherbound.routes.api import router
 event_logger = logging.getLogger("etherbound.events")
 
 
+def configure_logging() -> None:
+    logger = logging.getLogger("etherbound")
+    if not any(getattr(handler, "_etherbound", False) for handler in logger.handlers):
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setFormatter(DefaultFormatter("%(levelprefix)s %(message)s", use_colors=False))
+        handler.__dict__["_etherbound"] = True
+        logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+
+
 def log_event(event: Event) -> None:
     if not event.logged:
         return
@@ -40,6 +53,7 @@ def log_event(event: Event) -> None:
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
+    configure_logging()
     config = settings or get_settings()
     database_url = config.resolved_database_url()
     database_engine = make_engine(database_url)

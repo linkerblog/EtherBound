@@ -10,7 +10,6 @@ import {
   LEVEL_VOID,
   NO_FLOOR,
   canEnter,
-  isCutawayVisible,
   wallBetween,
 } from "../src/world/rules";
 
@@ -187,23 +186,4 @@ test("wall spans, floorless supports, and openings mirror the server grid", asyn
       assert.equal(blocked, scenario.expected);
     });
   }
-});
-
-test("cutaway preserves exposed roofs and hides slabs behind an intermediate slab", () => {
-  const exposed = makeStore({ levels: [makeLevel(2, { floorHeight: 12 })] });
-  assert.equal(isCutawayVisible(exposed, 1, 0, 12, 0), true);
-
-  const occluded = makeStore({
-    levels: [makeLevel(1, { floorHeight: 6 }), makeLevel(2, { floorHeight: 12 })],
-  });
-  assert.equal(isCutawayVisible(occluded, 1, 0, 6, 0), true);
-  assert.equal(isCutawayVisible(occluded, 1, 0, 12, 0), false);
-});
-
-test("topmost z excludes NO_FLOOR and derives z from each surface height", () => {
-  const sentinel = makeStore({ groundH: 7, levels: [makeLevel(5, { floorHeight: NO_FLOOR })] });
-  assert.equal(sentinel.topmostZ(1, 0, 0), 1);
-
-  const slab = makeStore({ groundH: 7, levels: [makeLevel(6, { floorHeight: 19 })] });
-  assert.equal(slab.topmostZ(1, 0, 19), 3);
 });

@@ -68,9 +68,10 @@ walks again, he snaps back about 3 m.
 | Module | Version |
 |---|---|
 | server.app | v0.0.6 → v0.0.7 |
-| web.game | v0.0.9 → v0.0.10 |
+| web.game | v0.1.1 → v0.1.2 |
 
-The overall project version moves from `v0.5.1` to `v0.5.2`.
+Fix04 alone would move the overall project from `v0.5.3` to `v0.5.4`. Since this prerequisite lands
+with Dev-008, the combined feature release is `v0.6.0`.
 
 ## 5. What must not break
 
@@ -105,20 +106,20 @@ Manual acceptance with `EtherBound.exe`:
 ## 7. Todo
 
 ### Decisions
-- [ ] Approve [Sec. 2]
+- [x] Approve [Sec. 2]
 
 ### Code
-- [ ] `configure_logging()` in `create_app` [Sec. 3.1]
-- [ ] Step loop in `MapScene.update` [Sec. 3.2]
+- [x] `configure_logging()` in `create_app` [Sec. 3.1]
+- [x] Step loop in `MapScene.update` [Sec. 3.2]
 
 ### Checks
-- [ ] Server tests 1–2 [Sec. 6], server checks and web build
+- [x] Server tests 1–2 [Sec. 6], server checks and web build
 - [ ] Manual acceptance 1–3 [Sec. 6]
 
 ### Closing
-- [ ] `CONTEXT.md` and `PENDING.md` [Sec. 3.3], `docs/utils/VERSION.md` [Sec. 4]
-- [ ] Notion: Work Report for the date and a Dev Blog page
-- [ ] Move this doc to `docs/done/`
+- [x] `CONTEXT.md` and `PENDING.md` [Sec. 3.3], `docs/utils/VERSION.md` [Sec. 4]
+- [x] Notion: Work Report for the date and a Dev Blog page
+- [x] Move this doc to `docs/done/`
 
 ## 8. Out of scope
 

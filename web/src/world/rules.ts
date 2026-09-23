@@ -28,21 +28,6 @@ export function stepMultiplier(deltaH: number, walkCost: number): number {
   return slopeMultiplier(deltaH) / walkCost;
 }
 
-/** Higher slabs and walls remain visible unless a slab in their tile occludes them. */
-export function isCutawayVisible(
-  store: ChunkStore,
-  x: number,
-  y: number,
-  targetH: number,
-  viewerH: number,
-): boolean {
-  if (targetH <= viewerH + HEADROOM_H) return true;
-  return !store.levelsAt(x, y).some((level) => {
-    const slabH = store.levelCell(x, y, level.z)?.floor_h;
-    return slabH !== undefined && slabH !== NO_FLOOR && viewerH < slabH && slabH < targetH;
-  });
-}
-
 /** Mirrors the server standing rule for prediction. The server always wins. */
 export function canEnter(
   store: ChunkStore,

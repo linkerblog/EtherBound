@@ -94,8 +94,14 @@ async def test_bus_logs_handler_errors_and_continues(caplog: pytest.LogCaptureFi
     bus.subscribe(Event, lambda event: calls.append(event.seq), name="healthy")
     bus.enqueue([ClockTicked(seq=1), ClockTicked(seq=2)])
 
-    with caplog.at_level(logging.ERROR, logger="etherbound.events"):
-        await bus.drain()
+    parent_logger = logging.getLogger("etherbound")
+    propagate = parent_logger.propagate
+    parent_logger.propagate = True
+    try:
+        with caplog.at_level(logging.ERROR, logger="etherbound.events"):
+            await bus.drain()
+    finally:
+        parent_logger.propagate = propagate
 
     assert calls == [1, 2]
     assert caplog.text.count("handler failed: seq=") == 2
@@ -114,8 +120,14 @@ async def test_bus_stops_self_feeding_cascade(caplog: pytest.LogCaptureFixture) 
     bus.subscribe(Event, feed, name="self-feeding")
     bus.enqueue([ClockTicked(seq=1)])
 
-    with caplog.at_level(logging.ERROR, logger="etherbound.events"):
-        await bus.drain()
+    parent_logger = logging.getLogger("etherbound")
+    propagate = parent_logger.propagate
+    parent_logger.propagate = True
+    try:
+        with caplog.at_level(logging.ERROR, logger="etherbound.events"):
+            await bus.drain()
+    finally:
+        parent_logger.propagate = propagate
 
     assert dispatched == [1, 2, 3]
     assert "MAX_CASCADE=3" in caplog.text

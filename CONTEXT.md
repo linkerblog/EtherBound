@@ -19,8 +19,8 @@ vocabulary, generated menus and activities.
 | server.net | `server/src/etherbound/net/` | WS hub with per-connection chunk tracking; movement chunk changes use the position returned by `submit`, not a world-state DB read per input; Pydantic timed `input` (`dt` 0 < dt ≤ 0.1 s, default 0.05); combined OpenAPI + WS schema export |
 | server.db | `server/src/etherbound/db/`, `server/alembic/` | SQLAlchemy models, engine/session factory, Alembic upgrade on start |
 | server.rng | `server/src/etherbound/rng.py` | `RNGStreams.stream(system)` — one seeded stream per system (`worldgen` drives generation) |
-| web.world | `web/src/world/` | `ChunkStore`, `rules.ts` (server-parity standing/headroom/wall rules, cutaway visibility, slope and material costs), `materials.ts` |
-| web.game | `web/src/game/` | Phaser scene: per-chunk render textures (shading, cliffs, edge walls, openings, cutaway), camera bounds, integer zoom x1–x4 (wheel, `+`/`-`/`0`, saved per browser), WASD submits timed 50 ms steps plus final partial steps; right-click with data-driven `z` and viewport-aligned menu coordinates; clears and destroys world layers on every snapshot; redraws arriving-chunk neighbours; resyncs idle prediction on ticks |
+| web.world | `web/src/world/` | `ChunkStore`, `rules.ts` (server-parity standing/headroom/wall rules, slope and material costs), `cutaway.ts` (roof connectivity and height cutoff), `pick.ts` (height-aware tile picking), `materials.ts` |
+| web.game | `web/src/game/` | Phaser scene: fixed 64×32 isometric projection (16 px per `h`), chunk base layers and lazily sorted diagonal rows split at Niko's feet, terraced ground/floor faces and walls, grass atlas plus vector placeholders, roofed cutaway and front-wall stubs, chunk culling, screen-relative WASD, isometric bounds and height-aware right-click picking; integer zoom x1–x4 (wheel, `+`/`-`/`0`, saved per browser); timed 50 ms movement steps plus final partial step; clears and redraws arriving-chunk neighbours; resyncs idle prediction on ticks |
 | web.net | `web/src/net/` | WS client, prediction/reconciliation by replaying unacknowledged timed steps (no wall clock, 0.3 m wall clearance), generated `schema.d.ts`, protocol types; snapshot listeners run before state listeners, and `requestNewGame(seed)` calls the existing REST endpoint; `sendAction` and pause flush the current partial movement step, `onResult`, `onActivity` |
 | web.ui | `web/src/ui/` | React overlay framed around the Phaser viewport: clock, speeds, pills, meters, `FEED` (kinds `seen`, `act`, `warn`, `fail`, `echo`), `ACT` telemetry row, input, generated context menu (server `target` line, arrow keys, Enter, Esc) that submits each entry's `action`; `NEW` control opens a confirmation popover with a seed field; `DEBUG` opens a right-side drawer with a placeholder tab |
 | launcher | `launcher/` | `EtherBound.exe`, the dev launcher (C#, .NET 10, Native AOT): starts server + web without shells, each in its own job inside a kill-on-close launcher job, health checks, hot reload by restart, leftover and port handling, UTF-8 logs, framed version/services banner |
@@ -179,20 +179,25 @@ its process to stop it, and its job takes the services with it. The logs are
   `error` and only the prediction moved. A GUI check of walking must compare against
   `GET /api/game/state`, not the screen.
 - **Held keys repeat.** Movement distance per `input` depends on `dt` and the surface's terrain
-  and slope cost. The client sends one timed step every 50 ms while held, plus the final partial
-  step when the direction changes, the key is released, or an action is sent. `dt` defaults to 0.05 and is bounded
+  and slope cost. The client sends timed steps in a loop every 50 ms while held, including multiple
+  steps on a slow frame, plus the final partial step when the direction changes, the key is
+  released, or an action is sent. `dt` defaults to 0.05 and is bounded
   to 0.1 s. A zero vector remains a no-op and must never interrupt an activity. Prediction is the
   authoritative position plus replay of unacknowledged steps plus the current partial step; material
   `walk_cost` and slope multipliers match the server.
 - **Moves are logged by the event subscriber.** Logged events appear in `server.log` as
-  `event 812 actor.moved niko {"from_tile":...,"to_tile":...,"mode":"walk"}`. Transient events
+  `event 812 actor.moved niko {"from_tile":...,"to_tile":...,"mode":"walk"}`. The `etherbound`
+  logger owns an INFO handler because Alembic leaves root at `WARN`. Transient events
   such as `clock.ticked` and `chunk.changed` are skipped; `/api/events` remains the structured log.
 - **Pytest warnings are third-party** (FastAPI/Starlette/pytest-asyncio deprecations), not project
-  issues. The current server suite is 78 tests, all passing.
+  issues. The current server suite is 79 tests, all passing.
+- **Current automated validation:** 79 server tests, 25 web tests, and 55 launcher tests pass;
+  generated API types are unchanged. The production web build passes with the existing large-bundle
+  advisory. Manual isometric visual and performance acceptance remains in `docs/PENDING.md`.
 
 ## Not yet present
 
 The other seven primitives as data models, handlers for the 53 ops beyond `move`, `inspect`,
 `wait`, `dig` and `climb`, modifiers, rolls, witnesses/knowledge, tile physics,
-water simulation, NPCs, LLM, Jev, LimeZu art and the city generator. Placeholder colours and the
-cutaway go away with the art pass.
+water simulation, NPCs, LLM, Jev, LimeZu art pipeline and the city generator. Vector placeholders
+remain for materials without dedicated sprites.

@@ -21,9 +21,9 @@ export class ChunkStore {
   private readonly chunks = new Map<string, WorldChunk>();
   private chunkSize = DEFAULT_CHUNK_SIZE;
   private boundsValue: WorldBounds | null = null;
-  private materials = new Map<number, { walkable: boolean }>();
+  private materials = new Map<number, { walkable: boolean; walk_cost: number }>();
 
-  setMaterials(materials: Map<number, { walkable: boolean }>): void {
+  setMaterials(materials: Map<number, { walkable: boolean; walk_cost: number }>): void {
     this.materials = materials;
   }
 
@@ -94,6 +94,20 @@ export class ChunkStore {
 
   isWalkable(materialId: number | undefined): boolean {
     return materialId !== undefined && (this.materials.get(materialId)?.walkable ?? false);
+  }
+
+  /** Movement cost of the standing surface at a body's current height. */
+  walkCost(x: number, y: number, h: number): number {
+    const cell = this.cellIndex(x, y);
+    if (!cell) return 1;
+    const level = cell.chunk.levels.find((entry) => {
+      const index = cell.index;
+      return entry.floor_h[index] === h && (entry.flags[index] & LEVEL_VOID) === 0;
+    });
+    const materialId = level ? level.floor_mat[cell.index] :
+      cell.chunk.ground_h[cell.index] === h ? cell.chunk.surface_mat[cell.index] : undefined;
+    const cost = materialId === undefined ? undefined : this.materials.get(materialId)?.walk_cost;
+    return cost !== undefined && cost > 0 ? cost : 1;
   }
 
   /** The standing surface of a tile closest to `h`: a stored floor, else the ground. */

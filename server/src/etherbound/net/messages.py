@@ -10,6 +10,7 @@ class InputMessage(BaseModel):
     sequence: int = Field(ge=0)
     dx: float = Field(ge=-1, le=1)
     dy: float = Field(ge=-1, le=1)
+    dt: float = Field(default=0.05, gt=0, le=0.1)
 
 
 class ClockMessage(BaseModel):

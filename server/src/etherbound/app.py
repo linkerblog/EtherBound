@@ -1,3 +1,5 @@
+import json
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -13,12 +15,28 @@ from etherbound.events import (
     ChunkChanged,
     ClockChanged,
     ClockTicked,
+    Event,
     EventBus,
     WorldGenerated,
 )
 from etherbound.net.schema import export_schema
 from etherbound.net.ws import WebSocketHub
 from etherbound.routes.api import router
+
+event_logger = logging.getLogger("etherbound.events")
+
+
+def log_event(event: Event) -> None:
+    if not event.logged:
+        return
+    data = event.model_dump(mode="json", exclude={"seq", "game_minute", "type", "actor_id"})
+    event_logger.info(
+        "event %d %s %s %s",
+        event.seq,
+        event.type,
+        event.actor_id or "-",
+        json.dumps(data, separators=(",", ":")),
+    )
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -44,6 +62,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     bus.subscribe(WorldGenerated, hub.on_world_generated, name="websocket.world_generated")
     bus.subscribe(ChunkChanged, hub.on_chunk_changed, name="websocket.chunk_changed")
     bus.subscribe(ActivityFinished, hub.on_activity_finished, name="websocket.activity_finished")
+
+    bus.subscribe(Event, log_event, name="log")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):

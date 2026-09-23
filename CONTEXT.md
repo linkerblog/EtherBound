@@ -16,12 +16,12 @@ vocabulary, generated menus and activities.
 | server.engine | `server/src/etherbound/engine/` | World engine: the only writer of state. `world.py` (grid ownership, generation commit, actor state, event persistence/dispatch), `actions.py` (targets, actions, `ActivityState`, `MenuEntry`), `ops.toml` (the 58-op vocabulary), `ops/` (catalog loader, handler registry, `move`, `inspect`, `wait`, `dig`, `climb`), `movement.py` (`move_in_world`, sub-step standing rule, slope and material cost) |
 | server.events | `server/src/etherbound/events/` | Typed committed event models and FIFO async subscriber bus; engine assigns global sequence and stores logged events transactionally |
 | server.world | `server/src/etherbound/world/` | World data: `materials.py` + `materials.toml` (append-only registry), `chunk.py` (blobs, per-tile `dug`), `grid.py` (solidity with strata anchored to the original ground, edges, standing, `lower_ground`), `nav.py` (A*), `gen/` (seeded noise + test world) |
-| server.net | `server/src/etherbound/net/` | WS hub with per-connection chunk tracking, Pydantic messages, combined OpenAPI + WS schema export |
+| server.net | `server/src/etherbound/net/` | WS hub with per-connection chunk tracking, Pydantic messages (`input` is a timed step, `dt` 0 < dt ≤ 0.1 s, default 0.05), combined OpenAPI + WS schema export |
 | server.db | `server/src/etherbound/db/`, `server/alembic/` | SQLAlchemy models, engine/session factory, Alembic upgrade on start |
 | server.rng | `server/src/etherbound/rng.py` | `RNGStreams.stream(system)` — one seeded stream per system (`worldgen` drives generation) |
-| web.world | `web/src/world/` | `ChunkStore`, `rules.ts` (prediction mirror of the standing rule), `materials.ts` |
-| web.game | `web/src/game/` | Phaser scene: chunk rendering (shading, cliffs, edge walls, openings, cutaway), camera bounds, integer zoom x1–x4 (wheel, `+`/`-`/`0`, saved per browser), WASD repeated at 20 Hz while held, right-click with data-driven `z`; clears world layers and prediction position on every snapshot; redraws a changed chunk's neighbours; resyncs an idle prediction to the server position on ticks |
-| web.net | `web/src/net/` | WS client, prediction/reconciliation with `h`, generated `schema.d.ts`, protocol types; snapshot listeners run before state listeners, and `requestNewGame(seed)` calls the existing REST endpoint; `sendAction`, `onResult`, `onActivity` |
+| web.world | `web/src/world/` | `ChunkStore`, `rules.ts` (prediction mirror of standing, slope and material movement costs), `materials.ts` |
+| web.game | `web/src/game/` | Phaser scene: chunk rendering (shading, cliffs, edge walls, openings, cutaway), camera bounds, integer zoom x1–x4 (wheel, `+`/`-`/`0`, saved per browser), WASD submits timed 50 ms steps plus final partial steps; right-click with data-driven `z`; clears world layers and prediction position on every snapshot; redraws a changed chunk's neighbours; resyncs an idle prediction to the server position on ticks |
+| web.net | `web/src/net/` | WS client, prediction/reconciliation by replaying unacknowledged timed steps (no wall clock), generated `schema.d.ts`, protocol types; snapshot listeners run before state listeners, and `requestNewGame(seed)` calls the existing REST endpoint; `sendAction` and pause flush the current partial movement step, `onResult`, `onActivity` |
 | web.ui | `web/src/ui/` | React overlay: clock, speeds, pills, meters, `FEED` (kinds `seen`, `act`, `warn`, `fail`, `echo`), `ACT` telemetry row, input, generated context menu (server `target` line, arrow keys, Enter, Esc) that submits each entry's `action`; `NEW` control opens a confirmation popover with a seed field |
 | launcher | `launcher/` | `EtherBound.exe`, the dev launcher (C#, .NET 10, Native AOT): starts server + web without shells, each in its own job inside a kill-on-close launcher job, health checks, hot reload by restart, leftover and port handling, UTF-8 logs, framed version/services banner |
 | tooling | root config: `package.json`, `global.json`, `.gitignore`, `.env.example` | Build and check scripts, pinned .NET SDK |
@@ -165,11 +165,17 @@ its process to stop it, and its job takes the services with it. The logs are
   `{direction, vector}` with no `dx`/`dy`, so the server rejected every input with a validation
   `error` and only the prediction moved. A GUI check of walking must compare against
   `GET /api/game/state`, not the screen.
-- **Held keys repeat.** The server moves 0.2 m per `input` (`delta_seconds = 1/20`), so the
-  client sends one every 50 ms while a key is held and a single zero vector on release. The zero
-  vector must never interrupt an activity.
+- **Held keys repeat.** Movement distance per `input` depends on `dt` and the surface's terrain
+  and slope cost. The client sends one timed step every 50 ms while held, plus the final partial
+  step when the direction changes, the key is released, or an action is sent. `dt` defaults to 0.05 and is bounded
+  to 0.1 s. A zero vector remains a no-op and must never interrupt an activity. Prediction is the
+  authoritative position plus replay of unacknowledged steps plus the current partial step; material
+  `walk_cost` and slope multipliers match the server.
+- **Moves are logged by the event subscriber.** Logged events appear in `server.log` as
+  `event 812 actor.moved niko {"from_tile":...,"to_tile":...,"mode":"walk"}`. Transient events
+  such as `clock.ticked` and `chunk.changed` are skipped; `/api/events` remains the structured log.
 - **Pytest warnings are third-party** (FastAPI/Starlette/pytest-asyncio deprecations), not project
-  issues. `pytest` is 59 tests, all passing.
+  issues. `pytest` is 60 tests, all passing.
 
 ## Not yet present
 

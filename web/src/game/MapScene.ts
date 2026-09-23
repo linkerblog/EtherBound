@@ -125,6 +125,7 @@ export class MapScene extends Phaser.Scene {
       this.telemetryOrigin = null;
       this.telemetryElapsed = 0;
     });
+    this.options.client.setBeforeCommand(() => this.flushPartialStep());
     this.removeStateListener = this.options.client.onState((state) => {
       this.paused = state.paused;
       if (state.world) {
@@ -174,17 +175,21 @@ export class MapScene extends Phaser.Scene {
     const direction = this.readDirection();
     const changed = direction.x !== this.lastDirection.x || direction.y !== this.lastDirection.y;
     const held = direction.x !== 0 || direction.y !== 0;
-    this.inputElapsed += seconds;
-    // One zero vector on release; while held, one input per server movement step.
-    if (changed || (held && this.inputElapsed >= INPUT_INTERVAL)) {
-      const sequence = this.options.client.nextSequence();
-      this.prediction.setDirection(direction, sequence);
-      this.options.client.sendInput(direction, sequence);
+    if (changed) {
+      this.flushPartialStep();
       this.lastDirection = direction;
-      // Carry the remainder so the average stays at 20 Hz whatever the frame rate.
-      this.inputElapsed = changed ? 0 : Math.min(this.inputElapsed - INPUT_INTERVAL, INPUT_INTERVAL);
     }
-    const position = this.prediction.step(seconds, this.paused);
+    if (held && !this.paused) {
+      this.inputElapsed += seconds;
+      if (this.inputElapsed >= INPUT_INTERVAL) {
+        this.sendMovementStep(direction, INPUT_INTERVAL);
+        this.inputElapsed -= INPUT_INTERVAL;
+      }
+    }
+    const position = this.prediction.render(
+      this.paused ? { x: 0, y: 0 } : direction,
+      this.paused ? 0 : this.inputElapsed,
+    );
     const previousH = this.viewerH;
     this.viewerH = position.h ?? this.viewerH;
     if (this.viewerH !== previousH) this.redrawLevels();
@@ -197,7 +202,21 @@ export class MapScene extends Phaser.Scene {
     this.removeSnapshotListener?.();
     this.removeAckListener?.();
     this.removeChunkListener?.();
+    this.options.client.setBeforeCommand(null);
     this.chunkLayers.clear();
+  }
+
+  private flushPartialStep(): void {
+    if (this.inputElapsed > 0 && (this.lastDirection.x !== 0 || this.lastDirection.y !== 0)) {
+      this.sendMovementStep(this.lastDirection, this.inputElapsed);
+    }
+    this.inputElapsed = 0;
+  }
+
+  private sendMovementStep(direction: Direction, dt: number): void {
+    const sequence = this.options.client.nextSequence();
+    this.prediction.pushStep({ sequence, direction, dt });
+    this.options.client.sendInput(direction, dt, sequence);
   }
 
   private sampleTelemetry(position: Position, seconds: number): void {

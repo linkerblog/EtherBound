@@ -218,7 +218,11 @@ class WebSocketHub:
             await self.broadcast_to_one(websocket, ErrorMessage(type="error", message=str(error)))
             return
         if isinstance(message, InputMessage):
-            result = await self.engine.submit(PLAYER_ID, MoveAction(dx=message.dx, dy=message.dy))
+            result = await self.engine.submit(
+                PLAYER_ID,
+                MoveAction(dx=message.dx, dy=message.dy),
+                delta_seconds=message.dt,
+            )
             await self.broadcast_to_one(
                 websocket,
                 AckMessage(

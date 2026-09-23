@@ -1,4 +1,5 @@
 import json
+import logging
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -6,9 +7,10 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from etherbound.app import create_app
+from etherbound.app import create_app, log_event
 from etherbound.config import Settings
 from etherbound.engine.actions import MenuEntry
+from etherbound.events.models import ClockTicked
 
 
 def test_rest_and_websocket_protocol(tmp_path: Path) -> None:
@@ -46,6 +48,69 @@ def test_rest_and_websocket_protocol(tmp_path: Path) -> None:
         schema = json.loads((tmp_path / "schema.json").read_text(encoding="utf-8"))
         assert "InputMessage" in schema["components"]["schemas"]
         assert "x-etherbound-websocket-messages" in schema
+
+
+def test_websocket_input_duration_validation_and_event_logging(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = Settings(
+        database_url=f"sqlite:///{(tmp_path / 'timed-input.db').as_posix()}",
+        schema_path=tmp_path / "schema.json",
+        time_scale=10,
+    )
+    logged_lines: list[str] = []
+    monkeypatch.setattr(
+        logging.getLogger("etherbound.events"),
+        "info",
+        lambda message, *args: logged_lines.append(message % args),
+    )
+    with TestClient(create_app(settings)) as client, client.websocket_connect("/ws") as websocket:
+
+        def until(predicate: Callable[[dict[str, Any]], bool]) -> dict[str, Any]:
+            for _ in range(1000):
+                message = websocket.receive_json()
+                if predicate(message):
+                    return message
+            raise AssertionError("message never arrived")
+
+        snapshot = until(lambda message: message["type"] == "snapshot")
+        for _ in range(25):
+            assert websocket.receive_json()["type"] == "chunk"
+        start_x = snapshot["actors"][0]["x"]
+
+        websocket.send_json({"type": "input", "sequence": 1, "dx": 1, "dy": 0, "dt": 0.05})
+        short = until(lambda message: message.get("sequence") == 1)
+        assert short["type"] == "ack" and short["accepted"]
+        short_distance = short["x"] - start_x
+
+        websocket.send_json({"type": "input", "sequence": 2, "dx": 1, "dy": 0, "dt": 0.1})
+        long = until(lambda message: message.get("sequence") == 2)
+        assert long["type"] == "ack" and long["accepted"]
+        long_distance = long["x"] - short["x"]
+        assert long_distance == pytest.approx(short_distance * 2, abs=0.02)
+
+        websocket.send_json({"type": "input", "sequence": 3, "dx": 1, "dy": 0})
+        defaulted = until(lambda message: message.get("sequence") == 3)
+        assert defaulted["type"] == "ack" and defaulted["accepted"]
+        assert defaulted["x"] - long["x"] == pytest.approx(short_distance, abs=0.02)
+
+        for sequence in range(4, 9):
+            websocket.send_json(
+                {"type": "input", "sequence": sequence, "dx": 1, "dy": 0, "dt": 0.1}
+            )
+            assert (
+                until(lambda message, seq=sequence: message.get("sequence") == seq)["type"] == "ack"
+            )
+        assert any("actor.moved" in line for line in logged_lines)
+        logged_count = len(logged_lines)
+        log_event(ClockTicked())
+        assert len(logged_lines) == logged_count
+
+        position = client.get("/api/game/state").json()["actors"][0]["x"]
+        for sequence, dt in ((9, 0), (10, 0.2)):
+            websocket.send_json({"type": "input", "sequence": sequence, "dx": 1, "dy": 0, "dt": dt})
+            assert until(lambda message: message["type"] == "error")["type"] == "error"
+            assert client.get("/api/game/state").json()["actors"][0]["x"] == position
 
 
 def test_event_filters_and_new_game_websocket_refresh(tmp_path: Path) -> None:

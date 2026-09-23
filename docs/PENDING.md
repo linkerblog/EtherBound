@@ -43,7 +43,9 @@ Open decisions and loose ends. When one is settled, record the decision where it
       loaded game does not continue its random sequence. Save each stream's state together with
       the first dice roll, in the character-sheet doc (`done/Dev-007.md` has no rolls). Deferred by `done/Dev-005.md` [Sec. 1].
 - [ ] **Input replay.** The event log stores outcomes, not the 20 Hz inputs, so a run cannot
-      yet be replayed exactly (`utils/VISION.md` [Sec. 11]). This depends on RNG persistence.
+       yet be replayed exactly (`utils/VISION.md` [Sec. 11]). This depends on RNG persistence.
+- [ ] **Input rate limit (multiplayer only).** Timed movement input is bounded per message, but
+      the local single-player game has no rate limit. Add one only if multiplayer is introduced.
 - [ ] **Events to the client.** Only one event reaches the WebSocket: the `activity` notice when
       one of Niko's activities finishes (`done/Dev-007.md`). Everything else stays server-side
       until there is something to narrate (witnesses).
@@ -64,6 +66,8 @@ Open decisions and loose ends. When one is settled, record the decision where it
       new menu. Also confirm that walking moves Niko on the server (`GET /api/game/state` after a
       walk): until v0.5.0 the browser's inputs were all rejected, so every earlier GUI check of
       walking (Dev-004, Dev-005, Dev-006) only saw the prediction.
+- [ ] **Fix03 walking:** run manual acceptance 1–6 in `docs/done/Fix03.md`; automated timed-input
+      validation and event logging checks pass, but the Phaser GUI has no test runner.
 
 The Dev-005 GUI acceptance is tracked in Fix02.
 
@@ -71,9 +75,6 @@ The Dev-005 GUI acceptance is tracked in Fix02.
 
 - [ ] **Notion.** `Dev-018` and `Dev-019` from NikoStory still hang under the EtherBound page;
       delete them.
-- [ ] **Notion Systems Index access.** The integration cannot open `EtherBound — Systems Index`,
-      so Dev-006 did not update it (`done/Dev-006.md` [Sec. 8]). Share the page with the
-      integration, then add the `web.net`, `web.game` and `web.ui` changes.
 - [ ] **NikoStory working tree.** 11 modified files uncommitted in the old repo (`schema.ts`,
       `movement.ts`, `grid.ts`, `Dev-018.md`, ...). Commit them as the closing state or discard
       them.
@@ -87,8 +88,8 @@ The Dev-005 GUI acceptance is tracked in Fix02.
 
 Four design questions (abilities, city authoring, carry-over, event log retention); the op
 list is settled by `done/Dev-007.md`. Two open fixes: Fix01's medium and minor items,
-including the slow A* that blocks NPC pathfinding, and Fix02's closing (H3 blocking). Four
-deferred items (RNG persistence, input replay, events to the client, lost activity progress).
-Four manual acceptances not run (Dev-004 zoom, Dev-003 browser, Dev-006 new game, Dev-007 ops,
-which also rechecks walking against the server). Four loose ends (NikoStory Notion pages,
-Notion Systems Index access, NikoStory's uncommitted changes, fractional-DPR blur).
+including the slow A* that blocks NPC pathfinding, and Fix02's closing (H3 blocking). Five
+deferred items (RNG persistence, input replay, multiplayer input rate limit, events to the
+client, lost activity progress). Five manual acceptances not run (Dev-004 zoom, Dev-003 browser,
+Dev-006 new game, Dev-007 ops, Fix03 walking). Three loose ends (NikoStory Notion pages,
+NikoStory's uncommitted changes, fractional-DPR blur).

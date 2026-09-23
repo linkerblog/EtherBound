@@ -22,6 +22,10 @@ export function slopeMultiplier(deltaH: number): number {
   return 1;
 }
 
+export function stepMultiplier(deltaH: number, walkCost: number): number {
+  return slopeMultiplier(deltaH) / walkCost;
+}
+
 /** Mirrors the server standing rule for prediction. The server always wins. */
 export function canEnter(
   store: ChunkStore,

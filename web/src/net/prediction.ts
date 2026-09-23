@@ -1,10 +1,10 @@
 import type { ChunkStore } from "../world/ChunkStore";
-import { canEnter, slopeMultiplier } from "../world/rules";
+import { canEnter, stepMultiplier } from "../world/rules";
 import type { Direction, Position } from "./protocol";
 
 export const WALK_SPEED = 4;
 
-type PendingInput = { sequence: number; direction: Direction };
+type PendingInput = { sequence: number; direction: Direction; dt: number };
 
 function normalize(direction: Direction): Direction {
   const length = Math.hypot(direction.x, direction.y);
@@ -15,72 +15,67 @@ function normalize(direction: Direction): Direction {
 export class ClientPrediction {
   private store: ChunkStore | null = null;
   private authoritative: Position;
-  private predicted: Position;
+  private base: Position;
+  private rendered: Position;
   private pending: PendingInput[] = [];
   private direction: Direction = { x: 0, y: 0 };
-  private lastServerUpdate = performance.now();
+  private partialSeconds = 0;
 
   constructor(initial: Position) {
     this.authoritative = { ...initial };
-    this.predicted = { ...initial };
+    this.base = { ...initial };
+    this.rendered = { ...initial };
   }
 
   get position(): Position {
-    return this.predicted;
+    return this.rendered;
   }
 
   attachStore(store: ChunkStore): void {
     this.store = store;
   }
 
-  setDirection(direction: Direction, sequence: number): void {
-    this.direction = normalize(direction);
-    this.pending.push({ sequence, direction: this.direction });
+  pushStep(step: PendingInput): void {
+    const input = { ...step, direction: normalize(step.direction) };
+    this.pending.push(input);
+    this.advance(this.base, input.direction, input.dt);
   }
 
   /** No key held and every input acknowledged, so the server position is the whole truth. */
   idle(): boolean {
-    return this.direction.x === 0 && this.direction.y === 0 && this.pending.length === 0;
+    return this.direction.x === 0 && this.direction.y === 0 && this.partialSeconds === 0 && this.pending.length === 0;
   }
 
-  step(seconds: number, paused: boolean): Position {
-    if (!paused && seconds > 0) this.advance(seconds);
-    return this.predicted;
-  }
-
-  private advance(seconds: number): void {
+  private advance(position: Position, direction: Direction, seconds: number): void {
     const store = this.store;
     if (!store) {
-      this.predicted = {
-        ...this.predicted,
-        x: this.predicted.x + this.direction.x * WALK_SPEED * seconds,
-        y: this.predicted.y + this.direction.y * WALK_SPEED * seconds,
-      };
+      position.x += direction.x * WALK_SPEED * seconds;
+      position.y += direction.y * WALK_SPEED * seconds;
       return;
     }
     let remaining = seconds * WALK_SPEED;
     const substep = 0.05;
     while (remaining > 0) {
       const step = Math.min(substep, remaining);
-      const nextX = this.predicted.x + this.direction.x * step;
-      const nextY = this.predicted.y + this.direction.y * step;
-      const h = this.predicted.h ?? 0;
-      const sourceX = this.predicted.x;
-      const sourceY = this.predicted.y;
-      if (canEnter(store, this.predicted.x, this.predicted.y, nextX, this.predicted.y, h)) {
-        this.predicted.x = nextX;
+      const nextX = position.x + direction.x * step;
+      const nextY = position.y + direction.y * step;
+      const h = position.h ?? 0;
+      const sourceX = position.x;
+      const sourceY = position.y;
+      if (canEnter(store, position.x, position.y, nextX, position.y, h)) {
+        position.x = nextX;
       }
-      if (canEnter(store, this.predicted.x, this.predicted.y, this.predicted.x, nextY, h)) {
-        this.predicted.y = nextY;
+      if (canEnter(store, position.x, position.y, position.x, nextY, h)) {
+        position.y = nextY;
       }
-      const standing = store.standingH(Math.floor(this.predicted.x), Math.floor(this.predicted.y), h);
+      const standing = store.standingH(Math.floor(position.x), Math.floor(position.y), h);
       if (standing !== undefined) {
         const delta = standing - h;
-        if (Math.floor(this.predicted.x) !== Math.floor(sourceX) || Math.floor(this.predicted.y) !== Math.floor(sourceY)) {
-          this.predicted.h = standing;
-          this.predicted.z = Math.floor(standing / 6);
+        if (Math.floor(position.x) !== Math.floor(sourceX) || Math.floor(position.y) !== Math.floor(sourceY)) {
+          position.h = standing;
+          position.z = Math.floor(standing / 6);
         }
-        remaining -= step / slopeMultiplier(delta);
+        remaining -= step / stepMultiplier(delta, store.walkCost(position.x, position.y, standing));
       } else {
         remaining -= step;
       }
@@ -92,16 +87,30 @@ export class ClientPrediction {
     if (acknowledgedSequence !== undefined) {
       this.pending = this.pending.filter((input) => input.sequence > acknowledgedSequence);
     }
-    this.predicted = { ...this.authoritative };
-    const elapsed = Math.min((performance.now() - this.lastServerUpdate) / 1000, 0.25);
-    this.lastServerUpdate = performance.now();
-    if (elapsed > 0) this.advance(elapsed);
-    return this.predicted;
+    this.rebuildBase();
+    return this.rendered;
+  }
+
+  render(direction: Direction, partialSeconds: number): Position {
+    this.direction = normalize(direction);
+    this.partialSeconds = partialSeconds;
+    this.rendered = { ...this.base };
+    if (partialSeconds > 0) this.advance(this.rendered, this.direction, partialSeconds);
+    return this.rendered;
+  }
+
+  private rebuildBase(): void {
+    this.base = { ...this.authoritative };
+    for (const input of this.pending) this.advance(this.base, input.direction, input.dt);
+    this.rendered = { ...this.base };
   }
 
   reset(position: Position): void {
     this.authoritative = { ...position };
-    this.predicted = { ...position };
+    this.base = { ...position };
+    this.rendered = { ...position };
     this.pending = [];
+    this.direction = { x: 0, y: 0 };
+    this.partialSeconds = 0;
   }
 }

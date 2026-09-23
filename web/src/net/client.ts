@@ -72,6 +72,7 @@ export class WebSocketClient {
   private readonly snapshotListeners = new Set<SnapshotListener>();
   private readonly resultListeners = new Set<ResultListener>();
   private readonly activityListeners = new Set<ActivityListener>();
+  private beforeCommand: (() => void) | null = null;
 
   connect(url = defaultSocketUrl()): void {
     this.emitConnection("connecting");
@@ -96,19 +97,25 @@ export class WebSocketClient {
     return this.sequence;
   }
 
-  sendInput(direction: Direction, sequence = this.nextSequence()): number {
-    this.send({ type: "input", sequence, dx: direction.x, dy: direction.y });
+  sendInput(direction: Direction, dt: number, sequence = this.nextSequence()): number {
+    this.send({ type: "input", sequence, dx: direction.x, dy: direction.y, dt });
     return sequence;
+  }
+
+  setBeforeCommand(handler: (() => void) | null): void {
+    this.beforeCommand = handler;
   }
 
   /** Submits an action exactly as the server's menu built it. */
   sendAction(action: GameAction): number {
+    this.beforeCommand?.();
     const sequence = this.nextSequence();
     this.send({ type: "action", sequence, action });
     return sequence;
   }
 
   sendClock(paused: boolean, speed: number): void {
+    if (paused) this.beforeCommand?.();
     this.send({ type: "clock", paused, speed });
   }
 

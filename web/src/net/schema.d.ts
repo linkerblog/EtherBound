@@ -386,6 +386,11 @@ export interface components {
             dx: number;
             /** Dy */
             dy: number;
+            /**
+             * Dt
+             * @default 0.05
+             */
+            dt: number;
         };
         /** ClockMessage */
         ClockMessage: {

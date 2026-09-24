@@ -82,8 +82,10 @@ def test_catalog_loads_the_v1_kinds() -> None:
         "shelf",
         "backpack",
         "shovel",
+        "sledgehammer",
         "bottle",
         "apple",
+        "rubble",
     )
     chest = catalog["chest"]
     assert (chest.mass, chest.bulk, chest.height) == (15.0, 120.0, 2)
@@ -91,8 +93,10 @@ def test_catalog_loads_the_v1_kinds() -> None:
     assert chest.container is not None and chest.container.capacity == 100.0
     assert catalog["shelf"].openable is False
     assert catalog["backpack"].wearable == Wearable(slot="back")
-    assert catalog["shovel"].tool == Tool(dig=1.0)
+    assert catalog["shovel"].tool == Tool(dig=1.0, strike_speed_m_s=15.0)
+    assert catalog["sledgehammer"].tool == Tool(strike_speed_m_s=15.0)
     assert catalog["apple"].stackable and not catalog["apple"].solid
+    assert catalog["rubble"].material == "rock" and catalog["rubble"].stackable
 
 
 @pytest.mark.parametrize(
@@ -112,6 +116,11 @@ def test_catalog_loads_the_v1_kinds() -> None:
         (VALID + "[kinds.openable]\n", "openable requires container"),
         (VALID + '[kinds.wearable]\nslot = "head"\n', "wearable slot"),
         (VALID + "[kinds.tool]\ndig = 0.0\n", "tool.dig must be positive"),
+        (VALID + "[kinds.tool]\n", "tool requires a capability"),
+        (
+            VALID + "[kinds.tool]\nstrike_speed_m_s = 0.0\n",
+            "tool.strike_speed_m_s must be positive",
+        ),
         (VALID + 'colour = "red"\n', "unknown keys"),
         (VALID + "[kinds.container]\ncapacity = 1.0\nwrong = 1.0\n", "unknown container keys"),
     ],

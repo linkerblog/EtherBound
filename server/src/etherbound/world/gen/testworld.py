@@ -17,7 +17,7 @@ from etherbound.world.chunk import (
 from etherbound.world.gen.noise import ValueNoise
 from etherbound.world.materials import MaterialRegistry
 
-GEN_VERSION = 4
+GEN_VERSION = 5
 WORLD_CHUNKS = 8
 SPAWN_POINT = (121.5, 128.5)
 
@@ -36,7 +36,7 @@ class GeneratedObject:
 
 
 def test_objects() -> tuple[GeneratedObject, ...]:
-    """The fixed v4 object layout; order is stable, so generated ids are stable."""
+    """The fixed v5 object layout; order is stable, so generated ids are stable."""
     return (
         # 1. Near spawn (grass at h = 2, within four tiles of 121.5, 128.5).
         GeneratedObject(kind="shovel", x=124, y=126, h=2),
@@ -55,6 +55,7 @@ def test_objects() -> tuple[GeneratedObject, ...]:
         # 3. Climbing test: two chests stacked on open ground at h = 1.
         GeneratedObject(kind="chest", x=126, y=127, h=1),
         GeneratedObject(kind="chest", x=126, y=127, h=3),
+        GeneratedObject(kind="sledgehammer", x=126, y=126, h=2),
     )
 
 

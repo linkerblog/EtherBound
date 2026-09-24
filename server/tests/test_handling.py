@@ -186,7 +186,7 @@ async def test_open_close_state_and_hidden_contents(engine: WorldEngine) -> None
     chest = next(obj.id for obj in engine.grid.objects_at(124, 127) if obj.kind == "chest")
     payload = engine.chunk_payload(3, 3)
     kinds = [obj.kind for obj in payload.objects]
-    assert set(kinds) <= {"shovel", "backpack", "chest"}
+    assert set(kinds) <= {"shovel", "backpack", "chest", "sledgehammer"}
     assert "apple" not in kinds and "bottle" not in kinds
 
     opened = await engine.submit(PLAYER_ID, OpenAction(target=ObjectTarget(id=chest)))

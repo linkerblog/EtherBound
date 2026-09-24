@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { ClientPrediction } from "../net/prediction";
-import { EMPTY_POSITION, type Direction, type Position } from "../net/protocol";
+import { EMPTY_POSITION, type Direction, type PhysicsPosition, type Position, type ResultMessage } from "../net/protocol";
 import { WebSocketClient } from "../net/client";
 import { ChunkStore } from "../world/ChunkStore";
 import { loadMaterials } from "../world/materials";
@@ -17,6 +17,7 @@ import { shadeColor, sideTint, sideVariant, spriteTint } from "./terrainSprites"
 import { TERRAIN_SHEETS, TERRAIN_SIDE_SHEETS } from "./terrainSheets";
 import { OBJECT_SHEETS } from "./objectSheets";
 import { OBJECT_SPRITES } from "./objectSprites";
+import { interpolateTrajectory } from "./physics";
 type Material = components["schemas"]["MaterialResponse"];
 type ObjectKind = components["schemas"]["ObjectKindResponse"];
 type TileObject = components["schemas"]["ObjectResponse"];
@@ -66,6 +67,13 @@ type ChunkLayers = {
   visible: boolean;
 };
 
+type PhysicsAnimation = {
+  path: PhysicsPosition[];
+  startedAt: number;
+  duration: number;
+  marker: Phaser.GameObjects.Graphics;
+};
+
 export class MapScene extends Phaser.Scene {
   private readonly options: MapSceneOptions;
   private readonly chunks = new ChunkStore();
@@ -88,6 +96,8 @@ export class MapScene extends Phaser.Scene {
   private nikoTile = "";
   private cutoff = Number.POSITIVE_INFINITY;
   private readonly dirtyChunks = new Set<string>();
+  private readonly physicsAnimations = new Map<string, PhysicsAnimation>();
+  private readonly animatedObjectIds = new Set<number>();
   private readonly maskOffsets = new Map<string, { x: number; y: number }>();
   private readonly spriteKeys = new Set<string>();
   private readonly sideKeys = new Set<string>();
@@ -99,6 +109,7 @@ export class MapScene extends Phaser.Scene {
   private removeSnapshotListener?: () => void;
   private removeAckListener?: () => void;
   private removeChunkListener?: () => void;
+  private removeResultListener?: () => void;
 
   constructor(options: MapSceneOptions) {
     super("map");
@@ -195,6 +206,7 @@ export class MapScene extends Phaser.Scene {
     this.applyZoom(loadZoom(defaultZoom(window.devicePixelRatio)));
 
     this.removeSnapshotListener = this.options.client.onSnapshot(() => {
+      this.clearPhysicsAnimations();
       this.clearChunkLayers();
       this.chunks.clear();
       this.structures = [];
@@ -240,6 +252,7 @@ export class MapScene extends Phaser.Scene {
       }
       this.markDirty(changedChunkKeys(this.dirtyChunkInfo(), `${chunk.cx},${chunk.cy}`));
     });
+    this.removeResultListener = this.options.client.onResult((result) => this.animatePhysics(result));
   }
 
   update(_: number, delta: number): void {
@@ -271,6 +284,7 @@ export class MapScene extends Phaser.Scene {
       isCovered(this.chunks, position.x, position.y, position.h ?? this.viewerH, (x, y) => this.cutoffAt(x, y)),
     );
     this.updateCulling();
+    this.updatePhysicsAnimations(performance.now());
     this.sampleTelemetry(position, seconds);
   }
 
@@ -279,6 +293,8 @@ export class MapScene extends Phaser.Scene {
     this.removeSnapshotListener?.();
     this.removeAckListener?.();
     this.removeChunkListener?.();
+    this.removeResultListener?.();
+    this.clearPhysicsAnimations();
     this.options.client.setBeforeCommand(null);
     this.clearChunkLayers();
   }
@@ -570,6 +586,60 @@ export class MapScene extends Phaser.Scene {
     this.dirtyChunks.clear();
   }
 
+  private animatePhysics(result: ResultMessage): void {
+    if (!result.accepted || !result.trajectory?.length) return;
+    const grouped = new Map<string, PhysicsPosition[]>();
+    for (const point of result.trajectory) {
+      const key = `${point.kind}:${point.id}`;
+      const path = grouped.get(key) ?? [];
+      path.push(point);
+      grouped.set(key, path);
+    }
+    for (const [key, path] of grouped) {
+      if (path.length < 2) continue;
+      this.physicsAnimations.get(key)?.marker.destroy();
+      const first = path[0]!;
+      if (first.kind === "object" && typeof first.id === "number") this.animatedObjectIds.add(first.id);
+      const marker = this.add.graphics();
+      marker.fillStyle(0xf4d35e, 0.95).fillEllipse(0, 0, 16, 9);
+      marker.lineStyle(2, 0xffffff, 0.95).strokeEllipse(0, 0, 16, 9);
+      this.physicsAnimations.set(key, {
+        path,
+        startedAt: performance.now(),
+        duration: Math.min(1400, Math.max(160, (path.length - 1) * 70)),
+        marker,
+      });
+    }
+    this.markDirty([...this.chunks.values()].map((chunk) => `${chunk.cx},${chunk.cy}`));
+  }
+
+  private updatePhysicsAnimations(now: number): void {
+    let changed = false;
+    for (const [key, animation] of this.physicsAnimations) {
+      const progress = Math.min(1, (now - animation.startedAt) / animation.duration);
+      const position = interpolateTrajectory(animation.path, progress);
+      if (position === null) continue;
+      const screen = toScreen(position.x + 0.5, position.y + 0.5, position.h);
+      animation.marker
+        .setPosition(screen.sx, screen.sy - 3)
+        .setDepth(rowDepth(Math.floor(position.x + position.y)));
+      if (progress >= 1) {
+        animation.marker.destroy();
+        this.physicsAnimations.delete(key);
+        const [kind, id] = key.split(":");
+        if (kind === "object") this.animatedObjectIds.delete(Number(id));
+        changed = true;
+      }
+    }
+    if (changed) this.markDirty([...this.chunks.values()].map((chunk) => `${chunk.cx},${chunk.cy}`));
+  }
+
+  private clearPhysicsAnimations(): void {
+    for (const animation of this.physicsAnimations.values()) animation.marker.destroy();
+    this.physicsAnimations.clear();
+    this.animatedObjectIds.clear();
+  }
+
   private setViewer(x: number, y: number, h: number): void {
     const tile = `${Math.floor(x)},${Math.floor(y)}`;
     const nextCutoff = cutoffH(this.chunks, x, y, h);
@@ -730,7 +800,9 @@ export class MapScene extends Phaser.Scene {
   }
 
   private drawTileObjects(layers: ChunkLayers, usedRows: Set<number>, objects: TileObject[], x: number, y: number, cutoff: number, row: number): void {
-    const tileObjects = objects.filter((object) => object.x === x && object.y === y).sort((a, b) => a.id - b.id);
+    const tileObjects = objects
+      .filter((object) => object.x === x && object.y === y && !this.animatedObjectIds.has(object.id))
+      .sort((a, b) => a.id - b.id);
     const pileHeights = new Map<number, TileObject>();
     for (const object of tileObjects) {
       const kind = this.objectKinds.get(object.kind);

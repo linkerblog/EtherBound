@@ -123,10 +123,25 @@ neighbour takes the `climb` op; anything higher needs a ladder or another vertic
   - **SI units:** kg, m/s, joules. Material `resistance` becomes the energy half a metre of the
     material withstands, calibrated on real cases (a fist does not break brick, a sledgehammer
     takes several blows, a car at 50 km/h goes through).
-  - **Cumulative damage.** Objects and wall edges have an integrity that each impact lowers;
-    at zero they become rubble objects, and a wall edge becomes an opening.
-  - **Gravity.** Unsupported objects and bodies fall to the next surface; a fall hurts with
-    height (over about 3 m).
+  - **Data-defined strikes.** A held `Tool` may supply `strike_speed_m_s`; strike energy is derived
+    from that speed and the tool's mass. Bare hands use the standardized effective mass and speed
+    in the physics profile. Tool capabilities stay in object data, not per-tool code.
+  - **Effort profile.** A shove transfers momentum at 2 m/s using reduced mass. A throw is capped
+    at 8 m/s and 100 J. Bare-hand strikes use 2 kg at 5 m/s. Horizontal travel loses
+    `0.05 × mass × 9.81` joules per metre; falls convert `mass × 9.81 × height` to impact energy.
+  - **Cumulative damage.** Integrity is remaining joules. An intact object starts at its material
+    resistance times its height in half-metre cells (at least one cell); a wall edge spans six
+    cells. Partial wall damage is stored sparsely against its canonical north/west edge. At zero an
+    object becomes data-defined rubble and spills its contents onto the supported surface; a wall
+    edge becomes an opening. `Object.integrity` stores object damage.
+  - **Gravity.** Unsupported objects and bodies fall to the next supported surface in the same
+    action resolution. A body falling more than about 3 m emits an impact with potential energy
+    `mass × 9.81 × height`; objects emit an impact on landing. Health remains the body system's
+    responsibility.
+  - **Body data.** Every actor has a positive mass in kilograms; existing actors receive an 80 kg
+    default until character data supplies an individual value.
+  - **Replay.** The logged resolution event contains the complete deterministic path, impacts,
+    damage and break outcomes. Chunk changes are replication signals, not physics facts.
   - **Physics does not know health.** It emits `impact {target, energy}`; turning that into
     injury belongs to the body system.
   - Out of scope: structural collapse of buildings, fluids and fire. Hole collapse comes later,
@@ -327,7 +342,7 @@ enforced by the engine as op preconditions, not only in prompts:
 - [x] Op vocabulary and action API; generated context menus
 - [x] Event bus and action pipeline
 - [ ] Witnesses, knowledge, rumor propagation
-- [ ] Tile physics: impulse, knockback, breakable walls
+- [x] Tile physics: impulse, knockback, breakable walls
 - [ ] Seeded RNG streams and the decision log
 - [ ] Isometric renderer with placeholder art (`Dev-008`)
 

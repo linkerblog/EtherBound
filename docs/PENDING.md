@@ -15,18 +15,11 @@ Open decisions and loose ends. When one is settled, record the decision where it
       Phase 2 block with its ~20 Extras. It ties into memory compaction (`utils/VISION.md`
       [Sec. 8], Life cycle). Deferred by `done/Dev-005.md` [Sec. 8].
 
-## Open fixes
-
-- [ ] **Fix11 Dev Blog database** (`Fix11.md`): the Notion Dev Blog becomes a database with one
-      entry per plan; Fix02 and Dev-001 entries merge; the `AGENTS.md` Notion rule narrows.
-
 ## Planned work
 
 - [ ] **Infra01 repo and checks** (`Infra01.md`): remote, `.gitattributes`, one `npm run check`
       with hooks, version validator, Ruff determinism rules, Playwright baselines, the `InfraNN`
       doc type and `utils/COMMITS.md`. Lands after Dev-012, Fix10 and Fix11.
-- [ ] **Dev-013 tile physics**: push, pull, drag, throw, hit, break, falling and integrity, on the
-      decisions recorded in `utils/VISION.md` [Sec. 5]. Written after Dev-012 lands.
 - [ ] **Dev-014 AI furniture** (`Dev-014.md`): an LLM proposes furniture as a validated primitive
       spec that BitCanvas renders; lands after Dev-012. The `gamesync.js` syntax error was fixed
       independently by Fix10.
@@ -98,6 +91,11 @@ Open decisions and loose ends. When one is settled, record the decision where it
       coordinates in `done/Dev-012.md` [Sec. 8].
 - [ ] **Dev-012 save migration:** point the server at a real `data/etherbound.db` and confirm
       `0005_object` upgrades it in place. See `done/Dev-012.md` [Sec. 10].
+- [ ] **Dev-013 physics:** in the running game, push and throw objects into an obstacle, break a
+      wall over repeated hits and watch an object fall into the pit; the animation must match the
+      committed final positions at x1–x4. See `done/Dev-013.md` [Sec. 4] step 7.
+- [ ] **Fix11 Dev Blog database:** open it in Notion and confirm it reads well, newest first, with
+      the properties visible. See `done/Fix11.md` [Sec. 6] step 7.
 
 - [ ] **Fix03 walking:** acceptance 1 (no jump at start or stop) was confirmed by the user on
       22/09/2026 ("walking feels smooth"), and 5 (releasing the keys after `DIG` does not
@@ -114,12 +112,14 @@ The Dev-005 GUI acceptance passed; details are recorded in `docs/done/Fix02.md`.
 ## TL;DR
 
 Four design questions (abilities, city authoring, carry-over, event log retention); the op
-list is settled by `done/Dev-007.md` and the Matter primitive by `done/Dev-012.md`. One open fix
-(Fix11, Dev Blog database); Fix10's manual Send to game acceptance remains open. Two deferred items
+list is settled by `done/Dev-007.md` and the Matter primitive by `done/Dev-012.md`. Fix11's Dev
+Blog migration landed; Fix10's manual Send to game acceptance remains open. Dev-013 is implemented;
+its live physics/animation acceptance remains open. Two deferred items
 (input replay, events to the client) plus lost activity progress. Manual acceptances remain for
 Dev-003 browser, Dev-006 new game, Fix03 logging, Fix04 logging/movement, and Dev-008/Fix05/Fix06/Fix07
 isometric rendering and network, plus Fix08 reconnect, Fix09 side textures and building base,
 Dev-009 BitCanvas filesystem/game GUI acceptance, the Dev-010 asphalt road in the live game, the
 Dev-011 roofing and brick walls in the live game, and the Dev-012 rendering, CARRY/menu, BitCanvas
-furniture, seed-0 layout and save-migration checks; Dev-007 was fully accepted on 22/09/2026.
+furniture, seed-0 layout and save-migration checks, the Dev-013 physics and animation acceptance,
+and the Fix11 Dev Blog database's Notion-UI read-through; Dev-007 was fully accepted on 22/09/2026.
 Fix05–Fix09 automated validation passed; their GUI visual/performance checklists remain open.

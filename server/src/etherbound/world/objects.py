@@ -32,7 +32,7 @@ _COMPONENT_KEYS: dict[str, frozenset[str]] = {
     "container": frozenset({"capacity"}),
     "openable": frozenset(),
     "wearable": frozenset({"slot"}),
-    "tool": frozenset({"dig"}),
+    "tool": frozenset({"dig", "strike_speed_m_s"}),
 }
 
 
@@ -48,7 +48,8 @@ class Wearable:
 
 @dataclass(frozen=True, slots=True)
 class Tool:
-    dig: float
+    dig: float | None = None
+    strike_speed_m_s: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -194,7 +195,11 @@ def _kind(raw: dict[str, object], registry: MaterialRegistry) -> ObjectKind:
     tool_table = _table(raw, "tool", key)
     tool = None
     if tool_table is not None:
-        tool = Tool(dig=_positive(tool_table, "dig", key, "tool"))
+        dig = _optional_positive(tool_table, "dig", key, "tool")
+        strike_speed = _optional_positive(tool_table, "strike_speed_m_s", key, "tool")
+        if dig is None and strike_speed is None:
+            raise ValueError(f"object kind {key}: tool requires a capability")
+        tool = Tool(dig=dig, strike_speed_m_s=strike_speed)
 
     return ObjectKind(
         key=key,
@@ -219,6 +224,14 @@ def _positive(table: Mapping[str, object], field: str, key: str, component: str)
     if value <= 0:
         raise ValueError(f"object kind {key}: {component}.{field} must be positive")
     return value
+
+
+def _optional_positive(
+    table: Mapping[str, object], field: str, key: str, component: str
+) -> float | None:
+    if field not in table:
+        return None
+    return _positive(table, field, key, component)
 
 
 def _walkable_material(registry: MaterialRegistry, material: str) -> bool:

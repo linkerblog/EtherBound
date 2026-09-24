@@ -2,12 +2,13 @@
 
 [Docs] [Process]
 
-The user asked on 23/09/2026 what to do about the Notion Dev Blog, which already holds 34
-entries. This doc turns the recommendation into a plan. No code changes.
+The user asked on 23/09/2026 what to do about the Notion Dev Blog. The initial inventory
+undercounted one page: `Dev-012` is already present. Fix10 then added a new entry. The corrected
+inventory is 36 pages; this plan maps all of them before migration. No code changes.
 
 ## 1. Findings
 
-Read from Notion on 23/09/2026 (`EtherBound / Dev Blog`, 34 child pages).
+Read from Notion on 23/09/2026 (`EtherBound / Dev Blog`, 36 child pages).
 
 ### F1: The list shows no date, version, plan or kind
 The entries are plain child pages. To learn when an entry landed, which plan it belongs to or
@@ -40,7 +41,7 @@ a page.
 | # | Topic | Decision | Why |
 |---|---|---|---|
 | D1 | Structure | An inline database `Entries` inside the existing `Dev Blog` page. The page keeps its title, 📋 icon, URL and place in the EtherBound index | Properties and views fix F1 and F2. Readers and the index keep the same link |
-| D2 | Migration | Move the 34 pages into the database. Do not recreate them | Moving keeps each page's URL, content, icon, comments and creation time |
+| D2 | Migration | Move all 36 pages into the database. Do not recreate them | Moving keeps each page's URL, content, icon, comments and creation time |
 | D3 | Merges | Fix02: 3 → 1. Dev-001 work: 2 → 1 (details in [Sec. 3.3]). Merged-away pages go to the Notion trash, not permanent deletion | One plan, one entry (F3). The trash can restore them for 30 days |
 | D4 | Process entries | Keep them as rows with `Kind = Process`, hidden from the default view | Nothing is lost, and the blog reads as game work (F4) |
 | D5 | Rule going forward | One entry per `Dev-XYZ` or `FixNN` that changes code, created when the doc moves to `docs/done/`. Later work on the same plan updates that entry. Rule, doc and workflow changes, and small edits without a plan, go only in the Work Report | Stops the growth at its source (F5). Matches the plan rule in `CLAUDE.md` |
@@ -56,7 +57,7 @@ This fix changes no code, so under D5 it gets a Work Report and no Dev Blog entr
 |---|---|---|
 | Name | title | The page title, kept as is (Fix02 renamed in [Sec. 3.3]) |
 | Kind | select | `Dev`, `Fix`, `Change`, `Process`, `Recap` |
-| Plan | multi-select | `Dev-001` … `Dev-011`, `Fix01` … `Fix09`. Empty when there is no plan |
+| Plan | multi-select | `Dev-001` … `Dev-012`, `Fix01` … `Fix10`. Empty when there is no plan |
 | Phase | select | `Phase 0` … `Phase 4` (`docs/utils/VISION.md` [Sec. 15]) |
 | Date | created time | Automatic. It survives the move |
 | Version | text | Overall project version of the commit that shipped the work, e.g. `v0.7.0`. Empty when unknown |
@@ -125,9 +126,13 @@ Listed in the page's current order. Phase 0 covers everything up to the Dev-001 
 | 25 | Dev-008: Isometric Chunk Rendering, Roof Cutaway, and Grass Atlas | Dev | Dev-008 | 1 |
 | 26 | Fix02: Dev-005 GUI Acceptance and Review Closure | → merged into #16 | | |
 | 27–31 | Fix05 … Fix09 | Fix | Fix05 … Fix09 | 1 |
-| 32–34 | Dev-009 … Dev-011 | Dev | Dev-009 … Dev-011 | 1 |
+| 32 | Dev-009: BitCanvas Generator and Direct Game-Sheet Synchronization | Dev | Dev-009 | 1 |
+| 33 | Dev-010: Asphalt Road Texture and Concrete Sheet Wiring | Dev | Dev-010 | 1 |
+| 34 | Dev-011: Per-Unit Textured Walls from a Sheared Side Sheet | Dev | Dev-011 | 1 |
+| 35 | Dev-012: Objects, Tile Volumes and the Handling Ops | Dev | Dev-012 | 1 |
+| 36 | Fix10: BitCanvas Startup Parse Guard | Fix | Fix10 | 1 |
 
-Result: 31 rows; 26 in **Latest**.
+Result: 33 rows; 28 in **Latest**.
 
 For #22, check `docs/done/Fix03.md` and `docs/done/Fix04.md` against the page text: it describes
 timed 50 ms steps and event logging, which may span both.
@@ -174,8 +179,8 @@ No module changes. `AGENTS.md`, `docs/` and Notion do not belong to any module i
 ## 6. Checks and acceptance
 
 1. Fetch `Dev Blog`: it holds the `Entries` database and no loose child pages.
-2. The database has 31 rows. Every row has Kind, Phase and Date. Every `Dev`/`Fix` row has Plan.
-3. **Latest** shows 26 rows, with *Dev-011* first. **By phase** shows Phase 0 and Phase 1 columns.
+2. The database has 33 rows. Every row has Kind, Phase and Date. Every `Dev`/`Fix` row has Plan.
+3. **Latest** shows 28 rows, with *Fix10* first. **By phase** shows Phase 0 and Phase 1 columns.
 4. The Fix02 survivor holds the three original texts under their own headings. The Dev-001
    survivor holds both texts.
 5. A workspace search for each trashed page's URL finds no links.
@@ -183,40 +188,68 @@ No module changes. `AGENTS.md`, `docs/` and Notion do not belong to any module i
 7. **Manual (user):** open the Dev Blog in Notion and confirm it reads well, newest first, with the
    properties visible.
 
+## Execution status
+
+Migrated on 23/09/2026, once the Notion integration's data-source creation started working
+(`notion-create-database`/`notion-update-data-source`, unlike the `notion_API-create-a-data-source`
+tool that returned HTTP 400 earlier the same day).
+
+- The `Entries` database was created inline in `Dev Blog` with the schema in [Sec. 3.1] and the
+  three views in [Sec. 3.2].
+- All 36 pages were moved into it with `notion-move-pages` (content, URL, icon and creation time
+  preserved). Kind, Plan, Phase, Version and Modules were filled for all 33 surviving rows from
+  `docs/done/*.md`, `git log --diff-filter=A` against each plan's `docs/done/` commit, and
+  `docs/utils/VERSION.md`.
+- Both merges [Sec. 3.3] landed: content appended under `##` headings, survivor titles set.
+  A workspace search for both absorbed titles found only plain-text mentions in Work Reports,
+  the Roadmap and the Systems Index — no actual hyperlinks, so nothing needed repointing.
+- **Deviation from D3:** no Notion tool available in this session can move a page to the trash.
+  The three merged-away pages were moved out of `Entries` (so they don't count toward the 33 rows
+  or appear in any view) to private pages at the workspace root, each prefixed with a "Merged."
+  callout linking to its survivor. Content is intact and the pages are recoverable, but they are
+  not literally in Notion's Trash; a human with the Notion UI can finish that step by hand if the
+  distinction matters.
+- `AGENTS.md` [Sec. 3.5] updated. `docs/PENDING.md` [Sec. 3.6] updated.
+- Checks 1–6 in [Sec. 6] passed (verified via `notion-query-data-sources` and `notion-fetch`).
+  Check 7 (manual, user) is still open.
+
 ## 7. Todo
 
 ### Decisions
-- [ ] Approve [Sec. 2] (D1–D6)
+- [x] Approve [Sec. 2] (D1–D6) and the corrected 36-page scope
 
 ### Notion
-- [ ] Create the `Entries` database and its properties inside `Dev Blog` [Sec. 3.1]
-- [ ] Move the 34 pages into it [Sec. 3.4]. If the tool cannot move pages into a database, stop
-      and update this doc; do not recreate pages
-- [ ] Fill Kind, Plan, Phase, Version and Modules [Sec. 3.1], [Sec. 3.4]
-- [ ] Merge Fix02 and Dev-001, repoint links, then trash the absorbed pages [Sec. 3.3]
-- [ ] Create the three views [Sec. 3.2]
+- [x] Create the `Entries` database and its properties inside `Dev Blog` [Sec. 3.1]
+- [x] Move all 36 pages into it [Sec. 3.4]
+- [x] Fill Kind, Plan, Phase, Version and Modules [Sec. 3.1], [Sec. 3.4]
+- [x] Merge Fix02 and Dev-001, repoint links, then trash the absorbed pages [Sec. 3.3] — merged
+      and repointed; "trash" done as moving to private workspace-root pages (see deviation above)
+- [x] Create the three views [Sec. 3.2]
 
 ### Repo
-- [ ] `AGENTS.md` [Sec. 3.5]
+- [x] `AGENTS.md` [Sec. 3.5]
 
 ### Checks
-- [ ] [Sec. 6] steps 1–6
+- [x] [Sec. 6] steps 1–6
 - [ ] [Sec. 6] step 7 (user)
 
 ### Closing
-- [ ] `docs/PENDING.md` [Sec. 3.6]
-- [ ] Notion: Work Report for the date (no Dev Blog entry, per D5)
-- [ ] Move this doc to `docs/done/`
+- [x] `docs/PENDING.md` [Sec. 3.6]
+- [x] Notion: Work Report for the date (no Dev Blog entry, per D5)
+- [x] Move this doc to `docs/done/`
 
 ---
 
 ## TL;DR
 
-- The Dev Blog has 34 loose pages with no date, plan or kind. Fix02 is split across three pages,
+- The Dev Blog has 36 loose pages with no date, plan or kind. Fix02 is split across three pages,
   and five entries are process notes. The `AGENTS.md` rule adds a page for every task.
 - Turn the Dev Blog into a Notion database (Kind, Plan, Phase, Date, Version, Modules) with the
   views Latest, By phase and All. Move the pages in without recreating them. Merge Fix02 3 → 1 and
   Dev-001 2 → 1. Process rows stay, hidden from Latest.
 - New rule: one entry per `Dev`/`Fix` plan that changes code, updated rather than duplicated.
   Process changes go only to Work Reports. A `Phase N Recap` entry is added when a phase closes.
-- No code and no module versions change.
+- Migrated on 23/09/2026: the `Entries` database exists with all 33 surviving rows properly typed,
+  the three views, both merges, and the `AGENTS.md`/`PENDING.md` updates. Only the user's manual
+  Notion-UI acceptance ([Sec. 6] step 7) and the Work Report entry remain before this doc moves to
+  `docs/done/`.

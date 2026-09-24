@@ -231,6 +231,10 @@ class WorldGrid:
             return True
         return self._object_solid_at(x, y, h)
 
+    def terrain_solid_at(self, x: int, y: int, h: int) -> bool:
+        """Return whether a half-metre volume is occupied by terrain, excluding objects."""
+        return self._terrain_solid_at(x, y, h)
+
     def _terrain_solid_at(self, x: int, y: int, h: int) -> bool:
         cell = self._cell(x, y)
         if cell is None:

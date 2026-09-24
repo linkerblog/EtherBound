@@ -159,6 +159,29 @@ export interface components {
             /** H */
             h: number;
         };
+        /** ActorTarget */
+        ActorTarget: {
+            /**
+             * Kind
+             * @default actor
+             * @constant
+             */
+            kind: "actor";
+            /** Id */
+            id: string;
+        };
+        /** BreakAction */
+        BreakAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "break";
+            /** Target */
+            target: components["schemas"]["ObjectTarget"] | components["schemas"]["EdgeTarget"];
+            /** @default null */
+            tool: components["schemas"]["ObjectTarget"] | null;
+        };
         /** ChunkLevelResponse */
         ChunkLevelResponse: {
             /** Z */
@@ -220,6 +243,20 @@ export interface components {
             op: "dig";
             target: components["schemas"]["TileTarget"];
         };
+        /** DragAction */
+        DragAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "drag";
+            /** Target */
+            target: components["schemas"]["ObjectTarget"] | components["schemas"]["ActorTarget"];
+            /** Dx */
+            dx: number;
+            /** Dy */
+            dy: number;
+        };
         /** DropAction */
         DropAction: {
             /**
@@ -228,6 +265,26 @@ export interface components {
              */
             op: "drop";
             target: components["schemas"]["ObjectTarget"];
+        };
+        /** EdgeTarget */
+        EdgeTarget: {
+            /**
+             * Kind
+             * @default edge
+             * @constant
+             */
+            kind: "edge";
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+            /** Z */
+            z: number;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "north" | "south" | "east" | "west";
         };
         /** EventRecord */
         EventRecord: {
@@ -260,6 +317,18 @@ export interface components {
             status: string;
             /** Game Minute */
             game_minute: number;
+        };
+        /** HitAction */
+        HitAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "hit";
+            /** Target */
+            target: components["schemas"]["ObjectTarget"] | components["schemas"]["ActorTarget"] | components["schemas"]["EdgeTarget"];
+            /** @default null */
+            tool: components["schemas"]["ObjectTarget"] | null;
         };
         /** InspectAction */
         InspectAction: {
@@ -319,7 +388,7 @@ export interface components {
             /** Subject */
             subject?: string | null;
             /** Action */
-            action: components["schemas"]["MoveAction"] | components["schemas"]["InspectAction"] | components["schemas"]["WaitAction"] | components["schemas"]["DigAction"] | components["schemas"]["ClimbAction"] | components["schemas"]["TakeAction"] | components["schemas"]["DropAction"] | components["schemas"]["PutAction"] | components["schemas"]["OpenAction"] | components["schemas"]["CloseAction"] | components["schemas"]["WearAction"] | components["schemas"]["RemoveAction"];
+            action: components["schemas"]["MoveAction"] | components["schemas"]["InspectAction"] | components["schemas"]["WaitAction"] | components["schemas"]["DigAction"] | components["schemas"]["ClimbAction"] | components["schemas"]["TakeAction"] | components["schemas"]["DropAction"] | components["schemas"]["PutAction"] | components["schemas"]["OpenAction"] | components["schemas"]["CloseAction"] | components["schemas"]["WearAction"] | components["schemas"]["RemoveAction"] | components["schemas"]["PushAction"] | components["schemas"]["PullAction"] | components["schemas"]["DragAction"] | components["schemas"]["ThrowAction"] | components["schemas"]["HitAction"] | components["schemas"]["BreakAction"];
         };
         /** MenuResponse */
         MenuResponse: {
@@ -414,6 +483,34 @@ export interface components {
             op: "open";
             target: components["schemas"]["ObjectTarget"];
         };
+        /** PullAction */
+        PullAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "pull";
+            /** Target */
+            target: components["schemas"]["ObjectTarget"] | components["schemas"]["ActorTarget"];
+            /** Dx */
+            dx: number;
+            /** Dy */
+            dy: number;
+        };
+        /** PushAction */
+        PushAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "push";
+            /** Target */
+            target: components["schemas"]["ObjectTarget"] | components["schemas"]["ActorTarget"];
+            /** Dx */
+            dx: number;
+            /** Dy */
+            dy: number;
+        };
         /** PutAction */
         PutAction: {
             /**
@@ -464,6 +561,19 @@ export interface components {
              */
             op: "take";
             target: components["schemas"]["ObjectTarget"];
+        };
+        /** ThrowAction */
+        ThrowAction: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "throw";
+            target: components["schemas"]["ObjectTarget"];
+            /** Dx */
+            dx: number;
+            /** Dy */
+            dy: number;
         };
         /** TileTarget */
         TileTarget: {
@@ -558,7 +668,7 @@ export interface components {
             /** Sequence */
             sequence: number;
             /** Action */
-            action: components["schemas"]["MoveAction"] | components["schemas"]["InspectAction"] | components["schemas"]["WaitAction"] | components["schemas"]["DigAction"] | components["schemas"]["ClimbAction"] | components["schemas"]["TakeAction"] | components["schemas"]["DropAction"] | components["schemas"]["PutAction"] | components["schemas"]["OpenAction"] | components["schemas"]["CloseAction"] | components["schemas"]["WearAction"] | components["schemas"]["RemoveAction"];
+            action: components["schemas"]["MoveAction"] | components["schemas"]["InspectAction"] | components["schemas"]["WaitAction"] | components["schemas"]["DigAction"] | components["schemas"]["ClimbAction"] | components["schemas"]["TakeAction"] | components["schemas"]["DropAction"] | components["schemas"]["PutAction"] | components["schemas"]["OpenAction"] | components["schemas"]["CloseAction"] | components["schemas"]["WearAction"] | components["schemas"]["RemoveAction"] | components["schemas"]["PushAction"] | components["schemas"]["PullAction"] | components["schemas"]["DragAction"] | components["schemas"]["ThrowAction"] | components["schemas"]["HitAction"] | components["schemas"]["BreakAction"];
         };
         /** AckMessage */
         AckMessage: {
@@ -612,6 +722,22 @@ export interface components {
             /** Slot */
             slot: string;
         };
+        /** PhysicsPosition */
+        PhysicsPosition: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "actor" | "object";
+            /** Id */
+            id: string | number;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+            /** H */
+            h: number;
+        };
         /** ResultMessage */
         ResultMessage: {
             /**
@@ -642,6 +768,8 @@ export interface components {
              * @default 0
              */
             load_kg: number;
+            /** Trajectory */
+            trajectory?: components["schemas"]["PhysicsPosition"][];
         };
         /** ActivityMessage */
         ActivityMessage: {

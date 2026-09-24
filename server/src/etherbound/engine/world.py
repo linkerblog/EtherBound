@@ -6,7 +6,7 @@ from pydantic import TypeAdapter
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from etherbound.db.models import Actor, WorldMeta
+from etherbound.db.models import Actor, WallIntegrity, WorldMeta
 from etherbound.db.models import Chunk as ChunkRow
 from etherbound.db.models import ChunkLevel as ChunkLevelRow
 from etherbound.db.models import Event as EventRow
@@ -16,10 +16,13 @@ from etherbound.engine.actions import (
     Action,
     ActionResult,
     ActivityState,
+    ActorTarget,
     CarriedObject,
+    EdgeTarget,
     MenuEntry,
     MoveAction,
     ObjectTarget,
+    PhysicsPosition,
     SelfTarget,
     Target,
     TileTarget,
@@ -188,11 +191,13 @@ class WorldEngine:
     def _sync_materials(self, session: Session) -> None:
         existing_rows = list(session.scalars(select(MaterialRow)))
         existing = {row.key: row.id for row in existing_rows}
+        rows_by_key = {row.key: row for row in existing_rows}
         if existing and any(key not in self.registry.ids() for key in existing):
             missing = sorted(key for key in existing if key not in self.registry.ids())
             raise RuntimeError(f"saved materials missing from materials.toml: {', '.join(missing)}")
         for material in self.registry:
             if material.key in existing:
+                rows_by_key[material.key].resistance = material.resistance
                 continue
             session.add(
                 MaterialRow(
@@ -351,6 +356,7 @@ class WorldEngine:
             generated_world = not has_chunks or meta.gen_version < GEN_VERSION
             if generated_world:
                 if has_chunks:
+                    session.query(WallIntegrity).delete(synchronize_session=False)
                     session.query(ChunkLevelRow).delete(synchronize_session=False)
                     session.query(ChunkRow).delete(synchronize_session=False)
                 self._delete_uncarried_objects(session)
@@ -534,6 +540,7 @@ class WorldEngine:
         async with self._lock:
             with self.sessions() as session:
                 session.query(EventRow).delete()
+                session.query(WallIntegrity).delete(synchronize_session=False)
                 session.query(ObjectRow).delete()
                 session.query(ChunkLevelRow).delete()
                 session.query(ChunkRow).delete()
@@ -639,11 +646,13 @@ class WorldEngine:
                     )
                 text: str | None = None
                 activity: ActivityState | None = None
+                trajectory: list[PhysicsPosition] = []
                 duration = handler.duration(ctx, action)
                 if duration == 0:
                     resolution = handler.resolve(ctx, action)
                     events.extend(resolution.events)
                     text = resolution.text
+                    trajectory = resolution.trajectory
                 else:
                     activity = ActivityState(
                         op=action.op,
@@ -665,7 +674,7 @@ class WorldEngine:
                 session.commit()
                 self._next_seq = next_seq
                 self.bus.enqueue(events)
-                if action.op in HANDLING_OPS:
+                if action.op in HANDLING_OPS | {"throw"}:
                     self._refresh_load(session)
                 result = ActionResult(
                     accepted=True,
@@ -679,6 +688,7 @@ class WorldEngine:
                     activity=activity,
                     carried=list(self._carried(session, actor_id)),
                     load_kg=self.load_kg(actor_id),
+                    trajectory=trajectory,
                 )
         await self.bus.drain()
         return result
@@ -760,6 +770,22 @@ class WorldEngine:
                 if row.h is not None and row.h // 6 == surface_z
             ]
             candidates.extend(ObjectTarget(id=row.id) for row in tile_rows)
+            cx, cy, local_x, local_y = self.grid.chunk_coords(tile_x, tile_y)
+            cell_index = local_y * CHUNK_SIZE + local_x
+            for level in sorted(self.grid.levels.values(), key=lambda item: item.z):
+                if (level.cx, level.cy) != (cx, cy):
+                    continue
+                if level.wall_n[cell_index]:
+                    candidates.append(EdgeTarget(x=tile_x, y=tile_y, z=level.z, direction="north"))
+                if level.wall_w[cell_index]:
+                    candidates.append(EdgeTarget(x=tile_x, y=tile_y, z=level.z, direction="west"))
+            candidates.extend(
+                ActorTarget(id=other.id)
+                for other in session.scalars(select(Actor).order_by(Actor.id))
+                if other.id != actor.id
+                and (floor(other.x), floor(other.y), other.h)
+                == (tile_x, tile_y, chosen.h if chosen else actor.h)
+            )
             for row in tile_rows:
                 kind = self.catalog.get(row.kind)
                 if kind is not None and is_accessible(kind, row):

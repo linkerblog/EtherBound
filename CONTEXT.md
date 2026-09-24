@@ -8,7 +8,8 @@ here, `Dev-003` (archived in `docs/done/`) the native launcher, `Dev-005` (archi
 vocabulary, generated menus and activities. `Dev-009` (archived in `docs/done/`) makes BitCanvas
 the standalone terrain/furniture generator and adds guarded game-sheet sync. `Dev-012` (archived in
 `docs/done/`) adds objects: the Matter primitive as data (kinds, volumes, carrying and the first
-handling ops).
+handling ops). `Dev-013` (archived in `docs/done/`) adds deterministic action-time tile physics,
+cumulative material damage, persisted wall integrity, impacts, falls and authoritative paths.
 
 ## Modules
 
@@ -16,15 +17,15 @@ handling ops).
 |---|---|---|
 | server.app | `server/src/etherbound/app.py`, `config.py`, `routes/api.py` | FastAPI app, lifespan (migrations, world, clock, schema export), REST routes (`/api/objects` exposes the kind catalog) |
 | server.clock | `server/src/etherbound/clock.py` | 1 Hz logic clock: speeds x1/x3/x10, pause, autopause locks |
-| server.engine | `server/src/etherbound/engine/` | World engine: the only writer of state. `world.py` (grid ownership, object index, generation commit, stale-world regeneration, actor state and carried load, event persistence/dispatch), `actions.py` (targets, actions, the `Location` union, `CarriedObject`, `ActivityState`, `MenuEntry.subject`), `ops.toml` (the 58-op vocabulary), `objects.py` (object-row helpers: children, recursive `object_total_mass`, actor load, location setters, chunk bump/refresh), `ops/` (catalog loader, handler registry, `move`, `inspect`, `wait`, `dig`, `climb`, `handling` with `take`, `drop`, `put`, `open`, `close`, `wear`, `remove`), `movement.py` (`move_in_world`, sub-step standing rule, slope/material/load cost, 0.3 m wall clearance) |
-| server.events | `server/src/etherbound/events/` | Typed committed event models (`object.moved`, `object.changed` join the log) and FIFO async subscriber bus; engine assigns global sequence and stores logged events transactionally |
-| server.world | `server/src/etherbound/world/` | World data: `materials.py` + `materials.toml` (append-only registry), `objects.py` + `objects.toml` (validated object-kind catalog and derived bulk/mass/hands), `chunk.py` (blobs, per-tile `dug`), `grid.py` (per-chunk level index, per-chunk tile-object index, solidity/headroom, object volumes and surface tops, `resting_surfaces`, wall bases, climbable links, lazy chunk-loader API), `nav.py` (A* over standing spots), `gen/` (seeded noise + versioned test world) |
-| server.net | `server/src/etherbound/net/` | WS hub with per-connection chunk tracking; movement chunk changes use the position returned by `submit`, not a world-state DB read per input; Pydantic timed `input` (`dt` 0 < dt ≤ 0.1 s, default 0.05); chunk payloads carry tile objects and snapshot/result carry `carried`/`load_kg`; combined OpenAPI + WS schema export |
-| server.db | `server/src/etherbound/db/`, `server/alembic/` | SQLAlchemy models, engine/session factory, Alembic upgrade on start |
+| server.engine | `server/src/etherbound/engine/` | World engine is the only state writer. Shared action/target models; generated menus; handlers for all existing ops plus push, pull, drag, throw, hit and break; `physics.py` supplies deterministic SI formulas and trajectory resolution. |
+| server.events | `server/src/etherbound/events/` | Typed committed events; `impact` and `physics.resolved` record energy outcomes and full paths; FIFO async subscriber bus and transactional sequence persistence |
+| server.world | `server/src/etherbound/world/` | Append-only material registry (resistance in J per half-metre), validated object kinds (data-defined strike speed), chunk/grid geometry, A*, and seeded generation v5 with a sledgehammer near spawn |
+| server.net | `server/src/etherbound/net/` | WS hub, timed inputs, per-connection chunk tracking; action results carry authoritative physics trajectories; combined OpenAPI + WS schema export |
+| server.db | `server/src/etherbound/db/`, `server/alembic/` | SQLAlchemy models, engine/session factory, Alembic upgrades; `0006_physics` adds actor mass and sparse wall-edge integrity |
 | server.rng | `server/src/etherbound/rng.py` | `RNGStreams.stream(system)` — one seeded stream per system (`worldgen` drives generation) |
 | web.world | `web/src/world/` | `ChunkStore` (public `isVoid` query and `solidTopH`, the solid top under contiguous VOID bands, plus the per-chunk object index and the fetched kind catalog), `rules.ts` (server-parity standing/headroom/wall rules including object volumes and surface tops, slope and material costs), `cutaway.ts` (roof connectivity and height cutoff), `ray.ts` (shared height-stepped floor/ground ray march), `occlusion.ts` (connected structures, storey cutoffs and Niko coverage probes), `pick.ts` (height-aware picking through `ray.ts`, includes VOID floors, solid object tops and skips VOID ground), `materials.ts` |
-| web.game | `web/src/game/` | Phaser scene: fixed 64×32 isometric projection (16 px per `h`), ordered per-layer `Blitter` batches over runtime `terrain` atlas masks and the grass/wood/concrete/asphalt/roofing/brick sprite table (statically imported in `terrainSheets.ts`), including a sheared 128×32 side-sheet band per textured material (four cap and four fill cells per side, drawn one unit at a time with a cap on the face top and fill below) and a separate wall band built from the same side sheets by `shearWallCell` (four cap and four fill cells per `n`/`w` edge, one unit per cell with a cap on the wall's real top and fill below); tile objects drawn inside the same ordered batches (static furniture sprites via `objectSprites.ts`/`objectSheets.ts`, or a placeholder prism, with pile markers for non-solid objects); chunk base and diagonal rows split at Niko's feet, explicitly anchored terraced ground/floor faces and walls, void-cut ground faces drawn as fill only from `solidTopH`; roofed and structure cutaways with front-wall stubs and a topmost silhouette when Niko remains occluded; redraws use a time-budgeted dirty queue and culling uses cached chunk bounds; screen-relative WASD, isometric bounds and per-tile-cutoff right-click picking; integer zoom x1–x4 (wheel, `+`/`-`/`0`, saved per browser); timed 50 ms movement steps plus final partial step; redraws arriving-chunk neighbours; resyncs idle prediction on ticks |
-| web.net | `web/src/net/` | WS client, prediction/reconciliation by replaying unacknowledged timed steps (no wall clock, 0.3 m wall clearance, slowed by carried `load_kg`), generated `schema.d.ts`, protocol types; snapshot listeners run before state listeners, and `requestNewGame(seed)` calls the existing REST endpoint; the client caches every chunk it receives and replays the cache to a late `onChunk` listener, clearing it on snapshot and on `disconnect`; it also reconnects a closed or failed socket with a 250 ms→4 s backoff and stops on `disconnect`; `sendAction` and pause flush the current partial movement step, `onResult`, `onActivity` |
+| web.game | `web/src/game/` | Phaser isometric renderer and ordered tile-object batches; an ephemeral marker animates the server-computed physics trajectory and hides the static object during motion; no client-side collision simulation |
+| web.net | `web/src/net/` | WS client, movement prediction/reconciliation, generated `schema.d.ts`, protocol types and action-result trajectory listeners |
 | web.ui | `web/src/ui/` | React overlay framed around the Phaser viewport: clock, speeds, pills, meters, `CARRY` panel (hands, back, `LOAD`, amber above 10 kg), `FEED` (kinds `seen`, `act`, `warn`, `fail`, `echo`), `ACT` telemetry row, input, generated context menu (server `target` line, entry label followed by its `subject`, arrow keys, Enter, Esc) that submits each entry's `action`; `NEW` control opens a confirmation popover with a seed field; `DEBUG` opens a right-side drawer with a placeholder tab |
 | launcher | `launcher/` | `EtherBound.exe`, the dev launcher (C#, .NET 10, Native AOT): starts server + web without shells, each in its own job inside a kill-on-close launcher job, health checks, hot reload by restart, leftover and port handling, UTF-8 logs, framed version/services banner |
 | bitcanvas | `BitCanvas/` | Standalone seeded texture (grass, planks, cobblestone, concrete, asphalt, roofing, brick) and furniture sprite generator (plain HTML/JS, no build, opens from disk). "Send to game" writes the 256×32 top atlas and 128×32 side sheet into `src/sprites/` under the game's names (File System Access API, Chromium only); downloads remain available for every export, and the pixel-style furniture exports go to `src/sprites/object/` |
@@ -33,16 +34,17 @@ handling ops).
 ## Data model
 
 SQLite at `data/etherbound.db` (gitignored). Migrations `0001_initial`, `0002_world`, `0003_event`,
-`0004_dig_activity` and `0005_object`:
+`0004_dig_activity`, `0005_object` and `0006_physics`:
 
 | Table | Columns |
 |---|---|
 | `world_meta` | `id` (pk, always 1), `seed`, `game_minute`, `speed` (1/3/10), `paused`, `gen_version` |
-| `actor` | `id` (pk), `kind` (`player`), `x`, `y`, `z` (derived `h // 6`), `h` (half-metres), nullable JSON `activity` (`op`, `action`, `started_minute`, `ends_minute`) |
+| `actor` | `id` (pk), `kind` (`player`), `x`, `y`, `z` (derived `h // 6`), `h` (half-metres), `mass_kg` (default 80), nullable JSON `activity` (`op`, `action`, `started_minute`, `ends_minute`) |
 | `material` | append-only `id` ↔ `key` mapping plus rendering/physics properties |
 | `chunk` | pk `(cx, cy)`; blobs `ground_h` (int16×1024), `surface_mat` (uint16×1024), nullable `dug` (uint8×1024, NULL = all zeros), `strata` JSON, `revision`, `gen_version` |
 | `chunk_level` | pk `(cx, cy, z)`; blobs `floor_h`, `floor_mat`, `wall_n`, `wall_w`, `edge_flags`, `flags` |
 | `object` | `id` (pk), `kind`, `loc` (`tile`/`in`/`held`/`worn`), nullable `x`/`y`/`h`/`cx`/`cy`, nullable `container_id` (self-FK), nullable `actor_id`, nullable `slot`, `quantity` (> 0), JSON `state`, nullable `integrity`, nullable `owner`; a CHECK pins the exact columns of each `loc` |
+| `wall_integrity` | sparse pk `(cx, cy, z, cell_index, edge)` for partly damaged north/west wall edges; stores remaining joules |
 | `event` | `seq` (global ordered pk), `game_minute`, `type`, nullable `actor_id`, JSON `data`; indexed by minute, type and actor |
 
 Spatial units: 1 m tiles in 32×32 chunks; `h` in half-metres; `z` is the absolute 3 m band
@@ -50,15 +52,15 @@ Spatial units: 1 m tiles in 32×32 chunks; `h` in half-metres; `z` is the absolu
 flags; below the surface everything is implicit strata until a `void` flag excavates it. Strata
 depth is measured from the original ground (`ground_h + dug`), so digging exposes deeper layers
 instead of dragging them down. The test
-world (`gen_version = 4`) is 8×8 chunks with hills, a road (spawn at 121.5, 128.5, h=2), a terrace
+world (`gen_version = 5`) is 8×8 chunks with hills, a road (spawn at 121.5, 128.5, h=2), a terrace
 with a ramp, a building with a graded approach, west doorway, accessible basement, first floor at
 h=18, roof at h=24 and a pond with a park pit. It also lays out objects in a fixed order: a shovel
 (124, 126, h=2), a backpack (125, 126, h=2), a closed chest (124, 127, h=2) holding apple ×3 and
 bottle ×2, a table (137, 133, h=12) with a bottle on its top, two chairs, a shelf with apple ×2, a
-barrel (all on the building's ground floor), and two chests stacked at (126, 127) (the upper resting
-on the lower's top at h=3). `new_game` wipes actors, objects, chunks and levels
+barrel (all on the building's ground floor), two chests stacked at (126, 127) (the upper resting
+on the lower's top at h=3), and a sledgehammer at (126, 126). `new_game` wipes actors, objects, chunks and levels
 and regenerates from the seed; `ensure_world` fills an existing Phase 0 save without a wipe, keeping
-held and worn objects with their contents and deleting the uncarried ones before re-laying the v4
+held and worn objects with their contents and deleting the uncarried ones before re-laying the v5
 layout. On load, a saved actor within
 0.5 m of a standing surface in its tile is snapped to that surface's exact `h` (no event);
 further off, it is relocated to spawn (`actor.spawned`, `relocated`).
@@ -71,15 +73,18 @@ further off, it is relocated to spawn (`actor.spawned`, `relocated`).
   `activity.finished` (`interrupted`) → an instant op resolves (events and an optional `text`), a
   durative one stores an activity and emits `activity.started` → transactional commit and event
   enqueue → FIFO dispatch outside the engine lock. Actions are a union discriminated by `op`;
-  targets are `self`, `tile {x, y, h}` or `object {id}`, and `put` carries a second `into` target.
+  targets are `self`, `tile {x, y, h}`, `object {id}`, `actor {id}` or
+  `edge {x, y, z, direction}`; `put` carries a second `into` target.
 - **Ops.** `engine/ops.toml` is the vocabulary (key, label, group, target kinds, tags); a handler
   (`applies`, `builds`, `subject`, `validate`, `duration`, `resolve`, `complete`) gives an op
   behaviour, and `register` refuses a key missing from the catalog. One target can `builds` several
   actions and `subject` names what an entry acts on. Handled: `move` (never in menus), `inspect`
   (instant, 30 m, tile or object text, no event), `wait` (15 min), `dig` (ground surface only,
   `ceil(30 × dig_cost / tool)` min per 0.5 m with the best held `tool.dig` or 0.25 bare-handed,
-  `dig_cost ≤ 2`, refused when an object rests at the ground `h`), `climb`, plus the handling ops
-  `take`, `drop`, `put`, `open`, `close`, `wear` and `remove` (all instant). `climb` still takes
+  `dig_cost ≤ 2`, refused when an object rests at the ground `h`), `climb`, the instant handling
+  ops, and `push`, `pull`, `drag`, `throw`, `hit`, `break`. Physics resolves a full tile path at
+  submit time using SI energy and friction values; `physics.resolved` records the result and the
+  action response carries its authoritative trajectory. `climb` still takes
   1 min to an orthogonal neighbour 1–1.5 m up or down, and reach is the actor's own tile or an
   orthogonal neighbour within `h-1..h+1.5` m.
 - **Objects.** Only the engine writes object rows. A tile object rests at `h`; a `solid` kind fills
@@ -88,6 +93,13 @@ further off, it is relocated to spawn (`actor.spawned`, `relocated`).
   back on drop. A closed container hides its contents from the chunk payload and the menu; a
   supported object (something on its top) cannot be taken or opened. Carried mass slows movement
   (`load_multiplier`); `load_kg` recursively counts held and worn objects and their contents.
+- **Physics.** Shove uses reduced mass at 2 m/s; throw caps at 8 m/s and 100 J; hands use 2 kg at
+  5 m/s; horizontal loss per metre is `0.05 × mass × 9.81` J. `Object.integrity` is remaining J
+  (NULL means intact at material resistance × max(1, height) half-metre cells); wall edges span six
+  cells and partial damage persists in
+  `wall_integrity`. Zero integrity turns objects into data-defined rubble (spilling container
+  contents) or opens wall edges. Falls resolve in the same action; bodies over a 3 m fall emit
+  potential energy as `impact`. Physics never mutates health. The client animates server paths only.
 - **Activities.** One per actor, stored on the actor, advanced only by clock ticks. In
   `advance_time`, actors whose `ends_minute` has come are completed in id order before
   `clock.ticked`: the action is re-validated, and either `complete` applies its events then
@@ -96,7 +108,8 @@ further off, it is relocated to spawn (`actor.spawned`, `relocated`).
 - **Menus.** `WorldEngine.menu(actor_id, x, y, z)` is a read (no lock): candidates are the tile's
   standing surface for `z`, `self` and the objects lying on it at that surface's band, plus the
   contents of its open or lidless containers; on the actor's own tile, also every held and worn
-  object and the contents of worn open containers. Each handled op whose targets allow a candidate
+  object and the contents of worn open containers; it also offers adjacent actors and existing
+  north/west wall edges as physics targets. Each handled op whose targets allow a candidate
   and whose `applies` holds becomes an entry with its `action`, `available`, `reason` and `subject`,
   in catalog order then candidate order.
 - **Event bus.** Only `WorldEngine` stamps/enqueues events. Logged events share the state
@@ -116,7 +129,7 @@ further off, it is relocated to spawn (`actor.spawned`, `relocated`).
   `GET /api/events?after_seq&limit&type&actor_id` (ordered event records; limit 1–500).
 - **WebSocket `/ws`.** Server → client: `snapshot` (with `world: {chunk_size, level_h, bounds}`),
   `tick`, `ack` (with `h`), `result` (for an `action`: accepted, reason, text, activity, `carried`,
-  `load_kg`),
+  `load_kg`, trajectory),
   `activity` (one of Niko's activities finished: op, outcome, reason), `chunk` (full chunk payload
   with `levels[]` and `objects[]`), `error`. Snapshot and tick actors carry `activity`, `carried`
   and `load_kg`.
@@ -222,10 +235,10 @@ its process to stop it, and its job takes the services with it. The logs are
   logger owns an INFO handler because Alembic leaves root at `WARN`. Transient events
   such as `clock.ticked` and `chunk.changed` are skipped; `/api/events` remains the structured log.
 - **Pytest warnings are third-party** (FastAPI/Starlette/pytest-asyncio deprecations), not project
-  issues. The current server suite is 110 tests, all passing.
-- **Current automated validation:** 110 server tests, and the web and launcher suites plus the
-  production build pass; generated API types are unchanged. Manual isometric visual, performance and
-  furniture-sprite export acceptance remains in `docs/PENDING.md`.
+  issues. The current server suite is 121 tests, all passing.
+- **Current automated validation:** 121 server tests, Ruff, Pyright, 64 web tests, generated schema
+  types and production web build pass. The launcher suite was not rerun for Dev-013. Manual physics
+  animation and the other GUI acceptances remain in `docs/PENDING.md`.
 - **VOID is a ground-volume flag, not a missing-floor flag.** Render and pick stored floors even
   when their band is VOID; suppress only a ground top whose own band is void.
 - **Do not mix separate sprites with a same-depth terrain batch.** Phaser preserves display-list

@@ -272,6 +272,7 @@ class WebSocketHub:
                     activity=_activity(result.activity),
                     carried=result.carried,
                     load_kg=result.load_kg,
+                    trajectory=result.trajectory,
                 ),
             )
             return

@@ -18,7 +18,9 @@ def test_upgrade_head_creates_initial_schema(tmp_path: Path) -> None:
     command.upgrade(config, "head")
 
     tables = inspect(create_engine(f"sqlite:///{database.as_posix()}"))
-    assert {"world_meta", "actor", "event", "alembic_version"}.issubset(tables.get_table_names())
+    assert {"world_meta", "actor", "event", "wall_integrity", "alembic_version"}.issubset(
+        tables.get_table_names()
+    )
 
 
 def test_upgrade_existing_world_keeps_rows(tmp_path: Path) -> None:
@@ -44,6 +46,7 @@ def test_upgrade_existing_world_keeps_rows(tmp_path: Path) -> None:
     with engine.connect() as connection:
         assert connection.execute(text("SELECT seed, game_minute FROM world_meta")).one() == (42, 9)
         assert connection.execute(text("SELECT id, x, y FROM actor")).one() == ("niko", 8, 9)
+        assert connection.execute(text("SELECT mass_kg FROM actor")).scalar_one() == 80
         assert connection.execute(text("SELECT count(*) FROM event")).scalar_one() == 0
 
 
@@ -80,7 +83,7 @@ def test_upgrade_0004_keeps_rows_and_reads_null_dug_as_zeros(tmp_path: Path) -> 
     assert loaded.ground_h == chunk.ground_h
 
 
-def test_upgrade_0004_keeps_the_actor_and_fills_v4_objects(tmp_path: Path) -> None:
+def test_upgrade_0004_keeps_the_actor_and_fills_v5_objects(tmp_path: Path) -> None:
     database = tmp_path / "objects.db"
     config = Config(str(Path(__file__).parents[1] / "alembic.ini"))
     config.set_main_option("script_location", str(Path(__file__).parents[1] / "alembic"))
@@ -114,4 +117,5 @@ def test_upgrade_0004_keeps_the_actor_and_fills_v4_objects(tmp_path: Path) -> No
         "chair",
         "shelf",
         "barrel",
+        "sledgehammer",
     }

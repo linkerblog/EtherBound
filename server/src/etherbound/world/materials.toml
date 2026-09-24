@@ -1,3 +1,4 @@
+# `resistance` is joules absorbed to break one half-metre segment.
 [[materials]]
 key = "grass"
 name = "Grass"
@@ -10,7 +11,7 @@ diggable = true
 dig_cost = 1.0
 flammable = true
 density = 1.3
-resistance = 1.0
+resistance = 50.0
 liquid = false
 tags = ["natural"]
 
@@ -26,7 +27,7 @@ diggable = true
 dig_cost = 1.0
 flammable = false
 density = 1.6
-resistance = 1.5
+resistance = 75.0
 liquid = false
 tags = ["natural"]
 
@@ -42,7 +43,7 @@ diggable = true
 dig_cost = 0.8
 flammable = true
 density = 1.4
-resistance = 1.0
+resistance = 50.0
 liquid = false
 tags = ["natural"]
 
@@ -58,7 +59,7 @@ diggable = true
 dig_cost = 1.4
 flammable = false
 density = 1.8
-resistance = 2.0
+resistance = 100.0
 liquid = false
 tags = ["natural"]
 
@@ -74,7 +75,7 @@ diggable = true
 dig_cost = 4.0
 flammable = false
 density = 2.7
-resistance = 8.0
+resistance = 400.0
 liquid = false
 tags = ["natural"]
 
@@ -90,7 +91,7 @@ diggable = true
 dig_cost = 0.8
 flammable = false
 density = 1.6
-resistance = 1.0
+resistance = 50.0
 liquid = false
 tags = ["natural"]
 
@@ -106,7 +107,7 @@ diggable = false
 dig_cost = 10.0
 flammable = false
 density = 2.4
-resistance = 7.0
+resistance = 350.0
 liquid = false
 tags = ["road"]
 
@@ -122,7 +123,7 @@ diggable = true
 dig_cost = 5.0
 flammable = false
 density = 2.4
-resistance = 7.0
+resistance = 350.0
 liquid = false
 tags = ["building"]
 
@@ -138,7 +139,7 @@ diggable = true
 dig_cost = 4.0
 flammable = false
 density = 1.9
-resistance = 5.0
+resistance = 250.0
 liquid = false
 tags = ["building"]
 
@@ -154,7 +155,7 @@ diggable = true
 dig_cost = 1.5
 flammable = true
 density = 0.7
-resistance = 2.0
+resistance = 100.0
 liquid = false
 tags = ["building"]
 
@@ -170,7 +171,7 @@ diggable = true
 dig_cost = 2.0
 flammable = false
 density = 2.0
-resistance = 4.0
+resistance = 200.0
 liquid = false
 tags = ["building"]
 
@@ -186,7 +187,7 @@ diggable = true
 dig_cost = 2.0
 flammable = false
 density = 1.8
-resistance = 3.0
+resistance = 150.0
 liquid = false
 tags = ["building"]
 
@@ -234,7 +235,7 @@ diggable = false
 dig_cost = 10.0
 flammable = false
 density = 2.5
-resistance = 4.0
+resistance = 200.0
 liquid = false
 tags = ["building"]
 
@@ -250,7 +251,7 @@ diggable = false
 dig_cost = 10.0
 flammable = true
 density = 0.6
-resistance = 3.0
+resistance = 150.0
 liquid = false
 tags = ["object"]
 
@@ -266,7 +267,7 @@ diggable = false
 dig_cost = 10.0
 flammable = false
 density = 7.8
-resistance = 9.0
+resistance = 450.0
 liquid = false
 tags = ["object"]
 
@@ -282,7 +283,7 @@ diggable = false
 dig_cost = 10.0
 flammable = true
 density = 0.3
-resistance = 0.5
+resistance = 25.0
 liquid = false
 tags = ["object"]
 
@@ -298,6 +299,6 @@ diggable = false
 dig_cost = 10.0
 flammable = false
 density = 1.0
-resistance = 0.2
+resistance = 10.0
 liquid = false
 tags = ["object"]

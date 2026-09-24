@@ -39,7 +39,8 @@ model, commands, measured pitfalls). Until then, `docs/utils/VISION.md` is the o
 - **Closing a phase empties `docs/done/`.** Once `docs/PENDING.md` has nothing left for the phase:
   move whatever in `docs/done/` is still true into `docs/utils/VISION.md`, `CONTEXT.md` or tests
   (a "must not break" list becomes tests where it can); make sure no living doc points into
-  `docs/done/`; tag the closing commit `phase-N-end`; then delete the contents of `docs/done/`.
+  `docs/done/`; add a `Phase N Recap` entry (`Kind = Recap`) to the Dev Blog that links the
+  phase's entries; tag the closing commit `phase-N-end`; then delete the contents of `docs/done/`.
   Git history is the archive, and nobody reads old plans from it unless the user asks.
 - **Vision changes go to `docs/utils/VISION.md` first.** If a decision changes, update the doc, then the code.
 - **Versions.** `docs/utils/VERSION.md` lists every module and its version. Every module starts at
@@ -59,8 +60,12 @@ model, commands, measured pitfalls). Until then, `docs/utils/VISION.md` is the o
   (`EtherBound — Systems Index`), preserving the existing page format, table structure,
   separator before the subindexes, and corresponding icon. When a task is completed, add a concise
   report under its own `Work Reports` subindex; reports must not be mixed into another subindex.
-  Every update task must also create a new page under the `Dev Blog` subindex. Dev Blog
-  pages must use a technical, descriptive title and an icon that matches the entry's topic. Work
+  The `Dev Blog` subindex is a database with one entry per `Dev-XYZ` or `FixNN` that changes
+  code, created when the doc moves to `docs/done/`; later work on the same doc updates its entry
+  instead of adding a new one. Entries use a technical, descriptive title and an icon that
+  matches the topic, and fill Kind, Plan, Phase and Modules; Version is filled once the release
+  commit exists. Changes to docs, rules or workflow, and small edits without a plan, go only in
+  the Work Report. Work
   report entries must be pages under the `Work Reports` subindex, titled `Report DD/MM/YYYY`, with
   an icon that matches the report's topic. Work Reports are consolidated by date: before creating a
   report, search for that date and update the existing page. There must be only one Work Report page

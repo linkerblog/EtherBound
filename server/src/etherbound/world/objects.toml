@@ -90,6 +90,18 @@ height = 0
 
 [kinds.tool]
 dig = 1.0
+strike_speed_m_s = 15.0
+
+[[kinds]]
+key = "sledgehammer"
+name = "Sledgehammer"
+material = "metal"
+mass = 5.0
+bulk = 18.0
+height = 0
+
+[kinds.tool]
+strike_speed_m_s = 15.0
 
 [[kinds]]
 key = "bottle"
@@ -106,5 +118,14 @@ name = "Apple"
 material = "food"
 mass = 0.2
 bulk = 0.3
+height = 0
+stackable = true
+
+[[kinds]]
+key = "rubble"
+name = "Rubble"
+material = "rock"
+mass = 1.0
+bulk = 2.0
 height = 0
 stackable = true

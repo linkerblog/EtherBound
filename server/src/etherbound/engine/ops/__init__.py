@@ -13,6 +13,14 @@ from etherbound.engine.ops.handling import (
 )
 from etherbound.engine.ops.inspect import InspectHandler
 from etherbound.engine.ops.move import MoveHandler
+from etherbound.engine.ops.physics import (
+    BreakHandler,
+    DragHandler,
+    HitHandler,
+    PullHandler,
+    PushHandler,
+    ThrowHandler,
+)
 from etherbound.engine.ops.wait import WaitHandler
 
 _handlers: dict[str, OpHandler] = {}
@@ -51,6 +59,12 @@ for _handler in (
     CloseHandler(),
     WearHandler(),
     RemoveHandler(),
+    PushHandler(),
+    PullHandler(),
+    DragHandler(),
+    ThrowHandler(),
+    HitHandler(),
+    BreakHandler(),
 ):
     register(_handler)
 

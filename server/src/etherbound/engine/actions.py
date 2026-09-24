@@ -19,7 +19,22 @@ class ObjectTarget(BaseModel):
     id: int
 
 
-Target = Annotated[SelfTarget | TileTarget | ObjectTarget, Field(discriminator="kind")]
+class ActorTarget(BaseModel):
+    kind: Literal["actor"] = "actor"
+    id: str
+
+
+class EdgeTarget(BaseModel):
+    kind: Literal["edge"] = "edge"
+    x: int
+    y: int
+    z: int
+    direction: Literal["north", "south", "east", "west"]
+
+
+Target = Annotated[
+    SelfTarget | TileTarget | ObjectTarget | ActorTarget | EdgeTarget, Field(discriminator="kind")
+]
 
 
 class TileLoc(BaseModel):
@@ -111,6 +126,46 @@ class RemoveAction(BaseModel):
     target: ObjectTarget
 
 
+class PushAction(BaseModel):
+    op: Literal["push"] = "push"
+    target: ObjectTarget | ActorTarget
+    dx: int = Field(ge=-1, le=1)
+    dy: int = Field(ge=-1, le=1)
+
+
+class PullAction(BaseModel):
+    op: Literal["pull"] = "pull"
+    target: ObjectTarget | ActorTarget
+    dx: int = Field(ge=-1, le=1)
+    dy: int = Field(ge=-1, le=1)
+
+
+class DragAction(BaseModel):
+    op: Literal["drag"] = "drag"
+    target: ObjectTarget | ActorTarget
+    dx: int = Field(ge=-1, le=1)
+    dy: int = Field(ge=-1, le=1)
+
+
+class ThrowAction(BaseModel):
+    op: Literal["throw"] = "throw"
+    target: ObjectTarget
+    dx: int = Field(ge=-1, le=1)
+    dy: int = Field(ge=-1, le=1)
+
+
+class HitAction(BaseModel):
+    op: Literal["hit"] = "hit"
+    target: ObjectTarget | ActorTarget | EdgeTarget
+    tool: ObjectTarget | None = None
+
+
+class BreakAction(BaseModel):
+    op: Literal["break"] = "break"
+    target: ObjectTarget | EdgeTarget
+    tool: ObjectTarget | None = None
+
+
 Action = Annotated[
     MoveAction
     | InspectAction
@@ -123,9 +178,23 @@ Action = Annotated[
     | OpenAction
     | CloseAction
     | WearAction
-    | RemoveAction,
+    | RemoveAction
+    | PushAction
+    | PullAction
+    | DragAction
+    | ThrowAction
+    | HitAction
+    | BreakAction,
     Field(discriminator="op"),
 ]
+
+
+class PhysicsPosition(BaseModel):
+    kind: Literal["actor", "object"]
+    id: str | int
+    x: float
+    y: float
+    h: int
 
 
 class ActivityState(BaseModel):
@@ -157,6 +226,7 @@ class ActionResult(BaseModel):
     activity: ActivityState | None = None
     carried: list[CarriedObject] = Field(default_factory=lambda: [])
     load_kg: float = 0.0
+    trajectory: list[PhysicsPosition] = Field(default_factory=lambda: [])
 
 
 class MenuEntry(BaseModel):

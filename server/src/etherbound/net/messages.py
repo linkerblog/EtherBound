@@ -2,7 +2,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-from etherbound.engine.actions import Action, CarriedObject
+from etherbound.engine.actions import Action, CarriedObject, PhysicsPosition
 
 
 class InputMessage(BaseModel):
@@ -125,6 +125,7 @@ class ResultMessage(BaseModel):
     activity: ActivitySnapshot | None = None
     carried: list[CarriedObject] = Field(default_factory=lambda: [])
     load_kg: float = 0.0
+    trajectory: list[PhysicsPosition] = Field(default_factory=lambda: [])
 
 
 class ActivityMessage(BaseModel):

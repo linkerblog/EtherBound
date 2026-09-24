@@ -86,6 +86,27 @@ test("disconnect clears the cache", () => {
   assert.equal(received.length, 0);
 });
 
+test("action results deliver server trajectories to listeners", () => {
+  const { client, socket } = connect();
+  const received: unknown[] = [];
+  client.onResult((result) => received.push(result.trajectory));
+  const trajectory = [{ kind: "object", id: 9, x: 2, y: 3, h: 1 }];
+
+  socket.emit({
+    type: "result",
+    sequence: 1,
+    accepted: true,
+    reason: null,
+    text: null,
+    activity: null,
+    load_kg: 0,
+    trajectory,
+  });
+
+  assert.deepEqual(received, [trajectory]);
+  client.disconnect();
+});
+
 test("a dropped socket reconnects", async () => {
   const { socket } = connect();
   socket.emitClose();

@@ -4,6 +4,7 @@ export type Direction = { x: number; y: number };
 export type MenuEntry = components["schemas"]["MenuEntry"];
 export type MenuResponse = components["schemas"]["MenuResponse"];
 export type GameAction = MenuEntry["action"];
+export type PhysicsPosition = components["schemas"]["PhysicsPosition"];
 export type ActivitySnapshot = components["schemas"]["ActivitySnapshot"];
 export type ResultMessage = components["schemas"]["ResultMessage"];
 export type ActivityMessage = components["schemas"]["ActivityMessage"];

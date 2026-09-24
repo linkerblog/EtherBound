@@ -2,7 +2,7 @@ from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, Field
 
-from etherbound.engine.actions import Location
+from etherbound.engine.actions import Location, PhysicsPosition
 
 
 class TilePos(BaseModel):
@@ -36,7 +36,7 @@ class ActorMoved(Event):
     type: Literal["actor.moved"] = "actor.moved"
     from_tile: TilePos
     to_tile: TilePos
-    mode: Literal["walk", "climb", "lowered"] = "walk"
+    mode: Literal["walk", "climb", "lowered", "physics"] = "walk"
 
 
 class ActivityStarted(Event):
@@ -80,6 +80,20 @@ class ObjectChanged(Event):
     kind: str
     op: str
     changes: dict[str, Any]
+
+
+class Impact(Event):
+    type: Literal["impact"] = "impact"
+    target: dict[str, Any]
+    energy: float
+
+
+class PhysicsResolved(Event):
+    type: Literal["physics.resolved"] = "physics.resolved"
+    op: str
+    trajectory: list[PhysicsPosition]
+    damage: list[dict[str, Any]]
+    broken: list[dict[str, Any]]
 
 
 class ChunkChanged(Event):

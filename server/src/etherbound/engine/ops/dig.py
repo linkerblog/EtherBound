@@ -37,7 +37,7 @@ class DigHandler:
         best = BARE_HAND_TOOL
         for row in held_objects(ctx.session, ctx.actor.id):
             kind = ctx.grid.catalog.get(row.kind)
-            if kind is not None and kind.tool is not None:
+            if kind is not None and kind.tool is not None and kind.tool.dig is not None:
                 best = max(best, kind.tool.dig)
         return best
 

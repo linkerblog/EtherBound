@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from etherbound.db.models import Actor, WorldMeta
 from etherbound.db.models import Object as ObjectRow
-from etherbound.engine.actions import Action, Target
+from etherbound.engine.actions import Action, PhysicsPosition, Target
 from etherbound.events.models import Event, TilePos
 from etherbound.world.chunk import CHUNK_SIZE
 from etherbound.world.grid import WorldGrid
@@ -42,6 +42,7 @@ class ActionContext:
 class Resolution:
     events: list[Event] = field(default_factory=lambda: [])
     text: str | None = None
+    trajectory: list[PhysicsPosition] = field(default_factory=lambda: [])
 
 
 class OpHandler(Protocol):

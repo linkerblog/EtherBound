@@ -39,6 +39,7 @@ class Actor(Base):
     y: Mapped[float] = mapped_column(Float, nullable=False)
     z: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     h: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    mass_kg: Mapped[float] = mapped_column(Float, nullable=False, default=80.0, server_default="80")
     activity: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
 
@@ -88,6 +89,23 @@ class ChunkLevel(Base):
     wall_w: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     edge_flags: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     flags: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+
+
+class WallIntegrity(Base):
+    __tablename__ = "wall_integrity"
+
+    cx: Mapped[int] = mapped_column(Integer, primary_key=True)
+    cy: Mapped[int] = mapped_column(Integer, primary_key=True)
+    z: Mapped[int] = mapped_column(Integer, primary_key=True)
+    cell_index: Mapped[int] = mapped_column(Integer, primary_key=True)
+    edge: Mapped[str] = mapped_column(String(5), primary_key=True)
+    integrity: Mapped[float] = mapped_column(Float, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("cell_index BETWEEN 0 AND 1023", name="ck_wall_integrity_cell"),
+        CheckConstraint("edge IN ('north', 'west')", name="ck_wall_integrity_edge"),
+        CheckConstraint("integrity > 0", name="ck_wall_integrity_positive"),
+    )
 
 
 class Event(Base):

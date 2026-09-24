@@ -12,7 +12,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from etherbound.db.models import Actor, Base
 from etherbound.db.models import Event as EventRow
 from etherbound.engine.actions import Goal
-from etherbound.engine.world import PLAYER_ID, ActorState, WorldEngine
+from etherbound.engine.payloads import ActorState
+from etherbound.engine.world import PLAYER_ID, WorldEngine
 from etherbound.minds.extras import ExtrasBrain
 
 SEED = 0

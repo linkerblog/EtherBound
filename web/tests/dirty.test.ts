@@ -8,10 +8,12 @@ const chunks: DirtyChunk[] = [
   { key: "-1,0", cx: -1, cy: 0, hMin: -8, hMax: 0, hasLevels: false },
   { key: "0,1", cx: 0, cy: 1, hMin: 0, hMax: 18, hasLevels: false },
   { key: "2,2", cx: 2, cy: 2, hMin: 0, hMax: 8, hasLevels: true },
+  { key: "1,-1", cx: 1, cy: -1, hMin: -100, hMax: -50, hasLevels: false },
+  { key: "-1,1", cx: -1, cy: 1, hMin: 100, hMax: 150, hasLevels: false },
 ];
 
 test("each redraw cause marks only its required chunks", () => {
-  assert.deepEqual(new Set(changedChunkKeys(chunks, "0,0")), new Set(["0,0", "1,0", "-1,0", "0,1"]));
+  assert.deepEqual(new Set(changedChunkKeys(chunks, "0,0")), new Set(["0,0", "1,0", "-1,0", "0,1", "1,-1", "-1,1"]));
   assert.deepEqual(new Set(materialChunkKeys(chunks)), new Set(chunks.map((chunk) => chunk.key)));
   assert.deepEqual(new Set(viewerHeightChunkKeys(chunks, 0, 12)), new Set(["0,0", "0,1", "2,2"]));
   assert.deepEqual(new Set(cutoffChunkKeys(chunks)), new Set(["0,0", "1,0", "2,2"]));

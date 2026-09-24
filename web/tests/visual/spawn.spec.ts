@@ -29,12 +29,13 @@ test("seed 7 spawn is stable at x1, x2 and x4", async ({ context, page, request 
 
   // A paused clock sends no ticks, so give the first paint time to settle before the x1 shot.
   await page.waitForTimeout(5_000);
-  // The DOM HUD (its clock moves) sits over the canvas: keep its layout, drop its paint.
+  // The DOM HUD (its clock moves), the active tab and the frame sit over the canvas: keep their
+  // layout, drop their paint.
   await page.addStyleTag({
     content:
       "html, body { overflow: hidden; }" +
-      " main > *:not(.world) { opacity: 0 !important; }" +
-      " main.shell::after { display: none !important; }",
+      " .viewport > *:not(.world), .view-tabs { opacity: 0 !important; }" +
+      " .viewport::before { display: none !important; }",
   });
 
   await expect(canvas).toHaveScreenshot("spawn-x1.png");

@@ -10,7 +10,8 @@ from dataclasses import dataclass
 from math import floor, hypot
 
 from etherbound.engine.actions import Goal, Mind, MoveAction, WaitAction
-from etherbound.engine.world import ActorState, WorldEngine, WorldState
+from etherbound.engine.payloads import ActorState, WorldState
+from etherbound.engine.world import WorldEngine
 from etherbound.events.bus import EventBus
 from etherbound.events.models import ClockTicked
 from etherbound.rng import RngStream, RNGStreams

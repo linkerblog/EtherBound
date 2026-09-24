@@ -17,22 +17,32 @@ game's world and to Niko.
 
 | Layer | What | Rules |
 |---|---|---|
+| Frame | View tabs (`GAME`, `DEBUG`, `LLM`) and the dim shell label | 20 px margin around the viewport, tab row above it; no content |
 | World | Phaser canvas, isometric pixel art | No CSS effects over it. No text drawn in Phaser |
-| HUD | Clock, speeds, feed, meters, status pills, input line | Anchored to the edges, never covers the centre of the screen |
+| HUD | Clock, speeds, feed, meters, status pills, input line | Anchored to the viewport edges, never covers the centre of the screen |
+| View panel | `DEBUG` and `LLM` views | Opaque, covers the whole viewport; the world keeps running hidden behind it |
 | Panels | Character, relationships, inventory, phone | Right-side drawer, one open at a time |
 | Scene | Prose, options, free text during autopause | Bottom third; the world stays visible and dimmed behind it |
 | Menu | Right-click context menu | At the cursor, above everything |
 
 ```css
-.world  { position: fixed; inset: 0; z-index: 0; }
-.hud    { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
-.hud > * { pointer-events: auto; }
-.drawer { z-index: 20; }
-.scene  { z-index: 30; }
-.menu   { z-index: 40; }
+.shell      { display: grid; grid-template-rows: 28px minmax(0, 1fr); padding: 20px; }
+.viewport   { position: relative; overflow: hidden; isolation: isolate; }
+.world      { position: absolute; inset: 0; z-index: 0; }
+.hud        { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+.hud > *    { pointer-events: auto; }
+.view-panel { position: absolute; inset: 0; z-index: 15; background: var(--panel); }
+.drawer     { z-index: 20; }
+.scene      { z-index: 30; }
+.menu       { z-index: 40; }
 ```
 
-The HUD container lets clicks through to the canvas; only its children catch them.
+`.world`, `.hud` and `.view-panel` live inside `.viewport`; menus stay `position: fixed` outside
+it, at page coordinates. The viewport's border and cyan corner brackets are a `::before` overlay,
+not a CSS border, so the canvas fills the whole viewport box. The HUD container lets clicks through
+to the canvas; only its children catch them. A view that is not shown is hidden with
+`visibility: hidden`, never `display: none`: the Phaser canvas uses `Scale.RESIZE` and would
+collapse to 0×0.
 
 ---
 
@@ -135,16 +145,21 @@ h3::before { content: "▍"; color: var(--cyan); margin-right: 6px; }
 Placement:
 
 ```text
-┌──────────────────────────────────────────────────────────┐
-│ [clock + speeds]                         [status pills]  │
-│                                                          │
-│                        world                     drawer ▸│
-│                                                          │
-│ [event feed]                                  [carry]    │
-│                                               [meters]   │
-│ > input line                                             │
-└──────────────────────────────────────────────────────────┘
+  ┌──────┬───────┬─────┐                     ETHERBOUND // LIVE SIMULATION
+  │ GAME │ DEBUG │ LLM │
+┌─┘      └───────┴─────┴───────────────────────────────────────┐
+│ [clock + speeds]                              [status pills]  │
+│                                                               │
+│                        world (viewport)               drawer ▸│
+│                                                               │
+│ [event feed]                                       [carry]    │
+│                                                    [meters]   │
+│ > input line                                                  │
+└───────────────────────────────────────────────────────────────┘
 ```
+
+The frame is 20 px on every side plus the 28 px tab row on top, so at 1280×720 the viewport is
+1240×652. HUD panels anchor to the viewport, not to the window.
 
 The `CARRY` panel sits directly above the meters: one row per hand slot (`L`, `R`, or a single
 `HANDS` row for a two-handed object) and a `BACK` row for a worn slot, each either the object and
@@ -402,6 +417,27 @@ above the free 10 kg, the same warning colour as a `.bar.warn`.
 
 ## 14. Drawer and tabs
 
+**View tabs.** Folder tabs in the top-left of the frame, left edge on the viewport's left edge,
+in the order `GAME`, `DEBUG`, `LLM`; the app always starts on `GAME`. The active tab is one pixel
+taller than the row so it covers the viewport's top border and reads as open into it; inactive
+tabs sit on the frame. Each view owns the whole viewport: `GAME` is the world and its HUD, `DEBUG`
+holds the map generator form (section strip, `MAP` only for now, content column capped at 480 px),
+`LLM` is a placeholder until the first in-game model. Leaving `GAME` closes the menus and the `NEW`
+popover, blurs the input line and disables the world's keyboard; switching views never pauses or
+changes the clock.
+
+```css
+.view-tab { height: 24px; border: 1px solid var(--line); border-bottom: none; background: var(--bar); color: var(--dim); }
+button.view-tab::before, button.view-tab::after { content: none; }
+.view-tab.active { height: 29px; margin-bottom: -1px; border-color: var(--line-hi); background: var(--panel); color: var(--cyan); box-shadow: inset 0 1px 0 var(--cyan); }
+```
+
+Tab-style buttons need the `button.` prefix on their `::before`/`::after` reset, or the global
+`button:not(.mini)::before` brackets win on specificity.
+
+**Drawer.** The debug drawer is gone (replaced by the `DEBUG` view); the drawer stays the pattern
+for Niko's panels ([Sec. 1] "Panels").
+
 ```css
 .drawer {
   position: fixed; top: 56px; right: 0; bottom: 56px; width: 360px;
@@ -519,6 +555,9 @@ const hit = (el) => retrigger(el, "rgb-hit", 450);
 
 - Desktop first; minimum supported viewport 1280×720. No phone layout.
 - Every HUD action has a keyboard path (hotkeys for speeds, options, menu navigation).
+- View tabs: `Alt+1`/`Alt+2`/`Alt+3` select `GAME`/`DEBUG`/`LLM` from anywhere (matched on the
+  physical digit key); ←/→ move between tabs when one is focused (roving `tabindex`, selection
+  follows focus); `Esc` in `DEBUG` or `LLM` returns to `GAME`. `Enter` and `V` only act on `GAME`.
 - Colour is never the only signal: illegal ops, rumors and Ether also carry a marker or style.
 
 ---

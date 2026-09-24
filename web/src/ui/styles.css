@@ -29,12 +29,27 @@ button { cursor: pointer; }
 ::-webkit-scrollbar-thumb { background: var(--line-hi); }
 :focus-visible { outline: 1px solid var(--cyan); outline-offset: 2px; }
 
-.shell { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--bg); }
-.shell::before { content: ""; position: absolute; inset: 2px; z-index: 5; pointer-events: none; border: 1px solid var(--line-hi); background: linear-gradient(var(--cyan),var(--cyan)) left top / 22px 1px no-repeat, linear-gradient(var(--cyan),var(--cyan)) left top / 1px 22px no-repeat, linear-gradient(var(--cyan),var(--cyan)) right top / 22px 1px no-repeat, linear-gradient(var(--cyan),var(--cyan)) right top / 1px 22px no-repeat, linear-gradient(var(--cyan),var(--cyan)) left bottom / 22px 1px no-repeat, linear-gradient(var(--cyan),var(--cyan)) left bottom / 1px 22px no-repeat, linear-gradient(var(--cyan),var(--cyan)) right bottom / 22px 1px no-repeat, linear-gradient(var(--cyan),var(--cyan)) right bottom / 1px 22px no-repeat; }
-.shell::after { content: "ETHERBOUND // LIVE SIMULATION"; position: absolute; top: 0; left: 50%; z-index: 6; padding: 0 8px; transform: translateX(-50%); background: var(--bg); color: var(--dim); font-size: 9px; letter-spacing: 1px; white-space: nowrap; pointer-events: none; }
-.world { position: absolute; inset: 8px; z-index: 0; }
+.shell { position: relative; display: grid; grid-template-rows: 28px minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); width: 100%; height: 100%; padding: 20px; overflow: hidden; background: var(--bg); }
+.view-tabs { position: relative; z-index: 1; display: flex; align-items: flex-end; gap: 16px; min-width: 0; }
+.view-tabs [role="tablist"] { display: flex; align-items: flex-end; gap: 2px; align-self: stretch; }
+.view-tab { height: 24px; padding: 0 14px; border: 1px solid var(--line); border-bottom: none; background: var(--bar); color: var(--dim); font-size: 11px; letter-spacing: 1px; }
+/* `button.` prefix: `.view-tab::before` alone loses to the global `button:not(.mini)::before` brackets. */
+button.view-tab::before, button.view-tab::after { content: none; }
+.view-tab:hover { border-color: var(--line-hi); background: var(--line); color: var(--text); }
+/* One pixel taller than the row so it covers the viewport's top border and reads as open into it. */
+.view-tab.active { height: 29px; margin-bottom: -1px; border-color: var(--line-hi); background: var(--panel); color: var(--cyan); box-shadow: inset 0 1px 0 var(--cyan); text-shadow: 0 0 8px rgba(87,199,255,.45); }
+.view-tab.active:hover { background: var(--panel); color: var(--cyan); }
+.shell-label { margin-left: auto; align-self: center; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--dim); font-size: 9px; letter-spacing: 1px; white-space: nowrap; }
+.viewport { position: relative; min-width: 0; min-height: 0; overflow: hidden; isolation: isolate; }
+/* Drawn over the content rather than as a border, so the canvas fills the whole viewport box. */
+.viewport::before { content: ""; position: absolute; inset: 0; z-index: 16; pointer-events: none; border: 1px solid var(--line-hi); background:linear-gradient(var(--cyan),var(--cyan)) left top / 22px 1px no-repeat, linear-gradient(var(--cyan),var(--cyan)) left top / 1px 22px no-repeat, linear-gradient(var(--cyan),var(--cyan)) right top / 22px 1px no-repeat, linear-gradient(var(--cyan),var(--cyan)) right top / 1px 22px no-repeat, linear-gradient(var(--cyan),var(--cyan)) left bottom / 22px 1px no-repeat, linear-gradient(var(--cyan),var(--cyan)) left bottom / 1px 22px no-repeat, linear-gradient(var(--cyan),var(--cyan)) right bottom / 22px 1px no-repeat, linear-gradient(var(--cyan),var(--cyan)) right bottom / 1px 22px no-repeat; }
+.world { position: absolute; inset: 0; z-index: 0; }
 .world canvas { display: block; image-rendering: pixelated; }
-.hud { position: absolute; inset: 8px; z-index: 10; pointer-events: none; }
+.hud { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+.hidden-view { visibility: hidden; }
+.view-panel { position: absolute; inset: 0; z-index: 15; display: flex; flex-direction: column; background: var(--panel); }
+.view-content { flex: 1; min-height: 0; overflow: auto; padding: 16px 20px; }
+.view-column { max-width: 480px; }
 .hud > * { pointer-events: auto; }
 .hud-panel { position: relative; background: var(--panel-a); border: 1px solid var(--line); backdrop-filter: blur(2px); padding: 8px 12px; }
 .hud-panel::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(to bottom, rgba(255,255,255,.022) 0 1px, transparent 1px 3px); }
@@ -143,7 +158,7 @@ button:disabled { opacity: .35; cursor: not-allowed; }
 .drawer-heading h2::before { content: "▍"; margin-right: 6px; color: var(--cyan); }
 .tabs { display: flex; gap: 2px; padding: 0 8px; border-bottom: 1px solid var(--line); background: var(--bar); }
 .tab { border: none; border-bottom: 2px solid transparent; padding: 6px 12px; background: transparent; color: var(--dim); font-size: 11px; letter-spacing: 1px; }
-.tab::before, .tab::after { content: none; }
+button.tab::before, button.tab::after { content: none; }
 .tab:hover { border-color: transparent; background: transparent; color: var(--text); }
 .tab.active { border-bottom-color: var(--cyan); color: var(--cyan); text-shadow: 0 0 8px rgba(87,199,255,.45); }
 .drawer-content { flex: 1; min-height: 0; overflow: auto; padding: 16px; }
@@ -170,7 +185,7 @@ button:disabled { opacity: .35; cursor: not-allowed; }
 @keyframes blink { 50% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 @media (max-width: 700px) {
-  .shell::after { left: 16px; transform: none; }
+  .shell { padding: 8px; }
   .clock { left: 8px; top: 8px; right: 8px; gap: 2px; padding: 6px; }
   .clock .time { font-size: 11px; margin-right: 2px; }
   .clock .mini { padding: 1px 5px; }

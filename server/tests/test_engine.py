@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from etherbound.db.models import Actor, Base, WorldMeta
 from etherbound.engine.actions import MoveAction
 from etherbound.engine.movement import move_in_world, nearest_surface
-from etherbound.engine.world import PLAYER_ID, ActorState, WorldEngine
+from etherbound.engine.payloads import ActorState
+from etherbound.engine.world import PLAYER_ID, WorldEngine
 from etherbound.world.chunk import CELL_COUNT, Chunk, ChunkLevel
 from etherbound.world.grid import WorldGrid
 from etherbound.world.materials import MaterialRegistry

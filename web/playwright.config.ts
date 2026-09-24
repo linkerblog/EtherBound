@@ -9,6 +9,8 @@ const database = join(tmpdir(), `etherbound-visual-${process.pid}.db`).replace(/
 
 export default defineConfig({
   testDir: "./tests/visual",
+  // Every spec resets the one shared server with its own seed, so two workers would clobber each other.
+  workers: 1,
   timeout: 120_000,
   expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.002 } },
   use: {

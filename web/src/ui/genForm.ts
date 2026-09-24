@@ -3,6 +3,16 @@ import type { OptionField } from "../net/protocol";
 export type GenValue = string | number | boolean;
 export type GenValues = Record<string, GenValue>;
 
+export function randomSeed(exclude?: number): number {
+  const values = new Uint32Array(1);
+  let seed: number;
+  do {
+    window.crypto.getRandomValues(values);
+    seed = values[0]! & 0x7fffffff;
+  } while (seed === exclude);
+  return seed;
+}
+
 export type GenRow = {
   field: OptionField;
   value: GenValue;

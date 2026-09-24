@@ -70,12 +70,43 @@ export function wallMask(edge: "n" | "w", units: 1 | 2 | 4): TileMask {
   return packPixels(pixels);
 }
 
-export function edgeLineMask(edge: "n" | "w"): TileMask {
-  const pixels: Pixel[] = [];
+// The wall body thickness in screen pixels at x1: 1/8 m, which projects to four pixels.
+export const WALL_T_PX = 4;
+
+export function wallTopMask(edge: "n" | "w"): TileMask {
   const firstX = edge === "n" ? 32 : 0;
-  const lastX = firstX + 31;
-  for (let x = firstX; x <= lastX; x += 1) {
-    pixels.push({ x, y: topRow(x) });
+  const pixels: Pixel[] = [];
+  for (let x = firstX; x < firstX + 32; x += 1) {
+    const top = topRow(x);
+    for (let row = 0; row < WALL_T_PX; row += 1) pixels.push({ x, y: top - row });
+  }
+  return packPixels(pixels);
+}
+
+/** A wall run's end face: `WALL_T_PX` wide, one 16-px unit per `units`, rising from its vertex. */
+export function wallEndMask(face: "e" | "s", units: 1 | 2 | 4): TileMask {
+  const pixels: Pixel[] = [];
+  for (let column = 0; column < WALL_T_PX; column += 1) {
+    const x = face === "e" ? 64 + column : -WALL_T_PX + column;
+    const bottom = face === "e"
+      ? 16 - Math.round(column / 2)
+      : 16 - Math.round((WALL_T_PX - 1 - column) / 2);
+    for (let row = 0; row < 16 * units; row += 1) pixels.push({ x, y: bottom - row });
+  }
+  return packPixels(pixels);
+}
+
+/** The top of the corner post: the 1/8 m by 1/8 m square above the diamond's top vertex. */
+export function wallPostMask(): TileMask {
+  const pixels: Pixel[] = [];
+  const rows: Array<[number, number, number]> = [
+    [-4, 31, 32],
+    [-3, 29, 34],
+    [-2, 29, 34],
+    [-1, 31, 32],
+  ];
+  for (const [y, from, to] of rows) {
+    for (let x = from; x <= to; x += 1) pixels.push({ x, y });
   }
   return packPixels(pixels);
 }

@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { diamondMask, edgeLineMask, faceMask, maskHasPixel, shearSideCell, shearWallCell, wallMask } from "../src/game/tileMasks";
+import * as masks from "../src/game/tileMasks";
+import { diamondMask, faceMask, maskHasPixel, shearSideCell, shearWallCell, wallEndMask, wallMask, wallPostMask, wallTopMask, WALL_T_PX } from "../src/game/tileMasks";
+
+function topRow(x: number): number {
+  for (let y = 0; y < 32; y += 1) {
+    if (Math.abs(x - 31.5) <= 2 * Math.min(y, 31 - y) + 0.5) return y;
+  }
+  return 15;
+}
 
 function placedPixels(mask: ReturnType<typeof diamondMask>, x = 0, y = 0): Set<string> {
   const pixels = new Set<string>();
@@ -124,17 +132,71 @@ test("raised 2 by 2 plateaus retain covered tops and exposed south/east sides", 
   }
 });
 
-test("wall top lines touch the wall masks without a gap or overlap", () => {
+test("the old edge line mask is gone", () => {
+  assert.equal("edgeLineMask" in masks, false);
+});
+
+test("wall top strips are four-pixel columns on the wall's top line", () => {
   for (const edge of ["n", "w"] as const) {
-    const wall = wallMask(edge, 1);
-    const line = edgeLineMask(edge);
-    for (let x = 0; x < 64; x += 1) {
-      for (let lineY = -16; lineY < 32; lineY += 1) {
-        if (!maskHasPixel(line, x, lineY)) continue;
-        assert.equal(maskHasPixel(wall, x, lineY), false);
-        assert.equal(maskHasPixel(wall, x, lineY - 1), true);
+    const mask = wallTopMask(edge);
+    const columns = new Map<number, number[]>();
+    for (let py = 0; py < mask.height; py += 1) {
+      for (let px = 0; px < mask.width; px += 1) {
+        if (!mask.alpha[py * mask.width + px]) continue;
+        const x = mask.offsetX + px;
+        columns.set(x, [...(columns.get(x) ?? []), mask.offsetY + py]);
       }
     }
+    let count = 0;
+    for (const rows of columns.values()) count += rows.length;
+    assert.equal(count, 128, `${edge} pixel count`);
+    assert.equal(columns.size, 32, `${edge} column count`);
+    for (const [x, rows] of columns) {
+      assert.equal(rows.length, WALL_T_PX, `${edge} column ${x} height`);
+      assert.equal(Math.max(...rows), topRow(x), `${edge} column ${x} bottom`);
+    }
+  }
+});
+
+test("the north and west top strips are mirror images", () => {
+  const north = placedPixels(wallTopMask("n"));
+  const west = placedPixels(wallTopMask("w"));
+  assert.equal(north.size, 128);
+  assert.equal(west.size, 128);
+  for (const pixel of north) {
+    const [x, y] = pixel.split(",").map(Number);
+    assert.ok(west.has(`${63 - x},${y}`), `mirror of ${pixel}`);
+  }
+});
+
+test("wall end masks are four pixels wide and 16 x units tall", () => {
+  for (const face of ["e", "s"] as const) {
+    for (const units of [1, 2, 4] as const) {
+      const mask = wallEndMask(face, units);
+      const pixels = placedPixels(mask);
+      const columns = new Set([...pixels].map((pixel) => pixel.split(",")[0]));
+      assert.equal(pixels.size, 64 * units, `${face}/${units} pixel count`);
+      assert.equal(mask.width, WALL_T_PX, `${face}/${units} width`);
+      assert.equal(columns.size, WALL_T_PX, `${face}/${units} column count`);
+    }
+  }
+});
+
+test("the corner post is 16 px above the top vertex, touching both strips", () => {
+  const post = placedPixels(wallPostMask());
+  assert.equal(post.size, 16);
+  const diamond = diamondMask();
+  for (const pixel of post) {
+    const [x, y] = pixel.split(",").map(Number);
+    assert.equal(maskHasPixel(diamond, x, y), false, `post overlaps the diamond at ${pixel}`);
+  }
+  for (const strip of [placedPixels(wallTopMask("n")), placedPixels(wallTopMask("w"))]) {
+    const touching = [...post].some((pixel) => {
+      const [x, y] = pixel.split(",").map(Number);
+      return strip.has(`${x},${y - 1}`) || strip.has(`${x},${y + 1}`) ||
+        strip.has(`${x - 1},${y}`) || strip.has(`${x + 1},${y}`);
+    });
+    assert.ok(touching, "post must touch a strip");
   }
 });
 

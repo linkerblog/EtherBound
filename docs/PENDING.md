@@ -39,6 +39,9 @@ Open decisions and loose ends. When one is settled, record the decision where it
       independently by Fix10.
 - [ ] **Dev-016 context menu** (`Dev-016.md`): grouped and named entries, hover target, keyboard
       opening and navigation, ARIA roles, layout and contrast fixes, live refresh. Awaiting approval.
+- [ ] **Dev-021 wall lines and heights** (`Dev-021.md`): six full-length wall lines per tile
+      (edges, midlines, diagonals) and 0.5 m / 1 m / full heights; lands after Dev-022. The `build`
+      op that places them is the next doc. Awaiting approval.
 
 ## Deferred work
 
@@ -50,6 +53,11 @@ Open decisions and loose ends. When one is settled, record the decision where it
 - [ ] **Events to the client.** Only one event reaches the WebSocket: the `activity` notice when
       one of Niko's activities finishes (`done/Dev-007.md`). Everything else stays server-side
       until there is something to narrate (witnesses).
+- [ ] **W/A/S/D cannot be typed in text fields.** `MapScene` adds its movement keys with Phaser's
+      default capture, and Phaser's global keyboard manager calls `preventDefault` on them, so the
+      input line drops them (`wasd hello` types ` hello`). Predates Dev-019, which found it; the
+      likely fix is `addKey(code, false)`, since `readDirection` already ignores keys while a text
+      field has focus. Needs its own small doc.
 - [ ] **Activity progress is lost on interruption.** Walking away from a half-dug hole throws
       the progress away; partial progress that survives is a later refinement
       (`done/Dev-007.md` [Sec. 1]).
@@ -58,12 +66,27 @@ Open decisions and loose ends. When one is settled, record the decision where it
 
 The `check:visual` seed-7 spawn baselines (`web/tests/visual/spawn.spec.ts`, x1/x2/x4) now cover
 the spawn view of the Dev-006, Dev-008, Fix05, Fix09 and Dev-018 checks below; the user still
-approves the three images (`Infra01.md` [Sec. 6] 7).
+approves the three images (`Infra01.md` [Sec. 6] 7). Dev-019 re-shot them at the framed 1240×652
+canvas; that approval is tracked under Dev-019.
+
+- [ ] **Dev-019 framed viewport and view tabs:** approve the re-shot x1/x2/x4 baselines (1240×652);
+      in the GUI the frame reads as a frame, the active tab joins the viewport, the HUD panels do not
+      overlap at 1280×720, and right-click / `V` anchor on the right tile at x1 and x4; in Edge,
+      `Alt+1..3` and ←/→ on a focused tab work and `Tab` reaches the tabs before the HUD. Verified
+      headlessly: layout box, tab hotkeys, `Esc`, the `W` gate and the right-click anchor at x2. See
+      `done/Dev-019.md` [Sec. 5] acceptance 3, 5–6.
+
+- [ ] **Dev-020 wall thickness:** at x1/x2/x4, room walls read as solid with a visible top, door
+      openings and wall ends show thickness, corners have no notch or overhang, brick walls keep
+      their courses, and walking Niko next to a front wall cuts it to a one-unit stub that shows its
+      cut strip. Verified once by the agent at x2 at the building's west doorway (`X 135.83 ·
+      Y 145.98`): brick walls carry a lighter top strip and the doorway shows an end face. See
+      `done/Dev-020.md` [Sec. 5] acceptance 5–6.
 
 - [ ] **Dev-018 basic Extras:** in the running game at seed 7, six green bodies stand near the spawn
       and, unpaused, walk and wait near their homes without overlapping the tiles they walk; `Inspect`
-      on one reads `<name>. Standing.`/`Walking.`/`Waiting.`; `Push`/`Hit` name it; and the re-shot
-      x1/x2/x4 baselines with the clock paused are approved. See `done/Dev-018.md` [Sec. 6]
+      on one reads `<name>. Standing.`/`Walking.`/`Waiting.`; `Push`/`Hit` name it. Its paused
+      baselines were superseded by Dev-019's re-shoot. See `done/Dev-018.md` [Sec. 6]
       acceptance 11–12.
 
 - [ ] **Dev-017 radial menu:** press `V` at spawn (shows `Wait`/`Inspect`) and while carrying a
@@ -130,7 +153,7 @@ approves the three images (`Infra01.md` [Sec. 6] 7).
       committed final positions at x1–x4. See `done/Dev-013.md` [Sec. 4] step 7.
 - [ ] **Fix11 Dev Blog database:** open it in Notion and confirm it reads well, newest first, with the
       properties visible. See `done/Fix11.md` [Sec. 6] step 7.
-- [ ] **Dev-015 lab map:** DEBUG → MAP → LAB, `feature = relief`, `amplitude = 20`, REGENERATE;
+- [ ] **Dev-015 lab map:** the `DEBUG` tab → MAP → LAB, `feature = relief`, `amplitude = 20`, REGENERATE;
       Niko appears north of the feature bay and walks into the hills; change `scale` and regenerate;
       then walk bays 1–9 and confirm each matches `done/Dev-015.md` [Sec. 2]. See
       `done/Dev-015.md` [Sec. 5] acceptance 8.
@@ -155,8 +178,12 @@ list is settled by `done/Dev-007.md` and the Matter primitive by `done/Dev-012.m
 Blog migration landed; Fix10's manual Send to game acceptance remains open. Dev-013 is implemented;
 its live physics/animation acceptance remains open. Dev-018 is implemented: six seeded Extras walk
 and wait near the spawn; its GUI acceptance and the approval of the re-shot paused baselines remain
-open, and actor-vs-actor collision stays deferred. Two deferred items
-(input replay, events to the client) plus lost activity progress and actor pass-through. Manual
+open, and actor-vs-actor collision stays deferred. Dev-019 is implemented: a framed viewport with
+`GAME`/`DEBUG`/`LLM` tabs; its baseline approval and GUI/Edge checks remain open. Dev-020 is
+implemented: walls have a render-only 1/8 m body with a top strip, end faces and a corner post; its
+x1–x4 GUI acceptance remains open. Two deferred items
+(input replay, events to the client) plus lost activity progress, actor pass-through and W/A/S/D
+swallowed in text fields. Manual
 acceptances remain for
 Dev-003 browser, Dev-006 new game, Fix03 logging, Fix04 logging/movement, and Dev-008/Fix05/Fix06/Fix07
 isometric rendering and network, plus Fix08 reconnect, Fix09 side textures and building base,

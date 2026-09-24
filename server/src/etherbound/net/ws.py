@@ -5,7 +5,8 @@ from fastapi import WebSocket
 from pydantic import TypeAdapter, ValidationError
 
 from etherbound.engine.actions import ActivityState, MoveAction
-from etherbound.engine.world import PLAYER_ID, ChunkPayload, WorldEngine, WorldInfo, WorldState
+from etherbound.engine.payloads import ChunkPayload, WorldInfo, WorldState
+from etherbound.engine.world import PLAYER_ID, WorldEngine
 from etherbound.events.models import (
     ActivityFinished,
     ChunkChanged,

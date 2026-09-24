@@ -13,8 +13,11 @@ export type ChunkBounds = { minX: number; minY: number; maxX: number; maxY: numb
 export function changedChunkKeys(chunks: DirtyChunk[], key: string): string[] {
   const changed = chunks.find((chunk) => chunk.key === key);
   if (!changed) return [];
-  return chunks.filter((chunk) => Math.abs(chunk.cx - changed.cx) + Math.abs(chunk.cy - changed.cy) <= 1)
-    .map((chunk) => chunk.key);
+  return chunks.filter((chunk) => {
+    const dx = chunk.cx - changed.cx;
+    const dy = chunk.cy - changed.cy;
+    return Math.abs(dx) + Math.abs(dy) <= 1 || (dx === 1 && dy === -1) || (dx === -1 && dy === 1);
+  }).map((chunk) => chunk.key);
 }
 
 export function materialChunkKeys(chunks: DirtyChunk[]): string[] {

@@ -19,7 +19,8 @@ from etherbound.engine.actions import (
     TileTarget,
     WearAction,
 )
-from etherbound.engine.world import PLAYER_ID, ActorState, WorldEngine
+from etherbound.engine.payloads import ActorState
+from etherbound.engine.world import PLAYER_ID, WorldEngine
 from etherbound.world.materials import MaterialRegistry
 from etherbound.world.objects import Container, ObjectCatalog, ObjectKind
 

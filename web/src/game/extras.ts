@@ -1,4 +1,7 @@
 import type { Position } from "../net/protocol";
+import Phaser from "phaser";
+import { nikoDepth, toScreen } from "./iso";
+import type { ActorState } from "../net/protocol";
 
 /** Extras get the green token, never Niko's blue and never Ether's magenta. */
 export const EXTRA_COLOR = 0x5af78e;
@@ -67,5 +70,59 @@ export class ActorInterpolator {
     this.previous = null;
     this.latest = null;
     this.interval = MAX_TICK_MS;
+  }
+}
+
+type ExtraBody = {
+  graphics: Phaser.GameObjects.Graphics;
+  interpolator: ActorInterpolator;
+};
+
+export class ExtrasLayer {
+  private readonly extras = new Map<string, ExtraBody>();
+
+  constructor(
+    private readonly scene: Phaser.Scene,
+    private readonly viewerHeight: () => number,
+    private readonly cutoffAt: (x: number, y: number) => number,
+  ) {}
+
+  sync(actors: Record<string, ActorState>, now: number): void {
+    for (const [id, actor] of Object.entries(actors)) {
+      if (id === "niko") continue;
+      let body = this.extras.get(id);
+      if (!body) {
+        const graphics = this.scene.add.graphics();
+        graphics.fillStyle(0x000000, 0.35);
+        graphics.fillEllipse(0, 0, 27, 13);
+        graphics.fillStyle(EXTRA_COLOR, 1);
+        graphics.fillRoundedRect(-9, -60, 18, 58, 6);
+        graphics.lineStyle(2, 0xffffff, 1);
+        graphics.strokeRoundedRect(-9, -60, 18, 58, 6);
+        body = { graphics, interpolator: new ActorInterpolator() };
+        this.extras.set(id, body);
+      }
+      body.interpolator.update(actor, now);
+    }
+  }
+
+  update(now: number): void {
+    for (const body of this.extras.values()) {
+      const position = body.interpolator.sample(now);
+      if (!position) continue;
+      const x = Math.floor(position.x);
+      const y = Math.floor(position.y);
+      const h = position.h ?? this.viewerHeight();
+      const screen = toScreen(position.x, position.y, h);
+      body.graphics
+        .setPosition(screen.sx, screen.sy)
+        .setDepth(nikoDepth(position.x, position.y))
+        .setVisible(h <= this.cutoffAt(x, y));
+    }
+  }
+
+  clear(): void {
+    for (const body of this.extras.values()) body.graphics.destroy();
+    this.extras.clear();
   }
 }

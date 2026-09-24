@@ -1,6 +1,4 @@
 import asyncio
-import logging
-from dataclasses import dataclass
 from math import floor
 from typing import Any, Literal
 
@@ -14,138 +12,31 @@ from etherbound.db.models import ChunkLevel as ChunkLevelRow
 from etherbound.db.models import Event as EventRow
 from etherbound.db.models import Material as MaterialRow
 from etherbound.db.models import Object as ObjectRow
-from etherbound.engine.actions import (
-    PLAYER_ID,
-    Action,
-    ActionResult,
-    ActivityState,
-    ActorTarget,
-    CarriedObject,
-    EdgeTarget,
-    Goal,
-    MenuEntry,
-    Mind,
-    MoveAction,
-    ObjectTarget,
-    PhysicsPosition,
-    SelfTarget,
-    Spot,
-    Target,
-    TileTarget,
-)
-from etherbound.engine.movement import nearest_surface
-from etherbound.engine.objects import (
-    actor_load_kg,
-    children,
-    held_objects,
-    is_accessible,
-    tile_objects,
-    worn_objects,
-)
-from etherbound.engine.ops import ActionContext, handled_ops, handler_for
-from etherbound.engine.ops.base import metres
+from etherbound.engine import actions, payloads, world_setup
+from etherbound.engine.menu import build_menu
+from etherbound.engine.objects import actor_load_kg, tile_objects
+from etherbound.engine.ops import ActionContext, handler_for
 from etherbound.events.bus import EventBus
 from etherbound.events.models import (
     ActivityFinished,
     ActivityStarted,
     ActorGoalSet,
-    ActorSpawned,
     ClockChanged,
     ClockTicked,
     Event,
-    TilePos,
     WorldGenerated,
 )
-from etherbound.world.chunk import CHUNK_SIZE, Chunk, ChunkLevel
-from etherbound.world.gen.registry import DEFAULT_GENERATOR, GeneratorSpec, get_generator
-from etherbound.world.gen.types import GeneratedObject, GeneratedWorld
+from etherbound.world.chunk import CHUNK_SIZE
+from etherbound.world.gen.registry import DEFAULT_GENERATOR, get_generator
 from etherbound.world.grid import WorldGrid
 from etherbound.world.materials import MaterialRegistry
 from etherbound.world.objects import ObjectCatalog
-from etherbound.world.population import GeneratedActor, populate
 
 CHUNK_RADIUS = 2
 HANDLING_OPS = frozenset({"take", "drop", "put", "open", "close", "wear", "remove"})
+PLAYER_ID = actions.PLAYER_ID
 
-logger = logging.getLogger("etherbound.engine")
-
-action_adapter: TypeAdapter[Action] = TypeAdapter(Action)
-
-
-@dataclass(frozen=True, slots=True)
-class ActorState:
-    id: str
-    kind: str
-    x: float
-    y: float
-    z: int
-    h: int
-    activity: ActivityState | None = None
-    carried: tuple[CarriedObject, ...] = ()
-    load_kg: float = 0.0
-    name: str | None = None
-    mind: Mind | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class WorldState:
-    seed: int
-    game_minute: int
-    speed: int
-    paused: bool
-    actors: tuple[ActorState, ...]
-    gen_version: int
-    generator: str = DEFAULT_GENERATOR
-    gen_options: dict[str, Any] | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class ChunkLevelPayload:
-    z: int
-    floor_h: tuple[int, ...]
-    floor_mat: tuple[int, ...]
-    wall_n: tuple[int, ...]
-    wall_w: tuple[int, ...]
-    edge_flags: tuple[int, ...]
-    flags: tuple[int, ...]
-
-
-@dataclass(frozen=True, slots=True)
-class ObjectPayload:
-    id: int
-    kind: str
-    x: int
-    y: int
-    h: int
-    quantity: int
-    open: bool | None
-
-
-@dataclass(frozen=True, slots=True)
-class ChunkPayload:
-    cx: int
-    cy: int
-    revision: int
-    ground_h: tuple[int, ...]
-    surface_mat: tuple[int, ...]
-    levels: tuple[ChunkLevelPayload, ...]
-    objects: tuple[ObjectPayload, ...] = ()
-
-
-@dataclass(frozen=True, slots=True)
-class MenuPayload:
-    x: float
-    y: float
-    z: int
-    target: str
-    entries: tuple[MenuEntry, ...]
-
-
-@dataclass(frozen=True, slots=True)
-class WorldInfo:
-    chunk_size: int
-    level_h: int
-    bounds: tuple[int, int, int, int]
+action_adapter: TypeAdapter[actions.Action] = TypeAdapter(actions.Action)
 
 
 class WorldEngine:
@@ -196,142 +87,6 @@ class WorldEngine:
                 )
         return next_seq
 
-    def _sync_materials(self, session: Session) -> None:
-        existing_rows = list(session.scalars(select(MaterialRow)))
-        existing = {row.key: row.id for row in existing_rows}
-        rows_by_key = {row.key: row for row in existing_rows}
-        if existing and any(key not in self.registry.ids() for key in existing):
-            missing = sorted(key for key in existing if key not in self.registry.ids())
-            raise RuntimeError(f"saved materials missing from materials.toml: {', '.join(missing)}")
-        for material in self.registry:
-            if material.key in existing:
-                rows_by_key[material.key].resistance = material.resistance
-                continue
-            session.add(
-                MaterialRow(
-                    id=material.id,
-                    key=material.key,
-                    name=material.name,
-                    color=material.color,
-                    walkable=material.walkable,
-                    walk_cost=material.walk_cost,
-                    solid=material.solid,
-                    blocks_sight=material.blocks_sight,
-                    diggable=material.diggable,
-                    dig_cost=material.dig_cost,
-                    flammable=material.flammable,
-                    density=material.density,
-                    resistance=material.resistance,
-                    liquid=material.liquid,
-                    tags=list(material.tags),
-                )
-            )
-
-    @staticmethod
-    def _load_grid(session: Session) -> tuple[list[Chunk], list[ChunkLevel]]:
-        chunks = [
-            Chunk.from_blobs(
-                row.cx,
-                row.cy,
-                row.ground_h,
-                row.surface_mat,
-                tuple((int(depth), str(key)) for depth, key in row.strata),
-                row.revision,
-                row.gen_version,
-                row.dug,
-            )
-            for row in session.scalars(select(ChunkRow).order_by(ChunkRow.cx, ChunkRow.cy))
-        ]
-        levels = [
-            ChunkLevel.from_blobs(
-                row.cx,
-                row.cy,
-                row.z,
-                row.floor_h,
-                row.floor_mat,
-                row.wall_n,
-                row.wall_w,
-                row.edge_flags,
-                row.flags,
-            )
-            for row in session.scalars(
-                select(ChunkLevelRow).order_by(ChunkLevelRow.cx, ChunkLevelRow.cy, ChunkLevelRow.z)
-            )
-        ]
-        return chunks, levels
-
-    @staticmethod
-    def _commit_world(session: Session, world: GeneratedWorld) -> None:
-        for chunk in world.chunks.values():
-            session.add(
-                ChunkRow(
-                    cx=chunk.cx,
-                    cy=chunk.cy,
-                    ground_h=chunk.ground_blob,
-                    surface_mat=chunk.surface_blob,
-                    strata=[list(entry) for entry in chunk.strata],
-                    revision=chunk.revision,
-                    gen_version=chunk.gen_version,
-                    dug=chunk.dug_blob,
-                )
-            )
-        for level in world.levels.values():
-            session.add(
-                ChunkLevelRow(
-                    cx=level.cx,
-                    cy=level.cy,
-                    z=level.z,
-                    floor_h=level.floor_blob,
-                    floor_mat=level.floor_mat_blob,
-                    wall_n=level.wall_n_blob,
-                    wall_w=level.wall_w_blob,
-                    edge_flags=level.edge_flags_blob,
-                    flags=level.flags_blob,
-                )
-            )
-
-    def _has_chunks(self, session: Session) -> bool:
-        return session.scalar(select(ChunkRow.cx).limit(1)) is not None
-
-    def _delete_uncarried_objects(self, session: Session) -> None:
-        """Keep held and worn objects and everything inside them; drop the rest."""
-        keep: set[int] = {
-            row.id
-            for row in session.scalars(select(ObjectRow).where(ObjectRow.loc.in_(("held", "worn"))))
-        }
-        frontier = set(keep)
-        while frontier:
-            children = list(
-                session.scalars(
-                    select(ObjectRow).where(
-                        ObjectRow.loc == "in", ObjectRow.container_id.in_(frontier)
-                    )
-                )
-            )
-            frontier = {child.id for child in children} - keep
-            keep |= frontier
-        for row in session.scalars(select(ObjectRow).order_by(ObjectRow.id.desc())):
-            if row.id not in keep:
-                session.delete(row)
-
-    def _commit_objects(self, session: Session, objects: tuple[GeneratedObject, ...]) -> None:
-        ids: list[int] = []
-        for obj in objects:
-            row = ObjectRow(
-                kind=obj.kind,
-                loc="in" if obj.parent is not None else "tile",
-                quantity=obj.quantity,
-                state={"open": obj.open} if obj.open else {},
-            )
-            if obj.parent is not None:
-                row.container_id = ids[obj.parent]
-            else:
-                row.x, row.y, row.h = obj.x, obj.y, obj.h
-                row.cx, row.cy = obj.x // CHUNK_SIZE, obj.y // CHUNK_SIZE
-            session.add(row)
-            session.flush()
-            ids.append(row.id)
-
     def _load_object_index(self, session: Session) -> None:
         for cx, cy in self.grid.chunks:
             self.grid.set_chunk_objects(cx, cy, tile_objects(session, self.catalog, cx, cy))
@@ -344,30 +99,6 @@ class WorldEngine:
 
     def load_kg(self, actor_id: str) -> float:
         return self._load_cache.get(actor_id, 0.0)
-
-    def _resolve_generator(self, meta: WorldMeta) -> tuple[GeneratorSpec, Any, bool]:
-        """Return the save's generator, its validated options and whether it fell back."""
-        fallback = False
-        spec = get_generator(meta.generator or DEFAULT_GENERATOR)
-        if spec is None:
-            logger.warning(
-                "unknown generator %r in save; falling back to %s",
-                meta.generator,
-                DEFAULT_GENERATOR,
-            )
-            spec = get_generator(DEFAULT_GENERATOR)
-            assert spec is not None
-            meta.generator = spec.key
-            meta.gen_options = {}
-            fallback = True
-        assert spec is not None
-        try:
-            options = spec.options.model_validate(meta.gen_options or {})
-        except ValidationError:
-            logger.warning("stored options for generator %r are invalid; using defaults", spec.key)
-            options = spec.options()
-            fallback = True
-        return spec, options, fallback
 
     def ensure_world(self, seed: int = 0) -> None:
         events: list[Event] = []
@@ -390,19 +121,19 @@ class WorldEngine:
             if saved_ids:
                 self.registry = MaterialRegistry.load(existing_ids=saved_ids)
                 self.grid.registry = self.registry
-            self._sync_materials(session)
-            spec, options, fallback = self._resolve_generator(meta)
-            has_chunks = self._has_chunks(session)
+            world_setup.sync_materials(session, self.registry)
+            spec, options, fallback = world_setup.resolve_generator(meta)
+            has_chunks = world_setup.has_chunks(session)
             generated_world = fallback or not has_chunks or meta.gen_version < spec.version
             if generated_world:
                 if has_chunks:
                     session.query(WallIntegrity).delete(synchronize_session=False)
                     session.query(ChunkLevelRow).delete(synchronize_session=False)
                     session.query(ChunkRow).delete(synchronize_session=False)
-                self._delete_uncarried_objects(session)
+                world_setup.delete_uncarried_objects(session)
                 world = spec.generate(meta.seed, options, self.registry)
-                self._commit_world(session, world)
-                self._commit_objects(session, world.objects)
+                world_setup.commit_world(session, world)
+                world_setup.commit_objects(session, world.objects)
                 meta.gen_version = world.gen_version
                 meta.generator = spec.key
                 meta.gen_options = options.model_dump(mode="json")
@@ -414,10 +145,14 @@ class WorldEngine:
                         options=meta.gen_options,
                     )
                 )
-            chunks, levels = self._load_grid(session)
+            chunks, levels = world_setup.load_grid(session)
             self.grid = WorldGrid(chunks, levels, self.registry, catalog=self.catalog)
             self._load_object_index(session)
-            events.extend(self._ensure_actors(session, spec, options, meta.seed))
+            events.extend(
+                world_setup.ensure_actors(
+                    session, self.grid, self.registry, spec, options, meta.seed
+                )
+            )
             self._refresh_load(session)
             if generated_world:
                 events.append(ClockChanged(speed=meta.speed, paused=meta.paused))
@@ -427,135 +162,17 @@ class WorldEngine:
         self._next_seq = next_seq
         self.bus.enqueue(events)
 
-    def _spawn_point(
-        self, spec: GeneratorSpec, options: Any, seed: int
-    ) -> tuple[float, float, int]:
-        spawn = spec.spawn(seed, options)
-        if self._standing_h_near(spawn[0], spawn[1]) is not None:
-            return spawn
-        for cx, cy in sorted(self.grid.chunks):
-            for local_y in range(CHUNK_SIZE):
-                for local_x in range(CHUNK_SIZE):
-                    world_x = cx * CHUNK_SIZE + local_x
-                    world_y = cy * CHUNK_SIZE + local_y
-                    standing = self._standing_h_near(world_x + 0.5, world_y + 0.5)
-                    if standing is not None:
-                        return world_x + 0.5, world_y + 0.5, standing
-        return 0.5, 0.5, 0
-
-    def _standing_h_near(self, x: float, y: float) -> int | None:
-        surfaces = self.grid.standing_surfaces(floor(x), floor(y))
-        if not surfaces:
-            return None
-        material = self.registry.get(surfaces[0].material_id)
-        if material is None or not material.walkable:
-            return None
-        return surfaces[0].h
-
-    @staticmethod
-    def _spawn_event(actor: Actor, reason: Literal["created", "relocated"]) -> ActorSpawned:
-        return ActorSpawned(
-            actor_id=actor.id,
-            kind=actor.kind,
-            tile=TilePos(x=floor(actor.x), y=floor(actor.y), h=actor.h),
-            reason=reason,
-            name=actor.name,
-        )
-
-    def _settle_actor(
-        self, actor: Actor, spawn_x: float, spawn_y: float, spawn_h: int
-    ) -> ActorSpawned | None:
-        """Snap a loaded actor to its surface, relocate it to spawn if it has none."""
-        surface = nearest_surface(self.grid, actor.x, actor.y, actor.h)
-        if surface is None:
-            actor.x, actor.y, actor.h, actor.z = spawn_x, spawn_y, spawn_h, spawn_h // 6
-            return self._spawn_event(actor, "relocated")
-        if surface.h != actor.h:
-            # A data repair, not a world fact: no event. The standing rule needs the exact h,
-            # and the next actor.moved carries the corrected h in from_tile.
-            actor.h, actor.z = surface.h, surface.h // 6
-        return None
-
-    def _create_extras(
-        self, session: Session, seed: int, spawn: tuple[float, float, int]
-    ) -> list[Event]:
-        events: list[Event] = []
-        for generated in populate(self.grid, self.registry, spawn, seed):
-            self._commit_extra(session, generated)
-            events.append(
-                ActorSpawned(
-                    actor_id=generated.id,
-                    kind="extra",
-                    tile=TilePos(x=generated.anchor_x, y=generated.anchor_y, h=generated.anchor_h),
-                    reason="created",
-                    name=generated.name,
-                )
-            )
-        return events
-
-    @staticmethod
-    def _commit_extra(session: Session, generated: GeneratedActor) -> None:
-        actor = Actor(
-            id=generated.id,
-            kind="extra",
-            name=generated.name,
-            x=generated.x,
-            y=generated.y,
-            h=generated.h,
-            z=generated.h // 6,
-        )
-        actor.mind = Mind(
-            anchor=Spot(x=generated.anchor_x, y=generated.anchor_y, h=generated.anchor_h)
-        ).model_dump(mode="json")
-        session.add(actor)
-
-    def _ensure_actors(
-        self, session: Session, spec: GeneratorSpec, options: Any, seed: int
-    ) -> list[Event]:
-        """Create or settle Niko and the Extras, emitting one actor.spawned per change."""
-        spawn_x, spawn_y, spawn_h = self._spawn_point(spec, options, seed)
-        events: list[Event] = []
-        niko = session.get(Actor, PLAYER_ID)
-        if niko is None:
-            niko = Actor(
-                id=PLAYER_ID,
-                kind="player",
-                x=spawn_x,
-                y=spawn_y,
-                h=spawn_h,
-                z=spawn_h // 6,
-                mass_kg=80.0,
-            )
-            session.add(niko)
-            session.flush()
-            events.append(self._spawn_event(niko, "created"))
-        else:
-            settled = self._settle_actor(niko, spawn_x, spawn_y, spawn_h)
-            if settled is not None:
-                events.append(settled)
-        extras = list(
-            session.scalars(select(Actor).where(Actor.kind == "extra").order_by(Actor.id))
-        )
-        if extras:
-            for extra in extras:
-                settled = self._settle_actor(extra, spawn_x, spawn_y, spawn_h)
-                if settled is not None:
-                    events.append(settled)
-        else:
-            events.extend(self._create_extras(session, seed, (spawn_x, spawn_y, spawn_h)))
-        return events
-
     def _world_row(self, session: Session) -> WorldMeta:
         world = session.get(WorldMeta, 1)
         if world is None:
             raise RuntimeError("world has not been initialized")
         return world
 
-    def get_state(self) -> WorldState:
+    def get_state(self) -> payloads.WorldState:
         with self.sessions() as session:
             world = self._world_row(session)
             actors = tuple(
-                ActorState(
+                payloads.ActorState(
                     id=actor.id,
                     kind=actor.kind,
                     x=actor.x,
@@ -570,7 +187,7 @@ class WorldEngine:
                 )
                 for actor in session.scalars(select(Actor).order_by(Actor.id))
             )
-            return WorldState(
+            return payloads.WorldState(
                 world.seed,
                 world.game_minute,
                 world.speed,
@@ -581,15 +198,15 @@ class WorldEngine:
                 dict(world.gen_options or {}),
             )
 
-    def _carried(self, session: Session, actor_id: str) -> tuple[CarriedObject, ...]:
-        carried: list[CarriedObject] = []
+    def _carried(self, session: Session, actor_id: str) -> tuple[actions.CarriedObject, ...]:
+        carried: list[actions.CarriedObject] = []
         rows = session.scalars(
             select(ObjectRow).where(ObjectRow.actor_id == actor_id).order_by(ObjectRow.id)
         )
         for row in rows:
             kind = self.catalog.get(row.kind)
             carried.append(
-                CarriedObject(
+                actions.CarriedObject(
                     id=row.id,
                     kind=row.kind,
                     name=kind.name if kind is not None else row.kind,
@@ -604,16 +221,16 @@ class WorldEngine:
             world = self._world_row(session)
             return world.game_minute, world.speed, world.paused
 
-    def world_info(self) -> WorldInfo:
+    def world_info(self) -> payloads.WorldInfo:
         bounds = self.grid.bounds() or (0, 0, 0, 0)
-        return WorldInfo(chunk_size=CHUNK_SIZE, level_h=6, bounds=bounds)
+        return payloads.WorldInfo(chunk_size=CHUNK_SIZE, level_h=6, bounds=bounds)
 
-    def chunk_payload(self, cx: int, cy: int) -> ChunkPayload | None:
+    def chunk_payload(self, cx: int, cy: int) -> payloads.ChunkPayload | None:
         chunk = self.grid.chunk(cx, cy)
         if chunk is None:
             return None
         levels = tuple(
-            ChunkLevelPayload(
+            payloads.ChunkLevelPayload(
                 z=level.z,
                 floor_h=level.floor_h,
                 floor_mat=level.floor_mat,
@@ -625,7 +242,7 @@ class WorldEngine:
             for (level_cx, level_cy, _), level in sorted(self.grid.levels.items())
             if level_cx == cx and level_cy == cy
         )
-        return ChunkPayload(
+        return payloads.ChunkPayload(
             cx=cx,
             cy=cy,
             revision=chunk.revision,
@@ -633,7 +250,7 @@ class WorldEngine:
             surface_mat=chunk.surface_mat,
             levels=levels,
             objects=tuple(
-                ObjectPayload(
+                payloads.ObjectPayload(
                     id=obj.id,
                     kind=obj.kind,
                     x=obj.x,
@@ -646,14 +263,16 @@ class WorldEngine:
             ),
         )
 
-    def chunks_near(self, cx: int, cy: int, radius: int = CHUNK_RADIUS) -> tuple[ChunkPayload, ...]:
-        payloads: list[ChunkPayload] = []
+    def chunks_near(
+        self, cx: int, cy: int, radius: int = CHUNK_RADIUS
+    ) -> tuple[payloads.ChunkPayload, ...]:
+        result: list[payloads.ChunkPayload] = []
         for offset_y in range(-radius, radius + 1):
             for offset_x in range(-radius, radius + 1):
                 payload = self.chunk_payload(cx + offset_x, cy + offset_y)
                 if payload is not None:
-                    payloads.append(payload)
-        return tuple(payloads)
+                    result.append(payload)
+        return tuple(result)
 
     async def new_game(
         self,
@@ -662,7 +281,7 @@ class WorldEngine:
         options: dict[str, Any] | None = None,
         *,
         paused: bool = False,
-    ) -> WorldState:
+    ) -> payloads.WorldState:
         spec = get_generator(generator)
         if spec is None:
             raise ValueError(f"unknown generator: {generator}")
@@ -681,8 +300,8 @@ class WorldEngine:
                 world.speed = 1
                 world.paused = paused
                 generated = spec.generate(seed, resolved, self.registry)
-                self._commit_world(session, generated)
-                self._commit_objects(session, generated.objects)
+                world_setup.commit_world(session, generated)
+                world_setup.commit_objects(session, generated.objects)
                 world.gen_version = generated.gen_version
                 world.generator = spec.key
                 world.gen_options = resolved.model_dump(mode="json")
@@ -701,7 +320,9 @@ class WorldEngine:
                         options=world.gen_options,
                     )
                 ]
-                actor_event = self._ensure_actors(session, spec, resolved, seed)
+                actor_event = world_setup.ensure_actors(
+                    session, self.grid, self.registry, spec, resolved, seed
+                )
                 events.extend(actor_event)
                 self._refresh_load(session)
                 events.append(ClockChanged(speed=world.speed, paused=world.paused))
@@ -714,8 +335,8 @@ class WorldEngine:
         return state
 
     async def submit(
-        self, actor_id: str, action: Action, delta_seconds: float = 1 / 20
-    ) -> ActionResult:
+        self, actor_id: str, action: actions.Action, delta_seconds: float = 1 / 20
+    ) -> actions.ActionResult:
         events: list[Event] = []
         async with self._lock:
             with self.sessions() as session:
@@ -724,7 +345,7 @@ class WorldEngine:
                 if actor is None:
                     raise KeyError(f"unknown actor: {actor_id}")
                 if world.paused:
-                    return ActionResult(
+                    return actions.ActionResult(
                         accepted=False,
                         actor_id=actor_id,
                         action=action,
@@ -736,10 +357,10 @@ class WorldEngine:
                         carried=list(self._carried(session, actor_id)),
                         load_kg=self.load_kg(actor_id),
                     )
-                if isinstance(action, MoveAction) and action.dx == 0 and action.dy == 0:
+                if isinstance(action, actions.MoveAction) and action.dx == 0 and action.dy == 0:
                     # Releasing WASD sends a zero vector; it is not an action, so it must not
                     # interrupt an activity that was chosen a moment earlier.
-                    return ActionResult(
+                    return actions.ActionResult(
                         accepted=True,
                         actor_id=actor_id,
                         action=action,
@@ -758,7 +379,7 @@ class WorldEngine:
                 reason = handler.validate(ctx, action)
                 if reason is not None:
                     # A rejection changes nothing, a running activity included.
-                    return ActionResult(
+                    return actions.ActionResult(
                         accepted=False,
                         actor_id=actor_id,
                         action=action,
@@ -783,8 +404,8 @@ class WorldEngine:
                         )
                     )
                 text: str | None = None
-                activity: ActivityState | None = None
-                trajectory: list[PhysicsPosition] = []
+                activity: actions.ActivityState | None = None
+                trajectory: list[actions.PhysicsPosition] = []
                 duration = handler.duration(ctx, action)
                 if duration == 0:
                     resolution = handler.resolve(ctx, action)
@@ -792,14 +413,14 @@ class WorldEngine:
                     text = resolution.text
                     trajectory = resolution.trajectory
                 else:
-                    activity = ActivityState(
+                    activity = actions.ActivityState(
                         op=action.op,
                         action=action.model_dump(mode="json"),
                         started_minute=world.game_minute,
                         ends_minute=world.game_minute + duration,
                     )
                     actor.activity = activity.model_dump(mode="json")
-                    target = None if isinstance(action, MoveAction) else action.target
+                    target = None if isinstance(action, actions.MoveAction) else action.target
                     events.append(
                         ActivityStarted(
                             actor_id=actor.id,
@@ -814,7 +435,7 @@ class WorldEngine:
                 self.bus.enqueue(events)
                 if action.op in HANDLING_OPS | {"throw"}:
                     self._refresh_load(session)
-                result = ActionResult(
+                result = actions.ActionResult(
                     accepted=True,
                     actor_id=actor_id,
                     action=action,
@@ -834,7 +455,7 @@ class WorldEngine:
     async def set_goal(
         self,
         actor_id: str,
-        goal: Goal | None,
+        goal: actions.Goal | None,
         reason: Literal["chosen", "arrived", "stuck", "unreachable"],
     ) -> None:
         """Commit an Extra's intention. The brain proposes; the engine writes and logs it."""
@@ -851,8 +472,8 @@ class WorldEngine:
                     surface.h == goal.h for surface in self.grid.standing_surfaces(goal.x, goal.y)
                 ):
                     raise ValueError("goal tile has no standing surface")
-                mind = _mind(actor) or Mind(
-                    anchor=Spot(x=floor(actor.x), y=floor(actor.y), h=actor.h)
+                mind = _mind(actor) or actions.Mind(
+                    anchor=actions.Spot(x=floor(actor.x), y=floor(actor.y), h=actor.h)
                 )
                 mind.goal = goal
                 actor.mind = mind.model_dump(mode="json")
@@ -869,7 +490,7 @@ class WorldEngine:
                 self.bus.enqueue(events)
         await self.bus.drain()
 
-    async def advance_time(self) -> WorldState:
+    async def advance_time(self) -> payloads.WorldState:
         events: list[Event] = []
         async with self._lock:
             with self.sessions() as session:
@@ -910,97 +531,23 @@ class WorldEngine:
             events.append(ActivityFinished(actor_id=actor.id, op=running.op, outcome="completed"))
         return events
 
-    def menu(self, actor_id: str, x: float, y: float, z: int) -> MenuPayload:
+    def menu(self, actor_id: str, x: float, y: float, z: int) -> payloads.MenuPayload:
         """Generated right-click entries. A read: no lock, since submit validates again."""
-        tile_x, tile_y = floor(x), floor(y)
-        surfaces = self.grid.standing_surfaces(tile_x, tile_y)
-        visible = [surface for surface in surfaces if surface.z == z] or list(surfaces)
-        chosen = None
-        if visible:
-            chosen = min(visible, key=lambda item: abs(item.z - z))
-            material = self.registry.get(chosen.material_id)
-            name = material.name if material is not None else "unknown"
-            label = f"{name} · {metres(chosen.h)}"
-        else:
-            label = "nothing"
-        surface_z = chosen.z if chosen is not None else z
-        entries: list[MenuEntry] = []
-        with self.sessions() as session:
-            world = self._world_row(session)
-            actor = session.get(Actor, actor_id)
-            if actor is None:
-                raise KeyError(f"unknown actor: {actor_id}")
-            candidates: list[Target] = []
-            if chosen is not None:
-                candidates.append(TileTarget(x=tile_x, y=tile_y, h=chosen.h))
-            on_own_tile = (floor(actor.x), floor(actor.y)) == (tile_x, tile_y)
-            if on_own_tile:
-                candidates.append(SelfTarget())
-            tile_rows = [
-                row
-                for row in session.scalars(
-                    select(ObjectRow)
-                    .where(ObjectRow.loc == "tile", ObjectRow.x == tile_x, ObjectRow.y == tile_y)
-                    .order_by(ObjectRow.id)
-                )
-                if row.h is not None and row.h // 6 == surface_z
-            ]
-            candidates.extend(ObjectTarget(id=row.id) for row in tile_rows)
-            cx, cy, local_x, local_y = self.grid.chunk_coords(tile_x, tile_y)
-            cell_index = local_y * CHUNK_SIZE + local_x
-            for level in sorted(self.grid.levels.values(), key=lambda item: item.z):
-                if (level.cx, level.cy) != (cx, cy):
-                    continue
-                if level.wall_n[cell_index]:
-                    candidates.append(EdgeTarget(x=tile_x, y=tile_y, z=level.z, direction="north"))
-                if level.wall_w[cell_index]:
-                    candidates.append(EdgeTarget(x=tile_x, y=tile_y, z=level.z, direction="west"))
-            candidates.extend(
-                ActorTarget(id=other.id)
-                for other in session.scalars(select(Actor).order_by(Actor.id))
-                if other.id != actor.id
-                and (floor(other.x), floor(other.y), other.h)
-                == (tile_x, tile_y, chosen.h if chosen else actor.h)
-            )
-            for row in tile_rows:
-                kind = self.catalog.get(row.kind)
-                if kind is not None and is_accessible(kind, row):
-                    candidates.extend(
-                        ObjectTarget(id=child.id) for child in children(session, row.id)
-                    )
-            if on_own_tile:
-                carried = held_objects(session, actor_id) + worn_objects(session, actor_id)
-                candidates.extend(ObjectTarget(id=row.id) for row in carried)
-                for row in worn_objects(session, actor_id):
-                    kind = self.catalog.get(row.kind)
-                    if kind is not None and is_accessible(kind, row):
-                        candidates.extend(
-                            ObjectTarget(id=child.id) for child in children(session, row.id)
-                        )
-            ctx = ActionContext(session, world, actor, self.grid, 0, self.load_kg(actor_id))
-            for spec, handler in handled_ops():
-                for target in candidates:
-                    if target.kind not in spec.targets or not handler.applies(ctx, target):
-                        continue
-                    for action in handler.builds(ctx, target):
-                        reason = handler.validate(ctx, action)
-                        entries.append(
-                            MenuEntry(
-                                op=spec.key,
-                                label=spec.label,
-                                tags=list(spec.tags),
-                                available=reason is None,
-                                reason=reason,
-                                subject=handler.subject(ctx, action),
-                                action=action,
-                            )
-                        )
-            session.rollback()
-        return MenuPayload(x=x, y=y, z=z, target=label, entries=tuple(entries))
+        return build_menu(
+            self.sessions,
+            actor_id,
+            x,
+            y,
+            z,
+            self.grid,
+            self.registry,
+            self.catalog,
+            self._load_cache,
+        )
 
     async def set_clock(
         self, *, paused: bool | None = None, speed: int | None = None
-    ) -> WorldState:
+    ) -> payloads.WorldState:
         events: list[Event] = []
         async with self._lock:
             with self.sessions() as session:
@@ -1039,14 +586,14 @@ class WorldEngine:
             return list(session.scalars(statement))
 
 
-def _activity(actor: Actor) -> ActivityState | None:
-    return ActivityState.model_validate(actor.activity) if actor.activity else None
+def _activity(actor: Actor) -> actions.ActivityState | None:
+    return actions.ActivityState.model_validate(actor.activity) if actor.activity else None
 
 
-def _mind(actor: Actor) -> Mind | None:
+def _mind(actor: Actor) -> actions.Mind | None:
     if not actor.mind:
         return None
     try:
-        return Mind.model_validate(actor.mind)
+        return actions.Mind.model_validate(actor.mind)
     except ValidationError:
         return None

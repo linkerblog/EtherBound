@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type ReactElement } from "react";
-import { createGame, type ContextTarget, type Telemetry } from "../game/MapScene";
+import { createGame, type ContextTarget, type MapScene, type Telemetry } from "../game/MapScene";
 import type { ZoomLevel } from "../game/zoom";
 import { fetchGameState, fetchGenerators, requestNewGame, WebSocketClient } from "../net/client";
 import type { ConnectionState, GameStateResponse, GeneratorInfo, MenuEntry, MenuResponse, WorldState } from "../net/protocol";
 import { defaultValues, flattenOptions, rows, toOptions, type GenRow, type GenValue, type GenValues } from "./genForm";
+import { firstAvailable, radialSlots, stepFocus } from "./radialMenu";
 
 type MenuState = { target: ContextTarget; targetLabel?: string; entries: MenuEntry[]; error?: string } | null;
 type ResolvedMenuState = Exclude<MenuState, null>;
+type RadialState = { center: { x: number; y: number }; targetLabel?: string; entries: MenuEntry[]; error?: string } | null;
+type ResolvedRadialState = Exclude<RadialState, null>;
 /** `seen` is what Niko perceives; `act`, `warn` and `fail` report his own actions. */
 type FeedKind = "echo" | "seen" | "act" | "warn" | "fail";
 type FeedItem = { text: string; kind: FeedKind; minute: number };
@@ -41,10 +44,12 @@ function meter(value: number, cells = 12): string {
 export function App(): ReactElement {
   const hostRef = useRef<HTMLDivElement>(null);
   const clientRef = useRef<WebSocketClient | null>(null);
+  const sceneRef = useRef<MapScene | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [world, setWorld] = useState(initialWorld);
   const [connection, setConnection] = useState<ConnectionState>("connecting");
   const [menu, setMenu] = useState<MenuState>(null);
+  const [radial, setRadial] = useState<RadialState>(null);
   const [input, setInput] = useState("");
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [telemetry, setTelemetry] = useState<Telemetry | null>(null);
@@ -53,6 +58,8 @@ export function App(): ReactElement {
   const [debugOpen, setDebugOpen] = useState(false);
   const [generators, setGenerators] = useState<GeneratorInfo[]>([]);
   const menuRequest = useRef(0);
+  const radialRequest = useRef(0);
+  const radialOpen = useRef(false);
   const gameMinute = useRef(0);
   // Results carry only a sequence, so remember which op each sent action was.
   const sentOps = useRef(new Map<number, string>());
@@ -111,7 +118,14 @@ export function App(): ReactElement {
       client.disconnect();
     };
     if (!hostRef.current) return removeAll;
-    const game = createGame(hostRef.current, client, (target) => void openMenu(target), setTelemetry, setZoom);
+    const game = createGame(
+      hostRef.current,
+      client,
+      (target) => void openMenu(target),
+      setTelemetry,
+      setZoom,
+      (scene) => { sceneRef.current = scene; },
+    );
     return () => {
       game.destroy(true);
       removeAll();
@@ -120,18 +134,37 @@ export function App(): ReactElement {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      const typing = document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement;
       if (event.key === "Enter" && !document.querySelector("#new-game-dialog") && document.activeElement !== inputRef.current) {
         event.preventDefault();
         inputRef.current?.focus();
       }
+      if ((event.key === "v" || event.key === "V") && !typing && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();
+        if (radialOpen.current) closeRadial();
+        else void openRadial();
+      }
       if (event.key === "Escape") {
         setMenu(null);
         setDebugOpen(false);
+        closeRadial();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  const radialVisible = radial !== null;
+  useEffect(() => {
+    if (!radialVisible) return;
+    // The radial is centred on Niko, so it follows him while he walks.
+    const timer = window.setInterval(() => {
+      const anchor = sceneRef.current?.playerAnchor();
+      if (!anchor) return;
+      setRadial((current) => current ? { ...current, center: { x: anchor.screenX, y: anchor.screenY } } : current);
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [radialVisible]);
 
   useEffect(() => {
     let active = true;
@@ -142,6 +175,7 @@ export function App(): ReactElement {
   }, []);
 
   async function openMenu(target: ContextTarget): Promise<void> {
+    closeRadial();
     const token = ++menuRequest.current;
     setMenu({ target, entries: [] });
     const query = new URLSearchParams({ x: String(target.x), y: String(target.y), z: String(target.z) });
@@ -157,12 +191,40 @@ export function App(): ReactElement {
     }
   }
 
+  /** Opens the radial menu on Niko's own tile: the same server-built entries, arranged on him. */
+  async function openRadial(): Promise<void> {
+    const anchor = sceneRef.current?.playerAnchor() ?? null;
+    if (!anchor) return;
+    const token = ++radialRequest.current;
+    radialOpen.current = true;
+    setMenu(null);
+    setRadial({ center: { x: anchor.screenX, y: anchor.screenY }, entries: [] });
+    const query = new URLSearchParams({ x: String(anchor.x), y: String(anchor.y), z: String(anchor.z) });
+    try {
+      const response = await fetch(`/api/menu?${query}`);
+      if (!response.ok) throw new Error(`menu request ${response.status}`);
+      const payload = await response.json() as MenuResponse;
+      if (token !== radialRequest.current) return;
+      setRadial({ center: { x: anchor.screenX, y: anchor.screenY }, targetLabel: payload.target, entries: payload.ops });
+    } catch {
+      if (token !== radialRequest.current) return;
+      setRadial({ center: { x: anchor.screenX, y: anchor.screenY }, entries: [], error: "SERVER MENU UNAVAILABLE" });
+    }
+  }
+
+  function closeRadial(): void {
+    radialOpen.current = false;
+    radialRequest.current += 1;
+    setRadial(null);
+  }
+
   function pickEntry(entry: MenuEntry): void {
     const client = clientRef.current;
     if (!client || !entry.available) return;
     // The server built this action; sending it back unchanged is the whole contract.
     sentOps.current.set(client.sendAction(entry.action), entry.label.toUpperCase());
     setMenu(null);
+    closeRadial();
   }
 
   function setClock(paused: boolean, speed = world.speed): void {
@@ -180,7 +242,7 @@ export function App(): ReactElement {
 
   const activity = (world.actors[PLAYER_ID] ?? world.actors.player)?.activity;
 
-  return <main className="shell" onClick={() => { setMenu(null); setNewGameOpen(false); }} onContextMenu={(event) => event.preventDefault()}>
+  return <main className="shell" onClick={() => { setMenu(null); setNewGameOpen(false); closeRadial(); }} onContextMenu={(event) => event.preventDefault()}>
     <div ref={hostRef} className="world" aria-label="EtherBound world" />
     <section className="hud" aria-label="Niko HUD">
       <div className={`hud-panel clock ${world.paused ? "paused" : ""}`} onClick={(event) => event.stopPropagation()}>
@@ -227,6 +289,7 @@ export function App(): ReactElement {
     </section>
     <DebugDrawer open={debugOpen} onClose={() => setDebugOpen(false)} generators={generators} />
     {menu && <ContextMenu state={menu} onPick={pickEntry} onClose={() => setMenu(null)} />}
+    {radial && <RadialMenu state={radial} onPick={pickEntry} onClose={closeRadial} />}
   </main>;
 }
 
@@ -524,3 +587,96 @@ function ContextMenu({ state, onPick, onClose }: { state: ResolvedMenuState; onP
   </div>;
 }
 
+function RadialMenu({ state, onPick, onClose }: { state: ResolvedRadialState; onPick: (entry: MenuEntry) => void; onClose: () => void }): ReactElement {
+  const { entries, center } = state;
+  const slots = radialSlots(entries);
+  const [focus, setFocus] = useState(() => firstAvailable(entries));
+  const [shake, setShake] = useState(false);
+
+  useEffect(() => { setFocus(firstAvailable(entries)); }, [entries]);
+
+  const focused = entries[focus];
+  const extent = slots.length > 0 ? Math.max(...slots.map((slot) => slot.radius)) + 96 : 160;
+  const detail = state.error
+    ? state.error
+    : !focused
+      ? "NO ACTIONS"
+      : `${focused.label}${focused.subject ? ` ${focused.subject}` : ""}${focused.available ? "" : ` · ${focused.reason ?? "unavailable"}`}`;
+
+  function pick(entry: MenuEntry | undefined): void {
+    if (!entry) return;
+    if (!entry.available) {
+      setShake(true);
+      window.setTimeout(() => setShake(false), 260);
+      return;
+    }
+    onPick(entry);
+  }
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (entries.length === 0) return;
+      if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        setFocus((current) => stepFocus(current, 1, entries.length));
+      } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        setFocus((current) => stepFocus(current, -1, entries.length));
+      } else if (event.key >= "1" && event.key <= "9") {
+        const index = Number(event.key) - 1;
+        if (index < entries.length) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          setFocus(index);
+        }
+      } else if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        pick(entries[focus]);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [entries, focus, onPick]);
+
+  return <div
+    className="radial"
+    role="menu"
+    aria-label="Actions around Niko"
+    style={{ left: center.x, top: center.y }}
+    onClick={(event) => { event.stopPropagation(); onClose(); }}>
+    <svg className="radial-lines" width={extent * 2} height={extent * 2} viewBox={`${-extent} ${-extent} ${extent * 2} ${extent * 2}`} aria-hidden="true">
+      {slots.map((slot) => <line key={slot.index} x1={0} y1={0} x2={slot.x} y2={slot.y} />)}
+    </svg>
+    <div className={`radial-hub ${shake ? "shake" : ""}`}>
+      <div className="radial-target">{state.targetLabel ?? "ACTIONS"}</div>
+      <div className={`radial-detail ${focused?.available === false ? "off" : ""}`}>{detail}</div>
+    </div>
+    {slots.map((slot, index) => {
+      const entry = slot.entry;
+      const classes = [
+        "radial-slot",
+        index === focus ? "focus" : "",
+        entry.available ? "" : "off",
+        entry.tags.includes("ether") ? "ether" : "",
+        entry.tags.includes("illegal") ? "illegal" : "",
+        entry.tags.includes("violent") ? "violent" : "",
+      ].filter(Boolean).join(" ");
+      return <button
+        key={`${entry.op}-${slot.index}`}
+        type="button"
+        role="menuitem"
+        aria-disabled={!entry.available}
+        className={classes}
+        style={{ left: slot.x, top: slot.y }}
+        title={`${entry.label}${entry.subject ? ` ${entry.subject}` : ""}${entry.available ? "" : ` · ${entry.reason ?? "unavailable"}`}`}
+        onMouseEnter={() => setFocus(index)}
+        onClick={(event) => { event.stopPropagation(); pick(entry); }}>
+        <span className="radial-op">{entry.label}</span>
+        {entry.subject && <span className="radial-subject">{entry.subject}</span>}
+      </button>;
+    })}
+  </div>;
+}

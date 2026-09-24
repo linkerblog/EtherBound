@@ -14,12 +14,31 @@ Open decisions and loose ends. When one is settled, record the decision where it
       tile walked; once Extras walk, it multiplies. Decide on pruning or compaction before the
       Phase 2 block with its ~20 Extras. It ties into memory compaction (`utils/VISION.md`
       [Sec. 8], Life cycle). Deferred by `done/Dev-005.md` [Sec. 8].
+- [ ] **NPC construction.** Leaning (23/09/2026): the three questions go to three brains. *Why*
+      build comes from utility (Extras, organizations) or the LLM (Agents). *What* to build: the
+      LLM or a table writes a building program (use, rooms, floors, material, budget) and a
+      seeded code generator turns it into tiles that obey `utils/VISION.md` [Sec. 5]; Jev may
+      only pick among generated candidates, and no model places tiles. *How*: a plan of ops
+      (`buy`, `take`, `put`, `dig`, `build`) posted as a task or contract, with bought and carried
+      materials, ownership or a permit, and progress as an activity. Construction far from Niko
+      advances per day at lower detail. The same generator could answer City authoring. Needs
+      needs, organizations, tasks and ownership first; Phase 4.
+- [ ] **Recipes and supply.** Leaning (23/09/2026): Zomboid-style items stay on the Matter
+      primitive. `cook` and `craft` read recipes as data rows (inputs, tools, station, skill,
+      minutes, outputs). Inputs, tools and stations are asked for by tag or component
+      (`flour`, `tool.cut`, `heat.oven`), never by a named kind, so any object with the property
+      serves. An organization's stock is a need: without flour the recipe fails, no pizzas means
+      no delivery job, and the organization posts a supply task while local prices move. Open:
+      stock far from Niko is kept as numbers and becomes physical objects only when relevant
+      (LOD), and the first tag list is kept short. Lands with the Phase 2 pizzeria.
 
 ## Planned work
 
 - [ ] **Dev-014 AI furniture** (`Dev-014.md`): an LLM proposes furniture as a validated primitive
       spec that BitCanvas renders; lands after Dev-012. The `gamesync.js` syntax error was fixed
       independently by Fix10.
+- [ ] **Dev-016 context menu** (`Dev-016.md`): grouped and named entries, hover target, keyboard
+      opening and navigation, ARIA roles, layout and contrast fixes, live refresh. Awaiting approval.
 
 ## Deferred work
 
@@ -38,6 +57,11 @@ The `check:visual` seed-7 spawn baselines (`web/tests/visual/spawn.spec.ts`, x1/
 the spawn view of the Dev-006, Dev-008, Fix05 and Fix09 checks below; the user still approves the
 three images (`Infra01.md` [Sec. 6] 7).
 
+- [ ] **Dev-017 radial menu:** press `V` at spawn (shows `Wait`/`Inspect`) and while carrying a
+      shovel; confirm the ring stays centred on Niko while walking, hover and ←/→/digits move the
+      hub detail, Enter runs the focused op, a dimmed slot shakes the hub with its reason, `V`/`Esc`
+      close it, and `V` typed in the input line does nothing. See `docs/Dev-017.md` [Sec. 4]
+      acceptance 3–4.
 - [ ] **Fix10 BitCanvas Send to game:** in Chromium, send into a scratch `sprites` folder with a
       `grass` directory; confirm `grass_x4.png` and `grass_side_x4.png` are written and the folder
       name survives reload. See `done/Fix10.md` [Sec. 6] step 4.
@@ -116,7 +140,8 @@ The Dev-005 GUI acceptance passed; details are recorded in `docs/done/Fix02.md`.
 
 ## TL;DR
 
-Four design questions (abilities, city authoring, carry-over, event log retention); the op
+Six design questions (abilities, city authoring, carry-over, event log retention, NPC
+construction, recipes and supply); the op
 list is settled by `done/Dev-007.md` and the Matter primitive by `done/Dev-012.md`. Fix11's Dev
 Blog migration landed; Fix10's manual Send to game acceptance remains open. Dev-013 is implemented;
 its live physics/animation acceptance remains open. Two deferred items

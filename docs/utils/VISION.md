@@ -43,7 +43,7 @@ out of how the world is built, and the world reacts in ways that are correct but
 | Clock | 1 real s = 1 game min by default, configurable. Pause, x1/x3/x10. Autopause in scenes |
 | Distance | Walking only at start, accepting time distortion. No transport until core systems are consolidated |
 | Rolls | Carried over from NikoStory: d20 + stat + skill×2 against 0/10/14/18/22; natural 1 disaster, natural 20 critical, partial success with a cost |
-| Controls | WASD movement, right-click context menu, Enter opens free text |
+| Controls | WASD movement, right-click context menu, `V` radial menu, Enter opens free text |
 | LLM | OpenRouter (strategy, prose) + TypeSafe `choice` a.k.a. Jev (gates, tactics, interpretation) |
 | Protagonist | Always Niko. Cannot die, only be incapacitated. Infinite progression |
 | Ether | Only Niko has it |
@@ -178,6 +178,8 @@ its behaviour, and an op without one is never offered. An op that takes game tim
 - **Right-click menu is generated**, never authored: the server returns the ops applicable to the
   target given its properties, the situation and what Niko carries (a locked door offers `open`,
   `knock`, `force`, and `break` with enough strength).
+- **A `V` radial menu** shows the same generated entries for Niko's own tile, arranged around him,
+  so the player reaches every action with one key and without aiming.
 - **Free text (Enter):** Jev maps it to op + target + modifiers. If nothing fits, the action is
   narrative-only (no mechanical effect) or a generic attempt resolved by a roll with consequences
   from a fixed table. The LLM interprets intent; it never invents rules.

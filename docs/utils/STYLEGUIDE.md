@@ -240,6 +240,28 @@ only renders them.
 - `.sub` is the entry's `subject`, the object it acts on, right after the label
   (`Take Bottle ×3`, `Put Bottle into Chest`). The label alone is identical for every object.
 
+### Radial menu (`V`)
+
+The same server entries for Niko's own tile, arranged on rings around him. The hub names the target
+and the focused option; the client never hides an op (an unavailable slot is dim, never removed).
+
+```css
+.radial { position: fixed; z-index: 40; width: 0; height: 0; }
+.radial-lines { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); overflow: visible; pointer-events: none; }
+.radial-lines line { stroke: var(--line-hi); stroke-width: 1; }
+.radial-hub { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); width: 172px; text-align: center; background: var(--panel); border: 1px solid var(--line-hi); border-left: 2px solid var(--cyan); padding: 8px 10px; }
+.radial-slot { position: absolute; transform: translate(-50%, -50%); border: 1px solid var(--line-hi); background: var(--panel-a); color: var(--text); }
+.radial-slot:hover, .radial-slot.focus { background: var(--cyan); color: var(--bg); border-color: var(--cyan); }
+.radial-slot.off { color: var(--line-hi); border-color: var(--line); cursor: not-allowed; }
+.radial-slot.illegal { color: var(--red); }
+.radial-slot.ether { color: var(--magenta); }
+.radial-slot.violent .radial-op::before { content: "! "; color: var(--yellow); }
+```
+
+- `V` toggles; ←/↑ and →/↓ cycle, `1`–`9` focus by position, Enter/Space pick, Esc closes.
+- Eight per ring, first at the top, clockwise; further options go to a wider ring.
+- The radial is anchored on Niko and follows him while open; clicking the hub closes it.
+
 ---
 
 ## 9. Input line (Enter)

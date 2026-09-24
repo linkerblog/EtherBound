@@ -48,6 +48,9 @@ const RESYNC_METRES = 0.05;
 
 export type ContextTarget = { x: number; y: number; z: number; screenX: number; screenY: number };
 
+/** Niko's own tile plus the page point his feet are drawn at, used to anchor a menu on him. */
+export type PlayerAnchor = ContextTarget;
+
 /** Local avatar readout; `speed` is metres per second across the ground plane. */
 export type Telemetry = Position & { speed: number };
 
@@ -286,6 +289,21 @@ export class MapScene extends Phaser.Scene {
     this.updateCulling();
     this.updatePhysicsAnimations(performance.now());
     this.sampleTelemetry(position, seconds);
+  }
+
+  /** Niko's tile and the page point his feet are drawn at, for a menu centred on him. */
+  playerAnchor(): PlayerAnchor | null {
+    if (!this.niko) return null;
+    const position = this.prediction.position;
+    const camera = this.cameras.main;
+    const bounds = this.game.canvas.getBoundingClientRect();
+    return {
+      x: Math.floor(position.x),
+      y: Math.floor(position.y),
+      z: position.z,
+      screenX: (this.niko.x - camera.worldView.x) * camera.zoom + bounds.left,
+      screenY: (this.niko.y - camera.worldView.y) * camera.zoom + bounds.top,
+    };
   }
 
   shutdown(): void {
@@ -1227,7 +1245,10 @@ export function createGame(
   onContextMenu: (target: ContextTarget) => void,
   onTelemetry: (telemetry: Telemetry) => void,
   onZoom: (level: ZoomLevel) => void,
+  onScene?: (scene: MapScene) => void,
 ): Phaser.Game {
+  const scene = new MapScene({ client, onContextMenu, onTelemetry, onZoom });
+  onScene?.(scene);
   return new Phaser.Game({
     type: Phaser.AUTO,
     parent,
@@ -1237,6 +1258,6 @@ export function createGame(
     pixelArt: true,
     render: { antialias: false, roundPixels: true },
     scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
-    scene: new MapScene({ client, onContextMenu, onTelemetry, onZoom }),
+    scene,
   });
 }

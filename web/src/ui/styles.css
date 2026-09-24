@@ -101,6 +101,30 @@ button:disabled { opacity: .35; cursor: not-allowed; }
 .menu .op.off { color: var(--line-hi); cursor: not-allowed; opacity: 1; }
 .menu .op.off.focus { background: var(--line); color: var(--line-hi); }
 .menu-empty { padding: 8px 12px; color: var(--dim); font-size: 11px; }
+.radial { position: fixed; z-index: 40; width: 0; height: 0; }
+.radial-lines { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); overflow: visible; pointer-events: none; }
+.radial-lines line { stroke: var(--line-hi); stroke-width: 1; }
+.radial-hub { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); width: 172px; text-align: center; background: var(--panel); border: 1px solid var(--line-hi); border-left: 2px solid var(--cyan); padding: 8px 10px; box-shadow: 0 6px 24px rgba(0,0,0,.6); }
+.radial-hub .radial-target { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--line); padding-bottom: 4px; margin-bottom: 4px; }
+.radial-hub .radial-detail { color: var(--text); font-size: 11px; text-transform: uppercase; }
+.radial-hub .radial-detail.off { color: var(--line-hi); }
+.radial-hub.shake { animation: radial-shake .26s steps(4) both; }
+.radial-slot { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 78px; max-width: 132px; padding: 4px 8px; border: 1px solid var(--line-hi); background: var(--panel-a); color: var(--text); text-transform: uppercase; letter-spacing: .5px; font-size: 11px; line-height: 1.25; }
+.radial-slot::before, .radial-slot::after { content: none; }
+.radial-slot:hover, .radial-slot.focus { background: var(--cyan); color: var(--bg); border-color: var(--cyan); box-shadow: 0 0 14px rgba(87,199,255,.45); }
+.radial-slot .radial-op { font-weight: 600; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.radial-slot .radial-subject { max-width: 100%; font-size: 10px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.radial-slot:hover .radial-subject, .radial-slot.focus .radial-subject { color: var(--bg); opacity: .8; }
+.radial-slot.off { color: var(--line-hi); border-color: var(--line); cursor: not-allowed; }
+.radial-slot.off.focus { background: var(--line); color: var(--line-hi); box-shadow: none; }
+.radial-slot.off .radial-subject { color: var(--line-hi); }
+.radial-slot.illegal { color: var(--red); }
+.radial-slot.illegal.focus { color: var(--bg); }
+.radial-slot.ether { color: var(--magenta); }
+.radial-slot.ether.focus { color: var(--bg); }
+.radial-slot.violent .radial-op::before { content: "! "; color: var(--yellow); }
+.radial-slot.violent.focus .radial-op::before { color: var(--bg); }
+@keyframes radial-shake { 0%, 100% { transform: translate(-50%, -50%); } 25% { transform: translate(calc(-50% - 3px), -50%); } 75% { transform: translate(calc(-50% + 3px), -50%); } }
 .confirm { position: absolute; top: 52px; left: 12px; width: min(320px, calc(100vw - 24px)); z-index: 40; }
 .confirm h3 { margin: -8px -12px 8px; padding: 4px 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); background: var(--bar); border-bottom: 1px solid var(--line); }
 .confirm h3::before { content: "▍"; color: var(--cyan); margin-right: 6px; }

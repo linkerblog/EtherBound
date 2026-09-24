@@ -28,7 +28,7 @@ per-save generator options (migration `0007_generator`).
 | web.world | `web/src/world/` | Chunk store, server-parity standing/wall rules, cutaway, ray, occlusion, picking and material tables. |
 | web.game | `web/src/game/` | Phaser isometric renderer and ordered tile-object batches; animates server physics paths, never simulates collision. |
 | web.net | `web/src/net/` | WS client, movement prediction/reconciliation, generated `schema.d.ts` and action-result trajectory listeners. |
-| web.ui | `web/src/ui/` | React overlay: clock, speeds, pills, meters, `CARRY`, `FEED`, `ACT`, input, context menu, `NEW` map select and the DEBUG `MAP` generator form (`genForm.ts`). |
+| web.ui | `web/src/ui/` | React overlay: clock, speeds, pills, meters, `CARRY`, `FEED`, `ACT`, input, context menu, radial menu on `V` (`radialMenu.ts`), `NEW` map select and the DEBUG `MAP` generator form (`genForm.ts`). |
 | launcher | `launcher/` | `EtherBound.exe`, the C# (.NET 10, Native AOT) dev launcher: server + web jobs, health checks, hot reload, leftover and port handling. |
 | bitcanvas | `BitCanvas/` | Standalone seeded texture and furniture generator (HTML/JS, no build) with guarded "Send to game" sync. |
 | tooling | root config: `package.json`, `global.json`, `.gitignore`, `.env.example` | Build and check scripts, pinned .NET SDK. |
@@ -129,7 +129,9 @@ group) and, for `lab`, its `bays`.
   object and the contents of worn open containers; it also offers adjacent actors and existing
   north/west wall edges as physics targets. Each handled op whose targets allow a candidate
   and whose `applies` holds becomes an entry with its `action`, `available`, `reason` and `subject`,
-  in catalog order then candidate order.
+  in catalog order then candidate order. The client renders that payload either as the right-click
+  list or as the radial menu on `V`, which centers the same entries on Niko's own tile; it never
+  adds, removes or reorders an entry.
 - **Event bus.** Only `WorldEngine` stamps/enqueues events. Logged events share the state
   transaction; `clock.ticked` dispatches but is not stored. `new_game` resets the log and sequence
   to 1. A fresh world logs `world.generated`, `actor.spawned`, `clock.changed`; opening an existing

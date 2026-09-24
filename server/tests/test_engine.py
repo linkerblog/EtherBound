@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from etherbound.db.models import Actor, Base, WorldMeta
 from etherbound.engine.actions import MoveAction
 from etherbound.engine.movement import move_in_world, nearest_surface
-from etherbound.engine.world import PLAYER_ID, WorldEngine
+from etherbound.engine.world import PLAYER_ID, ActorState, WorldEngine
 from etherbound.world.chunk import CELL_COUNT, Chunk, ChunkLevel
 from etherbound.world.grid import WorldGrid
 from etherbound.world.materials import MaterialRegistry
@@ -195,16 +195,20 @@ def _restart(engine: WorldEngine) -> WorldEngine:
     return restarted
 
 
+def _niko(engine: WorldEngine) -> ActorState:
+    return next(actor for actor in engine.get_state().actors if actor.id == PLAYER_ID)
+
+
 @pytest.mark.parametrize("offset", [-1, 1])
 async def test_loaded_actor_with_stale_h_snaps_to_its_surface(
     engine: WorldEngine, offset: int
 ) -> None:
-    before = engine.get_state().actors[0]
+    before = _niko(engine)
     _save_actor_h(engine, before.h + offset)
     stored = len(engine.read_events(0, 500, None, None))
 
     restarted = _restart(engine)
-    after = restarted.get_state().actors[0]
+    after = _niko(restarted)
     assert (after.x, after.y, after.h, after.z) == (before.x, before.y, before.h, before.z)
     assert len(restarted.read_events(0, 500, None, None)) == stored
 
@@ -217,12 +221,12 @@ async def test_loaded_actor_with_stale_h_snaps_to_its_surface(
 
 
 async def test_loaded_actor_with_no_surface_nearby_is_relocated(engine: WorldEngine) -> None:
-    spawn = engine.get_state().actors[0]
+    spawn = _niko(engine)
     place_actor(engine, spawn.x + 8, spawn.y)
-    _save_actor_h(engine, engine.get_state().actors[0].h + 3)
+    _save_actor_h(engine, _niko(engine).h + 3)
 
     restarted = _restart(engine)
-    after = restarted.get_state().actors[0]
+    after = _niko(restarted)
     assert (after.x, after.y, after.h) == (spawn.x, spawn.y, spawn.h)
     spawned = restarted.read_events(0, 500, "actor.spawned", PLAYER_ID)
     assert spawned[-1].data["reason"] == "relocated"

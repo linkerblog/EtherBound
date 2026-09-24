@@ -2,7 +2,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from math import floor
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import func, select
@@ -15,17 +15,21 @@ from etherbound.db.models import Event as EventRow
 from etherbound.db.models import Material as MaterialRow
 from etherbound.db.models import Object as ObjectRow
 from etherbound.engine.actions import (
+    PLAYER_ID,
     Action,
     ActionResult,
     ActivityState,
     ActorTarget,
     CarriedObject,
     EdgeTarget,
+    Goal,
     MenuEntry,
+    Mind,
     MoveAction,
     ObjectTarget,
     PhysicsPosition,
     SelfTarget,
+    Spot,
     Target,
     TileTarget,
 )
@@ -44,6 +48,7 @@ from etherbound.events.bus import EventBus
 from etherbound.events.models import (
     ActivityFinished,
     ActivityStarted,
+    ActorGoalSet,
     ActorSpawned,
     ClockChanged,
     ClockTicked,
@@ -57,8 +62,8 @@ from etherbound.world.gen.types import GeneratedObject, GeneratedWorld
 from etherbound.world.grid import WorldGrid
 from etherbound.world.materials import MaterialRegistry
 from etherbound.world.objects import ObjectCatalog
+from etherbound.world.population import GeneratedActor, populate
 
-PLAYER_ID = "niko"
 CHUNK_RADIUS = 2
 HANDLING_OPS = frozenset({"take", "drop", "put", "open", "close", "wear", "remove"})
 
@@ -78,6 +83,8 @@ class ActorState:
     activity: ActivityState | None = None
     carried: tuple[CarriedObject, ...] = ()
     load_kg: float = 0.0
+    name: str | None = None
+    mind: Mind | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -410,9 +417,7 @@ class WorldEngine:
             chunks, levels = self._load_grid(session)
             self.grid = WorldGrid(chunks, levels, self.registry, catalog=self.catalog)
             self._load_object_index(session)
-            actor_event = self._ensure_actor(session, spec, options, meta.seed)
-            if actor_event is not None:
-                events.append(actor_event)
+            events.extend(self._ensure_actors(session, spec, options, meta.seed))
             self._refresh_load(session)
             if generated_world:
                 events.append(ClockChanged(speed=meta.speed, paused=meta.paused))
@@ -447,38 +452,98 @@ class WorldEngine:
             return None
         return surfaces[0].h
 
-    def _ensure_actor(
-        self, session: Session, spec: GeneratorSpec, options: Any, seed: int
+    @staticmethod
+    def _spawn_event(actor: Actor, reason: Literal["created", "relocated"]) -> ActorSpawned:
+        return ActorSpawned(
+            actor_id=actor.id,
+            kind=actor.kind,
+            tile=TilePos(x=floor(actor.x), y=floor(actor.y), h=actor.h),
+            reason=reason,
+            name=actor.name,
+        )
+
+    def _settle_actor(
+        self, actor: Actor, spawn_x: float, spawn_y: float, spawn_h: int
     ) -> ActorSpawned | None:
+        """Snap a loaded actor to its surface, relocate it to spawn if it has none."""
+        surface = nearest_surface(self.grid, actor.x, actor.y, actor.h)
+        if surface is None:
+            actor.x, actor.y, actor.h, actor.z = spawn_x, spawn_y, spawn_h, spawn_h // 6
+            return self._spawn_event(actor, "relocated")
+        if surface.h != actor.h:
+            # A data repair, not a world fact: no event. The standing rule needs the exact h,
+            # and the next actor.moved carries the corrected h in from_tile.
+            actor.h, actor.z = surface.h, surface.h // 6
+        return None
+
+    def _create_extras(
+        self, session: Session, seed: int, spawn: tuple[float, float, int]
+    ) -> list[Event]:
+        events: list[Event] = []
+        for generated in populate(self.grid, self.registry, spawn, seed):
+            self._commit_extra(session, generated)
+            events.append(
+                ActorSpawned(
+                    actor_id=generated.id,
+                    kind="extra",
+                    tile=TilePos(x=generated.anchor_x, y=generated.anchor_y, h=generated.anchor_h),
+                    reason="created",
+                    name=generated.name,
+                )
+            )
+        return events
+
+    @staticmethod
+    def _commit_extra(session: Session, generated: GeneratedActor) -> None:
+        actor = Actor(
+            id=generated.id,
+            kind="extra",
+            name=generated.name,
+            x=generated.x,
+            y=generated.y,
+            h=generated.h,
+            z=generated.h // 6,
+        )
+        actor.mind = Mind(
+            anchor=Spot(x=generated.anchor_x, y=generated.anchor_y, h=generated.anchor_h)
+        ).model_dump(mode="json")
+        session.add(actor)
+
+    def _ensure_actors(
+        self, session: Session, spec: GeneratorSpec, options: Any, seed: int
+    ) -> list[Event]:
+        """Create or settle Niko and the Extras, emitting one actor.spawned per change."""
         spawn_x, spawn_y, spawn_h = self._spawn_point(spec, options, seed)
-        actor = session.get(Actor, PLAYER_ID)
-        reason: str | None = None
-        if actor is None:
-            actor = Actor(
+        events: list[Event] = []
+        niko = session.get(Actor, PLAYER_ID)
+        if niko is None:
+            niko = Actor(
                 id=PLAYER_ID,
                 kind="player",
                 x=spawn_x,
                 y=spawn_y,
                 h=spawn_h,
                 z=spawn_h // 6,
+                mass_kg=80.0,
             )
-            session.add(actor)
-            reason = "created"
-        elif (surface := nearest_surface(self.grid, actor.x, actor.y, actor.h)) is None:
-            actor.x, actor.y, actor.h, actor.z = spawn_x, spawn_y, spawn_h, spawn_h // 6
-            reason = "relocated"
-        elif surface.h != actor.h:
-            # A data repair, not a world fact: no event. The standing rule needs the exact h,
-            # and the next actor.moved carries the corrected h in from_tile.
-            actor.h, actor.z = surface.h, surface.h // 6
-        if reason is None:
-            return None
-        return ActorSpawned(
-            actor_id=actor.id,
-            kind=actor.kind,
-            tile=TilePos(x=floor(actor.x), y=floor(actor.y), h=actor.h),
-            reason=reason,
+            session.add(niko)
+            session.flush()
+            events.append(self._spawn_event(niko, "created"))
+        else:
+            settled = self._settle_actor(niko, spawn_x, spawn_y, spawn_h)
+            if settled is not None:
+                events.append(settled)
+        extras = list(
+            session.scalars(select(Actor).where(Actor.kind == "extra").order_by(Actor.id))
         )
+        if extras:
+            for extra in extras:
+                settled = self._settle_actor(extra, spawn_x, spawn_y, spawn_h)
+                if settled is not None:
+                    events.append(settled)
+        else:
+            events.extend(self._create_extras(session, seed, (spawn_x, spawn_y, spawn_h)))
+        return events
 
     def _world_row(self, session: Session) -> WorldMeta:
         world = session.get(WorldMeta, 1)
@@ -491,15 +556,17 @@ class WorldEngine:
             world = self._world_row(session)
             actors = tuple(
                 ActorState(
-                    actor.id,
-                    actor.kind,
-                    actor.x,
-                    actor.y,
-                    actor.z,
-                    actor.h,
-                    _activity(actor),
-                    self._carried(session, actor.id),
-                    self._load_cache.get(actor.id, 0.0),
+                    id=actor.id,
+                    kind=actor.kind,
+                    x=actor.x,
+                    y=actor.y,
+                    z=actor.z,
+                    h=actor.h,
+                    activity=_activity(actor),
+                    carried=self._carried(session, actor.id),
+                    load_kg=self._load_cache.get(actor.id, 0.0),
+                    name=actor.name,
+                    mind=_mind(actor),
                 )
                 for actor in session.scalars(select(Actor).order_by(Actor.id))
             )
@@ -593,6 +660,8 @@ class WorldEngine:
         seed: int,
         generator: str = DEFAULT_GENERATOR,
         options: dict[str, Any] | None = None,
+        *,
+        paused: bool = False,
     ) -> WorldState:
         spec = get_generator(generator)
         if spec is None:
@@ -610,7 +679,7 @@ class WorldEngine:
                 world.seed = seed
                 world.game_minute = 0
                 world.speed = 1
-                world.paused = False
+                world.paused = paused
                 generated = spec.generate(seed, resolved, self.registry)
                 self._commit_world(session, generated)
                 self._commit_objects(session, generated.objects)
@@ -632,9 +701,8 @@ class WorldEngine:
                         options=world.gen_options,
                     )
                 ]
-                actor_event = self._ensure_actor(session, spec, resolved, seed)
-                if actor_event is not None:
-                    events.append(actor_event)
+                actor_event = self._ensure_actors(session, spec, resolved, seed)
+                events.extend(actor_event)
                 self._refresh_load(session)
                 events.append(ClockChanged(speed=world.speed, paused=world.paused))
                 next_seq = self._stamp_and_store(session, world, events, first_seq=1)
@@ -762,6 +830,44 @@ class WorldEngine:
                 )
         await self.bus.drain()
         return result
+
+    async def set_goal(
+        self,
+        actor_id: str,
+        goal: Goal | None,
+        reason: Literal["chosen", "arrived", "stuck", "unreachable"],
+    ) -> None:
+        """Commit an Extra's intention. The brain proposes; the engine writes and logs it."""
+        events: list[Event] = []
+        async with self._lock:
+            with self.sessions() as session:
+                world = self._world_row(session)
+                actor = session.get(Actor, actor_id)
+                if actor is None:
+                    raise KeyError(f"unknown actor: {actor_id}")
+                if actor.id == PLAYER_ID:
+                    raise ValueError("the player is not driven by a goal")
+                if goal is not None and not any(
+                    surface.h == goal.h for surface in self.grid.standing_surfaces(goal.x, goal.y)
+                ):
+                    raise ValueError("goal tile has no standing surface")
+                mind = _mind(actor) or Mind(
+                    anchor=Spot(x=floor(actor.x), y=floor(actor.y), h=actor.h)
+                )
+                mind.goal = goal
+                actor.mind = mind.model_dump(mode="json")
+                events.append(
+                    ActorGoalSet(
+                        actor_id=actor_id,
+                        goal=goal.model_dump(mode="json") if goal is not None else None,
+                        reason=reason,
+                    )
+                )
+                next_seq = self._stamp_and_store(session, world, events)
+                session.commit()
+                self._next_seq = next_seq
+                self.bus.enqueue(events)
+        await self.bus.drain()
 
     async def advance_time(self) -> WorldState:
         events: list[Event] = []
@@ -935,3 +1041,12 @@ class WorldEngine:
 
 def _activity(actor: Actor) -> ActivityState | None:
     return ActivityState.model_validate(actor.activity) if actor.activity else None
+
+
+def _mind(actor: Actor) -> Mind | None:
+    if not actor.mind:
+        return None
+    try:
+        return Mind.model_validate(actor.mind)
+    except ValidationError:
+        return None

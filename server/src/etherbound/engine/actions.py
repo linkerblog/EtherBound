@@ -2,6 +2,9 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field
 
+# The client and every actor use this id; a world has exactly one player.
+PLAYER_ID = "niko"
+
 
 class SelfTarget(BaseModel):
     kind: Literal["self"] = "self"
@@ -64,6 +67,27 @@ class WornLoc(BaseModel):
 Location = Annotated[TileLoc | InLoc | HeldLoc | WornLoc, Field(discriminator="kind")]
 
 
+class Spot(BaseModel):
+    """A standing tile: the tile is a metre square and ``h`` is in half-metres."""
+
+    x: int
+    y: int
+    h: int
+
+
+class Goal(Spot):
+    """An intention stored on an actor, never an act: the brain fulfils it through ops."""
+
+    kind: Literal["wander"] = "wander"
+
+
+class Mind(BaseModel):
+    """The persisted sliver of an Extra: where it lives and, at most, one goal."""
+
+    anchor: Spot
+    goal: Goal | None = None
+
+
 class MoveAction(BaseModel):
     op: Literal["move"] = "move"
     dx: float = Field(ge=-1, le=1)
@@ -72,7 +96,7 @@ class MoveAction(BaseModel):
 
 class InspectAction(BaseModel):
     op: Literal["inspect"] = "inspect"
-    target: TileTarget | ObjectTarget
+    target: TileTarget | ObjectTarget | ActorTarget
 
 
 class WaitAction(BaseModel):

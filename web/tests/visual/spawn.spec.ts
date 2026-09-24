@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test";
 
 test("seed 7 spawn is stable at x1, x2 and x4", async ({ context, page, request }) => {
-  await request.post("/api/game/new", { data: { seed: 7 } });
+  // Paused so the seeded Extras stand still on their start tiles and the shot is repeatable.
+  await request.post("/api/game/new", { data: { seed: 7, paused: true } });
   await context.addInitScript(() => localStorage.setItem("etherbound.zoom", "1"));
 
   let lastChunkAt = 0;
@@ -26,7 +27,8 @@ test("seed 7 spawn is stable at x1, x2 and x4", async ({ context, page, request 
     await page.waitForTimeout(200);
   }
 
-  await page.waitForTimeout(2_000);
+  // A paused clock sends no ticks, so give the first paint time to settle before the x1 shot.
+  await page.waitForTimeout(5_000);
   // The DOM HUD (its clock moves) sits over the canvas: keep its layout, drop its paint.
   await page.addStyleTag({
     content:

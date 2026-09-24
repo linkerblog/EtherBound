@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from etherbound.db.models import Actor, WorldMeta
 from etherbound.db.models import Object as ObjectRow
-from etherbound.engine.actions import Action, PhysicsPosition, Target
+from etherbound.engine.actions import PLAYER_ID, Action, PhysicsPosition, Target
 from etherbound.events.models import Event, TilePos
 from etherbound.world.chunk import CHUNK_SIZE
 from etherbound.world.grid import WorldGrid
@@ -79,6 +79,13 @@ class OpHandler(Protocol):
 
 def metres(h: int) -> str:
     return f"{h * 0.5:.1f} m".replace(".0 m", " m")
+
+
+def actor_name(actor: Actor) -> str:
+    """What to call an actor in a menu or an inspect line; the player is always Niko."""
+    if actor.name:
+        return actor.name
+    return "Niko" if actor.id == PLAYER_ID else actor.id
 
 
 def in_close_reach(ctx: ActionContext, x: int, y: int) -> bool:

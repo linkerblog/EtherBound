@@ -18,6 +18,8 @@ import { TERRAIN_SHEETS, TERRAIN_SIDE_SHEETS } from "./terrainSheets";
 import { OBJECT_SHEETS } from "./objectSheets";
 import { OBJECT_SPRITES } from "./objectSprites";
 import { interpolateTrajectory } from "./physics";
+import { ActorInterpolator, EXTRA_COLOR } from "./extras";
+import type { ActorState } from "../net/protocol";
 type Material = components["schemas"]["MaterialResponse"];
 type ObjectKind = components["schemas"]["ObjectKindResponse"];
 type TileObject = components["schemas"]["ObjectResponse"];
@@ -39,6 +41,8 @@ import { EDGE_N_DOORWAY, EDGE_N_WINDOW, EDGE_W_DOORWAY, EDGE_W_WINDOW, LEVEL_H, 
 const CUT_DEPTH = 8;
 const CUT_WIDTH = 3;
 const MAX_WALL_H = 6;
+// Niko's actor id; the client never guesses the player from a map's iteration order.
+const PLAYER_ID = "niko";
 // Speed is averaged over this window so reconcile snaps do not read as spikes.
 const TELEMETRY_INTERVAL = 0.2;
 // The server moves Niko one 1/20 s step per input, so a held key repeats at 20 Hz.
@@ -77,6 +81,11 @@ type PhysicsAnimation = {
   marker: Phaser.GameObjects.Graphics;
 };
 
+type ExtraBody = {
+  graphics: Phaser.GameObjects.Graphics;
+  interpolator: ActorInterpolator;
+};
+
 export class MapScene extends Phaser.Scene {
   private readonly options: MapSceneOptions;
   private readonly chunks = new ChunkStore();
@@ -87,6 +96,7 @@ export class MapScene extends Phaser.Scene {
   private readonly objectSpriteKeys = new Set<string>();
   private niko!: Phaser.GameObjects.Graphics;
   private nikoGhost!: Phaser.GameObjects.Graphics;
+  private readonly extras = new Map<string, ExtraBody>();
   private prediction = new ClientPrediction(EMPTY_POSITION);
   private hasAuthoritativePosition = false;
   private viewerH = 0;
@@ -214,6 +224,7 @@ export class MapScene extends Phaser.Scene {
       this.chunks.clear();
       this.structures = [];
       this.nikoGhost.setVisible(false);
+      this.clearExtras();
       this.hasAuthoritativePosition = false;
       this.telemetryOrigin = null;
       this.telemetryElapsed = 0;
@@ -225,8 +236,9 @@ export class MapScene extends Phaser.Scene {
         this.chunks.setWorldInfo(state.world.chunk_size, state.world.bounds);
         this.applyCameraBounds(state.world.bounds);
       }
-      const player = state.actors.player ?? state.actors.niko ?? Object.values(state.actors)[0];
+      const player = state.actors[PLAYER_ID];
       if (player) this.prediction.setLoadKg(player.load_kg ?? 0);
+      this.syncExtras(state.actors, performance.now());
       if (player && !this.hasAuthoritativePosition) {
         this.prediction.reset(player);
         this.hasAuthoritativePosition = true;
@@ -288,6 +300,7 @@ export class MapScene extends Phaser.Scene {
     );
     this.updateCulling();
     this.updatePhysicsAnimations(performance.now());
+    this.updateExtras(performance.now());
     this.sampleTelemetry(position, seconds);
   }
 
@@ -315,6 +328,7 @@ export class MapScene extends Phaser.Scene {
     this.clearPhysicsAnimations();
     this.options.client.setBeforeCommand(null);
     this.clearChunkLayers();
+    this.clearExtras();
   }
 
   private flushPartialStep(): void {
@@ -602,6 +616,46 @@ export class MapScene extends Phaser.Scene {
     }
     this.chunkLayers.clear();
     this.dirtyChunks.clear();
+  }
+
+  /** One body per Extra, drawn like Niko but in the Extra colour and mixed between ticks. */
+  private syncExtras(actors: Record<string, ActorState>, now: number): void {
+    for (const [id, actor] of Object.entries(actors)) {
+      if (id === PLAYER_ID) continue;
+      let body = this.extras.get(id);
+      if (!body) {
+        const graphics = this.add.graphics();
+        graphics.fillStyle(0x000000, 0.35);
+        graphics.fillEllipse(0, 0, 27, 13);
+        graphics.fillStyle(EXTRA_COLOR, 1);
+        graphics.fillRoundedRect(-9, -60, 18, 58, 6);
+        graphics.lineStyle(2, 0xffffff, 1);
+        graphics.strokeRoundedRect(-9, -60, 18, 58, 6);
+        body = { graphics, interpolator: new ActorInterpolator() };
+        this.extras.set(id, body);
+      }
+      body.interpolator.update(actor, now);
+    }
+  }
+
+  private updateExtras(now: number): void {
+    for (const body of this.extras.values()) {
+      const position = body.interpolator.sample(now);
+      if (!position) continue;
+      const x = Math.floor(position.x);
+      const y = Math.floor(position.y);
+      const h = position.h ?? this.viewerH;
+      const screen = toScreen(position.x, position.y, h);
+      body.graphics
+        .setPosition(screen.sx, screen.sy)
+        .setDepth(nikoDepth(position.x, position.y))
+        .setVisible(h <= this.cutoffAt(x, y));
+    }
+  }
+
+  private clearExtras(): void {
+    for (const body of this.extras.values()) body.graphics.destroy();
+    this.extras.clear();
   }
 
   private animatePhysics(result: ResultMessage): void {

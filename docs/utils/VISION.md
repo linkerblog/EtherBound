@@ -209,6 +209,9 @@ its behaviour, and an op without one is never offered. An op that takes game tim
 
 - A relevance turn must leave **facts and traits** behind that the deterministic layer understands,
   not just prose. An Extra can be promoted to Agent permanently.
+- The first Extras are six seeded people placed by `world.population` within 15 m of the spawn; their
+  deterministic brain (`server.minds`) holds one goal at a time, published as `mind = {anchor, goal}`
+  and fulfilled only through the action API, so a restart replays it.
 - LOD is by **relevance**, not raw distance: distance + relationship with Niko + active plot
   involving him.
 

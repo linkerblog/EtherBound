@@ -37,6 +37,7 @@ class ActivitySnapshot(BaseModel):
 class ActorSnapshot(BaseModel):
     id: str
     kind: str
+    name: str | None = None
     x: float
     y: float
     z: int

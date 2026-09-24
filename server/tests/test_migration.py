@@ -162,6 +162,28 @@ def test_upgrade_0006_adds_generator_defaults_and_keeps_chunks(tmp_path: Path) -
     engine.dispose()
 
 
+def test_upgrade_0008_adds_name_and_mind_without_touching_the_actor(tmp_path: Path) -> None:
+    database = tmp_path / "extra.db"
+    config = Config(str(Path(__file__).parents[1] / "alembic.ini"))
+    config.set_main_option("script_location", str(Path(__file__).parents[1] / "alembic"))
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{database.as_posix()}")
+    command.upgrade(config, "0007_generator")
+    engine = create_engine(f"sqlite:///{database.as_posix()}")
+    with engine.begin() as connection:
+        connection.execute(
+            text("INSERT INTO actor (id, kind, x, y, z, h) VALUES ('niko', 'player', 1, 1, 0, 2)")
+        )
+
+    command.upgrade(config, "head")
+
+    columns = {column["name"] for column in inspect(engine).get_columns("actor")}
+    assert {"name", "mind"}.issubset(columns)
+    with engine.connect() as connection:
+        name, mind, x, y = connection.execute(text("SELECT name, mind, x, y FROM actor")).one()
+    assert (name, mind, x, y) == (None, None, 1.0, 1.0)
+    engine.dispose()
+
+
 def test_migration_from_phase_zero_keeps_the_actor(tmp_path: Path) -> None:
     database = tmp_path / "upgrade.db"
     root = Path(__file__).parents[1]

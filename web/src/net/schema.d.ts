@@ -381,7 +381,7 @@ export interface components {
              */
             op: "inspect";
             /** Target */
-            target: components["schemas"]["TileTarget"] | components["schemas"]["ObjectTarget"];
+            target: components["schemas"]["TileTarget"] | components["schemas"]["ObjectTarget"] | components["schemas"]["ActorTarget"];
         };
         /** MaterialResponse */
         MaterialResponse: {
@@ -471,6 +471,11 @@ export interface components {
             options?: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Paused
+             * @default false
+             */
+            paused: boolean;
         };
         /** ObjectKindResponse */
         ObjectKindResponse: {
@@ -887,6 +892,11 @@ export interface components {
             id: string;
             /** Kind */
             kind: string;
+            /**
+             * Name
+             * @default null
+             */
+            name: string | null;
             /** X */
             x: number;
             /** Y */

@@ -11,7 +11,9 @@ the standalone terrain/furniture generator and adds guarded game-sheet sync. `De
 handling ops). `Dev-013` (archived in `docs/done/`) adds deterministic action-time tile physics,
 cumulative material damage, persisted wall integrity, impacts, falls and authoritative paths.
 `Dev-015` (archived in `docs/done/`) adds the generator registry, the `lab` debug generator and
-per-save generator options (migration `0007_generator`).
+per-save generator options (migration `0007_generator`). `Dev-018` (archived in `docs/done/`) seeds
+six Extras near the spawn and runs their deterministic routine brain (`server.minds`), adding
+`name` and `mind` to the actor (migration `0008_extra`).
 
 ## Modules
 
@@ -21,12 +23,13 @@ per-save generator options (migration `0007_generator`).
 | server.clock | `server/src/etherbound/clock.py` | 1 Hz logic clock: speeds x1/x3/x10, pause, autopause locks. |
 | server.engine | `server/src/etherbound/engine/` | The only state writer: action/target models, generated menus, every handler, deterministic SI physics and trajectory resolution. |
 | server.events | `server/src/etherbound/events/` | Typed committed events, FIFO async subscriber bus and transactional sequence persistence. |
+| server.minds | `server/src/etherbound/minds/` | Decision sources that propose through the action API; today `ExtrasBrain`, the deterministic routine of an Extra. |
 | server.world | `server/src/etherbound/world/` | Material registry, validated object kinds, chunk/grid geometry, A*, the generator registry and seeded generation (`test` and `lab`). |
 | server.net | `server/src/etherbound/net/` | WS hub, timed inputs, per-connection chunk tracking and the combined OpenAPI + WS schema export. |
 | server.db | `server/src/etherbound/db/`, `server/alembic/` | SQLAlchemy models, engine/session factory and Alembic upgrades. |
 | server.rng | `server/src/etherbound/rng.py` | `RNGStreams.stream(system)` — one seeded stream per system. |
 | web.world | `web/src/world/` | Chunk store, server-parity standing/wall rules, cutaway, ray, occlusion, picking and material tables. |
-| web.game | `web/src/game/` | Phaser isometric renderer and ordered tile-object batches; animates server physics paths, never simulates collision. |
+| web.game | `web/src/game/` | Phaser isometric renderer and ordered tile-object batches; animates server physics paths and interpolates Extra bodies (`extras.ts`), never simulates collision. |
 | web.net | `web/src/net/` | WS client, movement prediction/reconciliation, generated `schema.d.ts` and action-result trajectory listeners. |
 | web.ui | `web/src/ui/` | React overlay: clock, speeds, pills, meters, `CARRY`, `FEED`, `ACT`, input, context menu, radial menu on `V` (`radialMenu.ts`), `NEW` map select and the DEBUG `MAP` generator form (`genForm.ts`). |
 | launcher | `launcher/` | `EtherBound.exe`, the C# (.NET 10, Native AOT) dev launcher: server + web jobs, health checks, hot reload, leftover and port handling. |
@@ -36,12 +39,12 @@ per-save generator options (migration `0007_generator`).
 ## Data model
 
 SQLite at `data/etherbound.db` (gitignored). Migrations `0001_initial`, `0002_world`, `0003_event`,
-`0004_dig_activity`, `0005_object`, `0006_physics` and `0007_generator`:
+`0004_dig_activity`, `0005_object`, `0006_physics`, `0007_generator` and `0008_extra`:
 
 | Table | Columns |
 |---|---|
 | `world_meta` | `id` (pk, always 1), `seed`, `game_minute`, `speed` (1/3/10), `paused`, `gen_version`, `generator` (default `test`), `gen_options` (JSON, default `{}`) |
-| `actor` | `id` (pk), `kind` (`player`), `x`, `y`, `z` (derived `h // 6`), `h` (half-metres), `mass_kg` (default 80), nullable JSON `activity` (`op`, `action`, `started_minute`, `ends_minute`) |
+| `actor` | `id` (pk), `kind` (`player` or `extra`), nullable `name`, `x`, `y`, `z` (derived `h // 6`), `h` (half-metres), `mass_kg` (default 80), nullable JSON `activity` (`op`, `action`, `started_minute`, `ends_minute`), nullable JSON `mind` (`anchor {x, y, h}`, `goal {kind: wander, x, y, h}` or null) |
 | `material` | append-only `id` ↔ `key` mapping plus rendering/physics properties |
 | `chunk` | pk `(cx, cy)`; blobs `ground_h` (int16×1024), `surface_mat` (uint16×1024), nullable `dug` (uint8×1024, NULL = all zeros), `strata` JSON, `revision`, `gen_version` |
 | `chunk_level` | pk `(cx, cy, z)`; blobs `floor_h`, `floor_mat`, `wall_n`, `wall_w`, `edge_flags`, `flags` |
@@ -66,6 +69,17 @@ held and worn objects with their contents and deleting the uncarried ones before
 layout. On load, a saved actor within
 0.5 m of a standing surface in its tile is snapped to that surface's exact `h` (no event);
 further off, it is relocated to spawn (`actor.spawned`, `relocated`).
+
+**Extras.** Each world also carries six Extras. `world/population.py` places them from the
+`population` RNG stream (names from `world/names.toml`, and walkable standing ground tiles within
+15 m of the spawn, reachable by `find_path`, at least 2 m apart); `populate(grid, registry, spawn,
+seed) -> tuple[GeneratedActor, ...]` is a pure grid pass that touches no database. The engine writes
+each Extra as an `actor` row `extra-NNN` with `kind = "extra"`, its `name`, its position and
+`mind = {anchor, goal: null}` where the anchor is its start tile; it logs `actor.spawned` per Extra.
+`new_game` creates Niko and the Extras; `ensure_world` settles every existing actor (same snap or
+`relocated` rule) and, only when the save has no Extras, seeds them, so a pre-`0008_extra` save
+gains them on first open and a second open emits nothing. `population` is deliberately not part of
+`GeneratedWorld`: population is actors, not terrain, and never changes the test world's bytes.
 
 **Generators.** `world/gen/registry.py` holds `GENERATORS`: `test` (version 5, the existing test
 world, unchanged) and `lab` (version 1, `world/gen/lab.py`). A `GeneratorSpec` carries `key`,
@@ -97,7 +111,7 @@ group) and, for `lab`, its `bays`.
   (`applies`, `builds`, `subject`, `validate`, `duration`, `resolve`, `complete`) gives an op
   behaviour, and `register` refuses a key missing from the catalog. One target can `builds` several
   actions and `subject` names what an entry acts on. Handled: `move` (never in menus), `inspect`
-  (instant, 30 m, tile or object text, no event), `wait` (15 min), `dig` (ground surface only,
+  (instant, 30 m, tile, object or actor text, no event), `wait` (15 min), `dig` (ground surface only,
   `ceil(30 × dig_cost / tool)` min per 0.5 m with the best held `tool.dig` or 0.25 bare-handed,
   `dig_cost ≤ 2`, refused when an object rests at the ground `h`), `climb`, the instant handling
   ops, and `push`, `pull`, `drag`, `throw`, `hit`, `break`. Physics resolves a full tile path at
@@ -123,27 +137,38 @@ group) and, for `lab`, its `bays`.
   `clock.ticked`: the action is re-validated, and either `complete` applies its events then
   `activity.finished` (`completed`), or `activity.finished` (`failed`, reason). A paused clock
   freezes them; progress is lost on interruption.
+- **Minds.** `WorldEngine.set_goal(actor_id, goal, reason)` is the only writer of `mind.goal`: it
+  refuses the player, an unknown actor and a goal tile without a standing surface, sets the goal
+  (or clears it) and commits `actor.goal_set` (`reason` chosen/arrived/stuck/unreachable) in the same
+  transaction as the actor row. `ExtrasBrain`, subscribed to `clock.ticked` before the WS hub, walks
+  each idle Extra toward its goal with `submit(move, delta_seconds)` at 4 m/s per real second
+  (`time_scale / speed` per tick, at most six move submits) and otherwise picks a `wander` goal
+  within 12 m of its anchor (60 % of idle ticks) or waits; it re-derives its path from state, so a
+  restart replays it. A stalled step recomputes once, then `set_goal(None, "stuck")`. The brain only
+  proposes; the engine validates and writes every step.
 - **Menus.** `WorldEngine.menu(actor_id, x, y, z)` is a read (no lock): candidates are the tile's
   standing surface for `z`, `self` and the objects lying on it at that surface's band, plus the
   contents of its open or lidless containers; on the actor's own tile, also every held and worn
-  object and the contents of worn open containers; it also offers adjacent actors and existing
-  north/west wall edges as physics targets. Each handled op whose targets allow a candidate
+  object and the contents of worn open containers; it also offers actors standing on the clicked tile
+  at that surface's band and existing north/west wall edges as physics targets. Each handled op whose
+  targets allow a candidate
   and whose `applies` holds becomes an entry with its `action`, `available`, `reason` and `subject`,
   in catalog order then candidate order. The client renders that payload either as the right-click
   list or as the radial menu on `V`, which centers the same entries on Niko's own tile; it never
   adds, removes or reorders an entry.
 - **Event bus.** Only `WorldEngine` stamps/enqueues events. Logged events share the state
   transaction; `clock.ticked` dispatches but is not stored. `new_game` resets the log and sequence
-  to 1. A fresh world logs `world.generated`, `actor.spawned`, `clock.changed`; opening an existing
-  save emits nothing. `drain()` called while another task is draining returns immediately; the
+  to 1. A fresh world logs `world.generated`, one `actor.spawned` for Niko and each Extra, then
+  `clock.changed`; opening an existing save emits nothing, except the Extra spawns when it had none.
+  `drain()` called while another task is draining returns immediately; the
   active task dispatches the caller's events in `seq` order, possibly after the caller has returned.
   Nothing guarantees subscribers have run when `submit`, `set_clock` or `new_game` returns.
   Handlers run in subscription order; reentrant events append to the active FIFO drain. Handler
   failures are logged and isolated; a cascade is capped at 10,000 events. `seq` is unique among
   stored events; a transient event's `seq` may be reused after a restart, so never key state on it.
-- **REST.** `GET /api/health`, `POST /api/game/new {seed, generator?, options?}` (an unknown
+- **REST.** `GET /api/health`, `POST /api/game/new {seed, generator?, options?, paused?}` (an unknown
   generator or invalid options returns 422 and leaves the world untouched; `{seed}` alone gives the
-  `test` world), `GET /api/game/state` (with `generator`, `gen_version`, `gen_options`),
+  `test` world, and `paused: true` starts the clock paused so a shot does not move the Extras), `GET /api/game/state` (with `generator`, `gen_version`, `gen_options`),
   `GET /api/gen` (every generator's options as form fields plus the lab bays),
   `GET /api/materials`, `GET /api/objects` (the kind catalog), `GET /api/world/chunk?cx&cy`,
   `GET /api/menu?x&y&z` (any `z`, computed for Niko;
@@ -154,8 +179,8 @@ group) and, for `lab`, its `bays`.
   `tick`, `ack` (with `h`), `result` (for an `action`: accepted, reason, text, activity, `carried`,
   `load_kg`, trajectory),
   `activity` (one of Niko's activities finished: op, outcome, reason), `chunk` (full chunk payload
-  with `levels[]` and `objects[]`), `error`. Snapshot and tick actors carry `activity`, `carried`
-  and `load_kg`.
+  with `levels[]` and `objects[]`), `error`. Snapshot and tick actors carry `name`, `activity`,
+  `carried` and `load_kg`.
   Client → server: `input` (dx, dy, sequence, dt), `action` (sequence, action), `clock` (paused,
   speed). A `chunk.changed` event (not logged) re-sends the chunk only to connections that
   already hold an older revision. On connect the hub sends
@@ -269,11 +294,27 @@ its process to stop it, and its job takes the services with it. The logs are
   `event 812 actor.moved niko {"from_tile":...,"to_tile":...,"mode":"walk"}`. The `etherbound`
   logger owns an INFO handler because Alembic leaves root at `WARN`. Transient events
   such as `clock.ticked` and `chunk.changed` are skipped; `/api/events` remains the structured log.
+- **Extras are seeded once, never refreshed.** `ensure_world` seeds them only when the save has no
+  `kind = "extra"` rows; an existing Extra is settled like Niko, never moved home or renamed. So a
+  population change (names, count, radius) does not touch an existing save, and a second open logs
+  nothing.
+- **The brain bears a full submit per step and only proposes.** Every Extra move is a
+  `submit(move, delta_seconds)` with its own transaction and `actor.moved` row; at x10 six Extras can
+  mean hundreds of rows a minute, which the event log retention item must eventually bound. The brain
+  keeps its path cache and stall retry in memory only, re-derived from state, so a restart at any
+  tick replays to the same log.
+- **A paused clock paints late in the software renderer.** With no tick after the snapshot the first
+  canvas paint can lag a few seconds under swiftshader, so `check:visual` waits before the x1 shot;
+  this is a screenshot settle, not a game-render change.
+- **`mind` is engine data, read defensively.** `get_state` and `inspect` tolerate a missing or
+  malformed `mind` (no goal, `Standing`); only `set_goal` writes it. Niko has no `name` row and is
+  shown as `Niko` by `actor_name`; the client draws only non-player actors, picked by `PLAYER_ID`.
 - **Pytest warnings are third-party** (FastAPI/Starlette/pytest-asyncio deprecations), not project
-  issues. The current server suite is 122 tests, all passing.
-- **Current automated validation:** 135 server tests, Ruff, Pyright, 68 web tests, generated schema
-  types and production web build pass. The `check:visual` Playwright seed-7 spawn baselines pass
-  twice in a row. Manual physics animation and the other GUI acceptances remain in `docs/PENDING.md`.
+  issues.
+- **Current automated validation:** 146 server tests, Ruff, Pyright, 78 web tests, generated schema
+  types and production web build pass. The `check:visual` Playwright seed-7 spawn baselines were
+  re-shot with the paused clock and the six Extras and pass against them. Manual physics animation,
+  the Dev-018 Extras acceptance and the other GUI acceptances remain in `docs/PENDING.md`.
 - **VOID is a ground-volume flag, not a missing-floor flag.** Render and pick stored floors even
   when their band is VOID; suppress only a ground top whose own band is void.
 - **Do not mix separate sprites with a same-depth terrain batch.** Phaser preserves display-list
@@ -332,7 +373,8 @@ its process to stop it, and its job takes the services with it. The logs are
 
 The other six primitives as data models, handlers for the 46 ops beyond `move`, `inspect`, `wait`,
 `dig`, `climb`, `take`, `drop`, `put`, `open`, `close`, `wear` and `remove`, modifiers, rolls,
-witnesses/knowledge, tile physics, water simulation, NPCs, LLM, Jev, item degradation and content
+witnesses/knowledge, tile physics, water simulation, Agent brains and their needs, traits and
+utility (the deterministic Extras exist), LLM, Jev, item degradation and content
 beyond the nine v1 object kinds, and the city generator. Vector placeholders remain for materials
 not mapped in `web/src/game/terrainSprites.ts`, and placeholder prisms remain for object kinds with
 no BitCanvas sprite sheet.

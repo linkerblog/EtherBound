@@ -19,7 +19,7 @@ from etherbound.engine.actions import (
     TileTarget,
     WearAction,
 )
-from etherbound.engine.world import PLAYER_ID, WorldEngine
+from etherbound.engine.world import PLAYER_ID, ActorState, WorldEngine
 from etherbound.world.materials import MaterialRegistry
 from etherbound.world.objects import Container, ObjectCatalog, ObjectKind
 
@@ -51,6 +51,10 @@ def place(engine: WorldEngine, x: int, y: int, h: int | None = None) -> None:
         actor.h = ground[0] if h is None else h
         actor.z = actor.h // 6
         session.commit()
+
+
+def _niko(engine: WorldEngine) -> ActorState:
+    return next(actor for actor in engine.get_state().actors if actor.id == PLAYER_ID)
 
 
 def spawn(
@@ -135,7 +139,7 @@ async def test_take_splits_a_stack_and_drop_merges_it_back(engine: WorldEngine) 
 
     assert (await engine.submit(PLAYER_ID, TakeAction(target=ObjectTarget(id=stack)))).accepted
     assert get(engine, stack).quantity == 2
-    carried = next(item for item in engine.get_state().actors[0].carried if item.kind == "apple")
+    carried = next(item for item in _niko(engine).carried if item.kind == "apple")
     assert moved(engine)[-1]["split_from"] == stack
 
     assert (await engine.submit(PLAYER_ID, DropAction(target=ObjectTarget(id=carried.id)))).accepted
@@ -286,7 +290,7 @@ async def test_wear_and_remove(engine: WorldEngine) -> None:
     assert (await engine.submit(PLAYER_ID, WearAction(target=ObjectTarget(id=backpack)))).accepted
     row = get(engine, backpack)
     assert (row.loc, row.slot) == ("worn", "back")
-    assert engine.get_state().actors[0].load_kg == pytest.approx(1.0)
+    assert _niko(engine).load_kg == pytest.approx(1.0)
 
     shovel = spawn(engine, "shovel", *HERE, 1)
     assert (await engine.submit(PLAYER_ID, TakeAction(target=ObjectTarget(id=shovel)))).accepted

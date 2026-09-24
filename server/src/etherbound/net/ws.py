@@ -53,6 +53,7 @@ def _actors(state: WorldState) -> list[ActorSnapshot]:
         ActorSnapshot(
             id=actor.id,
             kind=actor.kind,
+            name=actor.name,
             x=actor.x,
             y=actor.y,
             z=actor.z,

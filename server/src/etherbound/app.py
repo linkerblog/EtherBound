@@ -21,6 +21,7 @@ from etherbound.events import (
     EventBus,
     WorldGenerated,
 )
+from etherbound.minds.extras import ExtrasBrain
 from etherbound.net.schema import export_schema
 from etherbound.net.ws import WebSocketHub
 from etherbound.routes.api import router
@@ -71,6 +72,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lambda event: clock.load(speed=event.speed, paused=event.paused),
         name="clock",
     )
+    # The extras decide before the hub broadcasts, so a tick carries that tick's steps.
+    ExtrasBrain(world_engine, time_scale=config.time_scale).subscribe(bus)
     bus.subscribe(ClockTicked, hub.on_clock, name="websocket.clock_ticked")
     bus.subscribe(ClockChanged, hub.on_clock, name="websocket.clock_changed")
     bus.subscribe(WorldGenerated, hub.on_world_generated, name="websocket.world_generated")

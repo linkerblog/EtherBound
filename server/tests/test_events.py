@@ -168,11 +168,10 @@ async def test_new_game_restarts_log_with_initial_events(engine: WorldEngine) ->
     await engine.new_game(7)
 
     events = engine.read_events()
-    assert [(event.seq, event.type) for event in events] == [
-        (1, "world.generated"),
-        (2, "actor.spawned"),
-        (3, "clock.changed"),
-    ]
+    types = [event.type for event in events]
+    assert types[0] == "world.generated"
+    assert types[-1] == "clock.changed"
+    assert types[1:-1] == ["actor.spawned"] * 7
 
 
 async def test_submit_from_clock_handler_dispatches_after_clock_event(

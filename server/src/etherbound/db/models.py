@@ -39,12 +39,15 @@ class Actor(Base):
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    name: Mapped[str | None] = mapped_column(String(64), nullable=True)
     x: Mapped[float] = mapped_column(Float, nullable=False)
     y: Mapped[float] = mapped_column(Float, nullable=False)
     z: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     h: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     mass_kg: Mapped[float] = mapped_column(Float, nullable=False, default=80.0, server_default="80")
     activity: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    # An Extra's persisted mind: its home spot and, at most, one goal.
+    mind: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
 
 class Material(Base):

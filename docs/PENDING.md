@@ -11,8 +11,8 @@ Open decisions and loose ends. When one is settled, record the decision where it
 - [ ] **Carry-over from NikoStory.** Whether Halverton, the authored NPCs and the prompts come
       along. The roll formula already does (`utils/VISION.md` [Sec. 3]).
 - [ ] **Event log retention.** The `event` table grows without limit. Today that is one row per
-      tile walked; once Extras walk, it multiplies. Decide on pruning or compaction before the
-      Phase 2 block with its ~20 Extras. It ties into memory compaction (`utils/VISION.md`
+      tile walked; now that Extras walk it multiplies by their number. Decide on pruning or compaction
+      before the Phase 2 block with its ~20 Extras. It ties into memory compaction (`utils/VISION.md`
       [Sec. 8], Life cycle). Deferred by `done/Dev-005.md` [Sec. 8].
 - [ ] **NPC construction.** Leaning (23/09/2026): the three questions go to three brains. *Why*
       build comes from utility (Extras, organizations) or the LLM (Agents). *What* to build: the
@@ -44,6 +44,9 @@ Open decisions and loose ends. When one is settled, record the decision where it
 
 - [ ] **Input replay.** The event log stores outcomes, not the 20 Hz inputs, so a run cannot
       yet be replayed exactly (`utils/VISION.md` [Sec. 11]).
+- [ ] **Actors pass through each other.** Extras and Niko collide with terrain, never with bodies,
+      so they can overlap on a tile. Body collision, and knowing who is in the way, is a later
+      refinement (recorded by `done/Dev-018.md`).
 - [ ] **Events to the client.** Only one event reaches the WebSocket: the `activity` notice when
       one of Niko's activities finishes (`done/Dev-007.md`). Everything else stays server-side
       until there is something to narrate (witnesses).
@@ -54,8 +57,14 @@ Open decisions and loose ends. When one is settled, record the decision where it
 ## Manual checks not run
 
 The `check:visual` seed-7 spawn baselines (`web/tests/visual/spawn.spec.ts`, x1/x2/x4) now cover
-the spawn view of the Dev-006, Dev-008, Fix05 and Fix09 checks below; the user still approves the
-three images (`Infra01.md` [Sec. 6] 7).
+the spawn view of the Dev-006, Dev-008, Fix05, Fix09 and Dev-018 checks below; the user still
+approves the three images (`Infra01.md` [Sec. 6] 7).
+
+- [ ] **Dev-018 basic Extras:** in the running game at seed 7, six green bodies stand near the spawn
+      and, unpaused, walk and wait near their homes without overlapping the tiles they walk; `Inspect`
+      on one reads `<name>. Standing.`/`Walking.`/`Waiting.`; `Push`/`Hit` name it; and the re-shot
+      x1/x2/x4 baselines with the clock paused are approved. See `done/Dev-018.md` [Sec. 6]
+      acceptance 11–12.
 
 - [ ] **Dev-017 radial menu:** press `V` at spawn (shows `Wait`/`Inspect`) and while carrying a
       shovel; confirm the ring stays centred on Niko while walking, hover and ←/→/digits move the
@@ -144,12 +153,16 @@ Six design questions (abilities, city authoring, carry-over, event log retention
 construction, recipes and supply); the op
 list is settled by `done/Dev-007.md` and the Matter primitive by `done/Dev-012.md`. Fix11's Dev
 Blog migration landed; Fix10's manual Send to game acceptance remains open. Dev-013 is implemented;
-its live physics/animation acceptance remains open. Two deferred items
-(input replay, events to the client) plus lost activity progress. Manual acceptances remain for
+its live physics/animation acceptance remains open. Dev-018 is implemented: six seeded Extras walk
+and wait near the spawn; its GUI acceptance and the approval of the re-shot paused baselines remain
+open, and actor-vs-actor collision stays deferred. Two deferred items
+(input replay, events to the client) plus lost activity progress and actor pass-through. Manual
+acceptances remain for
 Dev-003 browser, Dev-006 new game, Fix03 logging, Fix04 logging/movement, and Dev-008/Fix05/Fix06/Fix07
 isometric rendering and network, plus Fix08 reconnect, Fix09 side textures and building base,
 Dev-009 BitCanvas filesystem/game GUI acceptance, the Dev-010 asphalt road in the live game, the
-Dev-011 roofing and brick walls in the live game, and the Dev-012 rendering, CARRY/menu, BitCanvas
+Dev-011 roofing and brick walls in the live game, the Dev-012 rendering, CARRY/menu, BitCanvas
 furniture, seed-0 layout and save-migration checks, the Dev-013 physics and animation acceptance,
-and the Fix11 Dev Blog database's Notion-UI read-through; Dev-007 was fully accepted on 22/09/2026.
+the Dev-018 Extras acceptance, and the Fix11 Dev Blog database's Notion-UI read-through; Dev-007 was
+fully accepted on 22/09/2026.
 Fix05–Fix09 automated validation passed; their GUI visual/performance checklists remain open.

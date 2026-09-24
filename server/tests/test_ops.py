@@ -2,14 +2,16 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from etherbound.db.models import Actor, Base
 from etherbound.db.models import Event as EventRow
 from etherbound.engine.actions import (
+    ActorTarget,
     ClimbAction,
     DigAction,
+    Goal,
     InspectAction,
     MoveAction,
     TileTarget,
@@ -50,6 +52,23 @@ def place(engine: WorldEngine, x: int, y: int, h: int | None = None) -> None:
         actor.x, actor.y = x + 0.5, y + 0.5
         actor.h = ground[0] if h is None else h
         actor.z = actor.h // 6
+        # A test asks about one tile; the seeded Extras live near the spawn, so move them out of
+        # the way unless the test places one on purpose.
+        for extra in session.scalars(select(Actor).where(Actor.id != PLAYER_ID)):
+            extra.x, extra.y, extra.h, extra.z = 250.5, 250.5, 0, 0
+        session.commit()
+
+
+def place_extra(engine: WorldEngine, actor_id: str, x: int, y: int, h: int | None = None) -> None:
+    """Put one Extra at a tile centre for a test; h defaults to the tile's ground."""
+    ground = engine.grid.ground_at(x, y)
+    assert ground is not None
+    with engine.sessions() as session:
+        extra = session.get(Actor, actor_id)
+        assert extra is not None
+        extra.x, extra.y = x + 0.5, y + 0.5
+        extra.h = ground[0] if h is None else h
+        extra.z = extra.h // 6
         session.commit()
 
 
@@ -308,3 +327,35 @@ async def test_inspect_returns_text_and_emits_nothing(engine: WorldEngine) -> No
     )
     assert (beyond.accepted, beyond.reason) == (False, "too far to see")
     assert len(engine.read_events(limit=500)) == before
+
+
+async def test_menu_and_inspect_read_an_extra(engine: WorldEngine) -> None:
+    place(engine, *ROAD)
+    place_extra(engine, "extra-001", *GRASS)
+    with engine.sessions() as session:
+        extra = session.get(Actor, "extra-001")
+        assert extra is not None
+        name = extra.name
+
+    menu = {
+        entry.op: entry
+        for entry in engine.menu(PLAYER_ID, GRASS[0] + 0.5, GRASS[1] + 0.5, 0).entries
+    }
+    assert menu["inspect"].available
+    assert menu["inspect"].subject == name
+    # Niko is on the adjacent road tile: reach ops name the Extra instead of its kind.
+    assert menu["push"].subject is not None and menu["push"].subject.startswith(name)
+    assert menu["hit"].subject is not None and menu["hit"].subject.startswith(name)
+
+    target = ActorTarget(id="extra-001")
+    standing = await engine.submit(PLAYER_ID, InspectAction(target=target))
+    assert standing.text == f"{name}. Standing."
+
+    await engine.set_goal("extra-001", Goal(x=GRASS[0], y=GRASS[1], h=2), "chosen")
+    walking = await engine.submit(PLAYER_ID, InspectAction(target=target))
+    assert walking.text == f"{name}. Walking."
+
+    await engine.set_goal("extra-001", None, "arrived")
+    await engine.submit("extra-001", WaitAction())
+    waiting = await engine.submit(PLAYER_ID, InspectAction(target=target))
+    assert waiting.text == f"{name}. Waiting."

@@ -35,6 +35,7 @@ from etherbound.engine.objects import (
 from etherbound.engine.ops.base import (
     ActionContext,
     Resolution,
+    actor_name,
     in_close_reach,
     object_reach,
     within_reach_height,
@@ -270,7 +271,7 @@ class PhysicsHandler:
             label = self._object_label(ctx, row) if row is not None else None
         elif isinstance(target, ActorTarget):
             actor = self._actor(ctx, target)
-            label = actor.kind if actor is not None else None
+            label = actor_name(actor) if actor is not None else None
         else:
             record = _edge_cell(ctx, target)
             material = ctx.grid.registry.get(record[2]) if record is not None else None

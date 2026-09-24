@@ -14,11 +14,15 @@ from etherbound.engine.actions import MenuEntry
 from etherbound.events.models import ClockTicked
 
 
+def niko(actors: list[dict[str, Any]]) -> dict[str, Any]:
+    return next(actor for actor in actors if actor["id"] == "niko")
+
+
 def test_rest_and_websocket_protocol(tmp_path: Path) -> None:
     settings = Settings(
         database_url=f"sqlite:///{(tmp_path / 'api.db').as_posix()}",
         schema_path=tmp_path / "schema.json",
-        time_scale=10,
+        time_scale=1000,
     )
     with TestClient(create_app(settings)) as client:
         health = client.get("/api/health")
@@ -66,7 +70,7 @@ def test_websocket_input_duration_validation_and_event_logging(
     settings = Settings(
         database_url=f"sqlite:///{(tmp_path / 'timed-input.db').as_posix()}",
         schema_path=tmp_path / "schema.json",
-        time_scale=10,
+        time_scale=1000,
     )
     app = create_app(settings)
     with TestClient(app) as client, client.websocket_connect("/ws") as websocket:
@@ -81,7 +85,7 @@ def test_websocket_input_duration_validation_and_event_logging(
         snapshot = until(lambda message: message["type"] == "snapshot")
         for _ in range(25):
             assert websocket.receive_json()["type"] == "chunk"
-        start_x = snapshot["actors"][0]["x"]
+        start_x = niko(snapshot["actors"])["x"]
 
         logger = logging.getLogger("etherbound")
         handler = next(
@@ -124,11 +128,11 @@ def test_websocket_input_duration_validation_and_event_logging(
         finally:
             handler.setStream(original_stream)
 
-        position = client.get("/api/game/state").json()["actors"][0]["x"]
+        position = niko(client.get("/api/game/state").json()["actors"])["x"]
         for sequence, dt in ((9, 0), (10, 0.2)):
             websocket.send_json({"type": "input", "sequence": sequence, "dx": 1, "dy": 0, "dt": dt})
             assert until(lambda message: message["type"] == "error")["type"] == "error"
-            assert client.get("/api/game/state").json()["actors"][0]["x"] == position
+            assert niko(client.get("/api/game/state").json()["actors"])["x"] == position
 
 
 def test_create_app_configures_only_one_tagged_logging_handler(tmp_path: Path) -> None:
@@ -154,7 +158,8 @@ def test_event_filters_and_new_game_websocket_refresh(
     settings = Settings(
         database_url=f"sqlite:///{(tmp_path / 'events.db').as_posix()}",
         schema_path=tmp_path / "schema.json",
-        time_scale=10,
+        # A slow clock: no tick disturbs the event log while the test asserts on it.
+        time_scale=1000,
     )
     app = create_app(settings)
     with TestClient(app) as client, client.websocket_connect("/ws") as websocket:
@@ -163,11 +168,10 @@ def test_event_filters_and_new_game_websocket_refresh(
             assert websocket.receive_json()["type"] == "chunk"
 
         initial = client.get("/api/events").json()["events"]
-        assert [(event["seq"], event["type"]) for event in initial] == [
-            (1, "world.generated"),
-            (2, "actor.spawned"),
-            (3, "clock.changed"),
-        ]
+        types = [event["type"] for event in initial]
+        assert types[0] == "world.generated"
+        assert types[-1] == "clock.changed"
+        assert types[1:-1] == ["actor.spawned"] * 7
         assert (
             client.get("/api/events", params={"after_seq": 1, "actor_id": "niko"}).json()["events"][
                 0
@@ -191,11 +195,10 @@ def test_event_filters_and_new_game_websocket_refresh(
             assert chunk["type"] == "chunk"
             assert chunk["revision"] == 0
         events = client.get("/api/events").json()["events"]
-        assert [(event["seq"], event["type"]) for event in events] == [
-            (1, "world.generated"),
-            (2, "actor.spawned"),
-            (3, "clock.changed"),
-        ]
+        types = [event["type"] for event in events]
+        assert types[0] == "world.generated"
+        assert types[-1] == "clock.changed"
+        assert types[1:-1] == ["actor.spawned"] * 7
 
         engine = app.state.engine
         get_state = engine.get_state
@@ -226,7 +229,7 @@ def test_websocket_clock_change_is_broadcast_by_subscriber_once(
     settings = Settings(
         database_url=f"sqlite:///{(tmp_path / 'clock-events.db').as_posix()}",
         schema_path=tmp_path / "schema.json",
-        time_scale=10,
+        time_scale=1000,
     )
     app = create_app(settings)
     with TestClient(app) as client, client.websocket_connect("/ws") as websocket:
@@ -296,7 +299,7 @@ def test_websocket_action_result_activity_and_chunk_push(tmp_path: Path) -> None
         assert result["activity"]["op"] == "dig"
         until(
             lambda m: (
-                m["type"] == "tick" and (m["actors"][0].get("activity") or {}).get("op") == "dig"
+                m["type"] == "tick" and (niko(m["actors"]).get("activity") or {}).get("op") == "dig"
             )
         )
 
@@ -311,7 +314,7 @@ def test_menu_target_names_material_and_elevation(tmp_path: Path) -> None:
     settings = Settings(
         database_url=f"sqlite:///{database.as_posix()}",
         schema_path=tmp_path / "schema.json",
-        time_scale=10,
+        time_scale=1000,
     )
     with TestClient(create_app(settings)) as client:
         payload = client.get("/api/menu", params={"x": 121.5, "y": 128.5, "z": 0}).json()
@@ -329,7 +332,7 @@ def test_crossing_a_chunk_boundary_pushes_only_new_chunks(tmp_path: Path) -> Non
     settings = Settings(
         database_url=f"sqlite:///{database.as_posix()}",
         schema_path=tmp_path / "schema.json",
-        time_scale=10,
+        time_scale=1000,
     )
     with TestClient(create_app(settings)) as client:
         with client.websocket_connect("/ws") as websocket:
@@ -362,6 +365,7 @@ def test_generators_endpoint_and_new_game_options(tmp_path: Path) -> None:
     settings = Settings(
         database_url=f"sqlite:///{(tmp_path / 'gen.db').as_posix()}",
         schema_path=tmp_path / "schema.json",
+        time_scale=1000,
     )
     with TestClient(create_app(settings)) as client:
         generators = {info["key"]: info for info in client.get("/api/gen").json()}

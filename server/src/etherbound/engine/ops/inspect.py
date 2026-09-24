@@ -2,16 +2,18 @@ from collections.abc import Sequence
 from math import hypot
 from typing import ClassVar
 
+from etherbound.db.models import Actor
 from etherbound.db.models import Object as ObjectRow
 from etherbound.engine.actions import (
     Action,
+    ActorTarget,
     InspectAction,
     ObjectTarget,
     Target,
     TileTarget,
 )
 from etherbound.engine.objects import children, object_total_mass
-from etherbound.engine.ops.base import ActionContext, Resolution, metres
+from etherbound.engine.ops.base import ActionContext, Resolution, actor_name, metres
 from etherbound.engine.ops.dig import HAND_DIG_MAX_COST
 from etherbound.events.models import Event
 
@@ -22,6 +24,8 @@ class InspectHandler:
     op: ClassVar[str] = "inspect"
 
     def applies(self, ctx: ActionContext, target: Target) -> bool:
+        if isinstance(target, ActorTarget):
+            return ctx.session.get(Actor, target.id) is not None
         if isinstance(target, ObjectTarget):
             return ctx.session.get(ObjectRow, target.id) is not None
         return isinstance(target, TileTarget) and bool(
@@ -33,6 +37,9 @@ class InspectHandler:
 
     def subject(self, ctx: ActionContext, action: Action) -> str | None:
         assert isinstance(action, InspectAction)
+        if isinstance(action.target, ActorTarget):
+            actor = ctx.session.get(Actor, action.target.id)
+            return actor_name(actor) if actor is not None else None
         if isinstance(action.target, ObjectTarget):
             row = ctx.session.get(ObjectRow, action.target.id)
             if row is not None:
@@ -45,6 +52,13 @@ class InspectHandler:
         assert isinstance(action, InspectAction)
         target = action.target
         ax, ay = ctx.actor_tile()
+        if isinstance(target, ActorTarget):
+            actor = ctx.session.get(Actor, target.id)
+            if actor is None:
+                return "nobody there"
+            if hypot(actor.x - ax, actor.y - ay) > INSPECT_RANGE_M:
+                return "too far to see"
+            return None
         if isinstance(target, ObjectTarget):
             row = ctx.session.get(ObjectRow, target.id)
             if row is None:
@@ -69,6 +83,8 @@ class InspectHandler:
         # Looking changes nothing and emits no event; witnesses noticing it come later.
         assert isinstance(action, InspectAction)
         target = action.target
+        if isinstance(target, ActorTarget):
+            return Resolution(text=self._actor_text(ctx, target.id))
         if isinstance(target, ObjectTarget):
             return Resolution(text=self._object_text(ctx, target.id))
         surface = next(s for s in ctx.grid.standing_surfaces(target.x, target.y) if s.h == target.h)
@@ -90,6 +106,19 @@ class InspectHandler:
         if visible:
             parts.append(", ".join(visible))
         return Resolution(text=" · ".join(parts))
+
+    def _actor_text(self, ctx: ActionContext, actor_id: str) -> str:
+        actor = ctx.session.get(Actor, actor_id)
+        if actor is None:
+            return "Unknown"
+        activity = actor.activity or {}
+        if activity.get("op") == "wait":
+            state = "Waiting"
+        elif (actor.mind or {}).get("goal") is not None:
+            state = "Walking"
+        else:
+            state = "Standing"
+        return f"{actor_name(actor)}. {state}."
 
     def _object_text(self, ctx: ActionContext, object_id: int) -> str:
         row = ctx.session.get(ObjectRow, object_id)

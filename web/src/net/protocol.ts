@@ -24,6 +24,7 @@ export type Position = {
 export type ActorState = Position & {
   id: string;
   kind?: string;
+  name?: string | null;
   activity?: ActivitySnapshot | null;
   carried?: CarriedObject[];
   load_kg?: number;
@@ -99,6 +100,7 @@ function readActor(actor: Record<string, unknown>, id: string): ActorState {
   return {
     id,
     kind: typeof actor.kind === "string" ? actor.kind : undefined,
+    name: typeof actor.name === "string" ? actor.name : null,
     activity: readActivity(actor.activity),
     carried: Array.isArray(actor.carried) ? actor.carried as CarriedObject[] : undefined,
     load_kg: numberValue(actor.load_kg) ?? 0,

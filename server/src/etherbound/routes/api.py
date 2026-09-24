@@ -19,6 +19,7 @@ class NewGameRequest(BaseModel):
     seed: int = Field(default=0)
     generator: str | None = None
     options: dict[str, Any] | None = None
+    paused: bool = False
 
 
 class ActorResponse(BaseModel):
@@ -182,7 +183,9 @@ async def new_game(
     engine: WorldEngine = Depends(get_engine),  # noqa: B008
 ) -> StateResponse:
     try:
-        await engine.new_game(body.seed, body.generator or DEFAULT_GENERATOR, body.options)
+        await engine.new_game(
+            body.seed, body.generator or DEFAULT_GENERATOR, body.options, paused=body.paused
+        )
     except (ValueError, ValidationError) as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     return state_response(engine)

@@ -32,6 +32,7 @@ class ActorSpawned(Event):
     kind: str
     tile: TilePos
     reason: Literal["created", "relocated"]
+    name: str | None = None
 
 
 class ActorMoved(Event):
@@ -39,6 +40,12 @@ class ActorMoved(Event):
     from_tile: TilePos
     to_tile: TilePos
     mode: Literal["walk", "climb", "lowered", "physics"] = "walk"
+
+
+class ActorGoalSet(Event):
+    type: Literal["actor.goal_set"] = "actor.goal_set"
+    goal: dict[str, Any] | None = None
+    reason: Literal["chosen", "arrived", "stuck", "unreachable"]
 
 
 class ActivityStarted(Event):

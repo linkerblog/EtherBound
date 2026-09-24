@@ -33,6 +33,12 @@ export function spriteTint(color: number, h: number): number {
     ratio(shaded & 0xff, color & 0xff);
 }
 
+export function scaleColor(color: number, factor: number): number {
+  return (Math.round(((color >> 16) & 0xff) * factor) << 16) |
+    (Math.round(((color >> 8) & 0xff) * factor) << 8) |
+    Math.round((color & 0xff) * factor);
+}
+
 /** The face tint: the same height shading as the top above it, scaled by the side light. */
 export function sideTint(color: number, h: number, light: number): number {
   const tint = spriteTint(color, h);

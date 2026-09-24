@@ -3,6 +3,7 @@ from typing import Any
 
 from etherbound.engine.actions import ActivityState, CarriedObject, MenuEntry, Mind
 from etherbound.world.gen.registry import DEFAULT_GENERATOR
+from etherbound.world.grid import WorldGrid
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,3 +80,42 @@ class WorldInfo:
     chunk_size: int
     level_h: int
     bounds: tuple[int, int, int, int]
+
+
+def chunk_payload(grid: WorldGrid, cx: int, cy: int) -> ChunkPayload | None:
+    chunk = grid.chunk(cx, cy)
+    if chunk is None:
+        return None
+    levels = tuple(
+        ChunkLevelPayload(
+            z=level.z,
+            floor_h=level.floor_h,
+            floor_mat=level.floor_mat,
+            wall_n=level.wall_n,
+            wall_w=level.wall_w,
+            edge_flags=level.edge_flags,
+            flags=level.flags,
+        )
+        for (level_cx, level_cy, _), level in sorted(grid.levels.items())
+        if level_cx == cx and level_cy == cy
+    )
+    return ChunkPayload(
+        cx=cx,
+        cy=cy,
+        revision=chunk.revision,
+        ground_h=chunk.ground_h,
+        surface_mat=chunk.surface_mat,
+        levels=levels,
+        objects=tuple(
+            ObjectPayload(
+                id=obj.id,
+                kind=obj.kind,
+                x=obj.x,
+                y=obj.y,
+                h=obj.h,
+                quantity=obj.quantity,
+                open=obj.open,
+            )
+            for obj in grid.objects_at_chunk(cx, cy)
+        ),
+    )

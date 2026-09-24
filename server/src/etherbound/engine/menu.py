@@ -3,7 +3,7 @@ from math import floor
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from etherbound.db.models import Actor, WorldMeta
+from etherbound.db.models import Actor
 from etherbound.db.models import Object as ObjectRow
 from etherbound.engine.actions import (
     ActorTarget,
@@ -18,6 +18,7 @@ from etherbound.engine.objects import children, held_objects, is_accessible, wor
 from etherbound.engine.ops import ActionContext, handled_ops
 from etherbound.engine.ops.base import metres
 from etherbound.engine.payloads import MenuPayload
+from etherbound.engine.world_setup import world_row
 from etherbound.world.chunk import CHUNK_SIZE
 from etherbound.world.grid import WorldGrid
 from etherbound.world.materials import MaterialRegistry
@@ -26,14 +27,15 @@ from etherbound.world.objects import ObjectCatalog
 
 def build_menu(
     sessions: sessionmaker[Session],
-    actor_id: str,
-    x: float,
-    y: float,
-    z: int,
     grid: WorldGrid,
     registry: MaterialRegistry,
     catalog: ObjectCatalog,
     load_cache: dict[str, float],
+    *,
+    actor_id: str,
+    x: float,
+    y: float,
+    z: int,
 ) -> MenuPayload:
     """Generated right-click entries. A read: no lock, since submit validates again."""
     tile_x, tile_y = floor(x), floor(y)
@@ -50,9 +52,7 @@ def build_menu(
     surface_z = chosen.z if chosen is not None else z
     entries: list[MenuEntry] = []
     with sessions() as session:
-        world = session.get(WorldMeta, 1)
-        if world is None:
-            raise RuntimeError("world has not been initialized")
+        world = world_row(session)
         actor = session.get(Actor, actor_id)
         if actor is None:
             raise KeyError(f"unknown actor: {actor_id}")

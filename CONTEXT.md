@@ -31,7 +31,7 @@ without behavior changes, and adds a warning-only source-size check.
 | server.db | `server/src/etherbound/db/`, `server/alembic/` | SQLAlchemy models, engine/session factory and Alembic upgrades. |
 | server.rng | `server/src/etherbound/rng.py` | `RNGStreams.stream(system)` — one seeded stream per system. |
 | web.world | `web/src/world/` | Chunk store, server-parity standing/wall rules, cutaway, ray, occlusion, picking and material tables. |
-| web.game | `web/src/game/` (`MapScene.ts`, `terrainAtlas.ts`, `chunkRenderer.ts`, `extras.ts`, `physics.ts`) | `MapScene` owns scene lifecycle, input, camera and streaming; the atlas and `ChunkRenderer` draw ordered batches, while `ExtrasLayer` and `PhysicsAnimator` animate server state. It never simulates collision. |
+| web.game | `web/src/game/` (`MapScene.ts`, `terrainAtlas.ts`, `chunkRenderer.ts`, `wallPainter.ts`, `extras.ts`, `physics.ts`) | `MapScene` owns scene lifecycle, input, camera and streaming; the atlas, `ChunkRenderer` and `WallPainter` draw ordered batches, while `ExtrasLayer` and `PhysicsAnimator` animate server state. It never simulates collision. |
 | web.net | `web/src/net/` | WS client, movement prediction/reconciliation, generated `schema.d.ts` and action-result trajectory listeners. |
 | web.ui | `web/src/ui/` (`ContextMenus.tsx`, `NewGamePopover.tsx`, `DebugViews.tsx`, `HudPanels.tsx`) | React overlay in a framed viewport with `GAME`/`DEBUG`/`LLM` view tabs (`viewTabs.ts`, `Alt+1..3`): clock, speeds, pills, meters, `CARRY`, `FEED`, `ACT`, input, context/radial menus (`radialMenu.ts`), `NEW` map select; the `DEBUG` view holds the `MAP` generator form (`genForm.ts`), `LLM` is a placeholder. No debug drawer. |
 | launcher | `launcher/` | `EtherBound.exe`, the C# (.NET 10, Native AOT) dev launcher: server + web jobs, health checks, hot reload, leftover and port handling. |
@@ -332,8 +332,7 @@ it skips generated `web/src/net/schema.d.ts` and warns without failing. Only
   `shell-layout.spec.ts`, and passed twice consecutively after Dev-022. BitCanvas's file:// exports
   also remain byte-identical at seed `A17F3C`. Manual physics animation,
   the Dev-018 Extras acceptance and the other GUI acceptances remain in `docs/PENDING.md`.
-- **Dev-022 module versions:** `server.engine` v0.0.13, `server.minds` v0.0.2, `server.net` v0.0.11,
-  `web.game` v0.1.16, `web.ui` v0.0.13, `bitcanvas` v0.0.6, `tooling` v0.0.13; project v2.0.1.
+- **Fix12 module versions:** `server.engine` v0.0.14 and `web.game` v0.1.15; project v2.1.1.
 - **VOID is a ground-volume flag, not a missing-floor flag.** Render and pick stored floors even
   when their band is VOID; suppress only a ground top whose own band is void.
 - **Do not mix separate sprites with a same-depth terrain batch.** Phaser preserves display-list

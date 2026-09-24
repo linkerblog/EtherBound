@@ -3,20 +3,15 @@ import type { components } from "../net/schema";
 import { ChunkStore } from "../world/ChunkStore";
 import { EDGE_N_DOORWAY, EDGE_N_WINDOW, EDGE_W_DOORWAY, EDGE_W_WINDOW, LEVEL_H, NO_FLOOR } from "../world/rules";
 import { TILE_H, TILE_W, baseDepth, faceTile, rowDepth, toScreen } from "./iso";
-import { wallEndRuns, wallJoints, type WallEdge, type WallJoint } from "./wallJoints";
-import { shadeColor, sideTint, sideVariant, spriteTint } from "./terrainSprites";
-import type { ObjectFrame } from "./terrainAtlas";
+import { scaleColor, shadeColor, sideTint, sideVariant, spriteTint } from "./terrainSprites";
+import type { ObjectFrame, TerrainAtlas } from "./terrainAtlas";
+import type { DirtyChunk } from "./dirty";
+import { MAX_WALL_H, WallPainter } from "./wallPainter";
 
 type Material = components["schemas"]["MaterialResponse"];
 type ObjectKind = components["schemas"]["ObjectKindResponse"];
 type TileObject = components["schemas"]["ObjectResponse"];
 type WorldChunk = components["schemas"]["ChunkResponse"];
-type TerrainAtlas = ReturnType<typeof import("./terrainAtlas").buildTerrainAtlas>;
-
-const CUT_DEPTH = 8;
-const CUT_WIDTH = 3;
-const MAX_WALL_H = 6;
-
 export type ChunkLayers = {
   base: Phaser.GameObjects.Blitter;
   rows: Map<number, Phaser.GameObjects.Blitter>;
@@ -28,7 +23,6 @@ export type ChunkLayers = {
 
 type ChunkRendererView = {
   readonly viewerH: number;
-  readonly cutoff: number;
   readonly nikoTile: string;
   readonly animatedObjectIds: Set<number>;
   readonly materials: Map<number, Material> | null;
@@ -37,14 +31,21 @@ type ChunkRendererView = {
 };
 
 export class ChunkRenderer {
-  readonly chunkLayers = new Map<string, ChunkLayers>();
+  private readonly chunkLayers = new Map<string, ChunkLayers>();
+  private readonly walls: WallPainter;
 
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly chunks: ChunkStore,
     private readonly atlas: TerrainAtlas,
     private readonly view: ChunkRendererView,
-  ) {}
+  ) {
+    this.walls = new WallPainter(chunks, atlas, view, {
+      drawMask: (layers, usedRows, frame, x, y, h, row, tint, alpha) =>
+        this.drawMask(layers, usedRows, frame, x, y, h, row, tint, alpha),
+      materialColor: (id) => this.materialColor(id),
+    });
+  }
 
   layersFor(chunk: WorldChunk): ChunkLayers {
     const key = `${chunk.cx},${chunk.cy}`;
@@ -131,12 +132,12 @@ export class ChunkRenderer {
           const edgeFlags = level.edge_flags[index];
           if (wallBase <= tileCutoff) {
             if (wallN && (edgeFlags & EDGE_N_DOORWAY) === 0) {
-              const stub = this.isFrontWall("n", x, y, wallBase);
-              this.drawWall("n", layers, usedRows, x, y, level.z, wallBase, wallN, tileCutoff, (edgeFlags & EDGE_N_WINDOW) !== 0, stub, row);
+              const stub = this.walls.isFrontWall("n", x, y, wallBase);
+              this.walls.drawWall("n", layers, usedRows, x, y, level.z, wallBase, wallN, tileCutoff, (edgeFlags & EDGE_N_WINDOW) !== 0, stub, row);
             }
             if (wallW && (edgeFlags & EDGE_W_DOORWAY) === 0) {
-              const stub = this.isFrontWall("w", x, y, wallBase);
-              this.drawWall("w", layers, usedRows, x, y, level.z, wallBase, wallW, tileCutoff, (edgeFlags & EDGE_W_WINDOW) !== 0, stub, row);
+              const stub = this.walls.isFrontWall("w", x, y, wallBase);
+              this.walls.drawWall("w", layers, usedRows, x, y, level.z, wallBase, wallW, tileCutoff, (edgeFlags & EDGE_W_WINDOW) !== 0, stub, row);
             }
           }
         }
@@ -159,6 +160,25 @@ export class ChunkRenderer {
     layers.bbox = bounds.bbox;
     layers.hMin = bounds.hMin;
     layers.hMax = bounds.hMax;
+  }
+  hasLayers(key: string) { return this.chunkLayers.has(key); }
+
+  boundsOf(key: string): ChunkLayers["bbox"] | undefined { return this.chunkLayers.get(key)?.bbox; }
+
+  cull(isVisible: (bbox: ChunkLayers["bbox"]) => boolean): void {
+    for (const layers of this.chunkLayers.values()) {
+      const visible = isVisible(layers.bbox);
+      if (visible === layers.visible) continue;
+      layers.visible = visible;
+      layers.base.setVisible(visible);
+      for (const row of layers.rows.values()) row.setVisible(visible);
+    }
+  }
+
+  dirtyInfo(hasLevels: (cx: number, cy: number) => boolean): DirtyChunk[] {
+    return [...this.chunkLayers].map(([key, layers]) => {
+      const [cx, cy] = key.split(",").map(Number);
+      return { key, cx, cy, hMin: layers.hMin, hMax: layers.hMax, hasLevels: hasLevels(cx!, cy!) }; });
   }
 
   private materialColor(id: number): number {
@@ -259,15 +279,15 @@ export class ChunkRenderer {
     if (h < lowerTop) {
       const south = faceTile("s", x, y);
       const east = faceTile("e", x, y);
-      this.drawFaceRun(layers, usedRows, "s", south.x, south.y, h, lowerTop, row, this.scaleColor(topTint, 0.82), 1);
-      this.drawFaceRun(layers, usedRows, "e", east.x, east.y, h, lowerTop, row, this.scaleColor(topTint, 0.66), 1);
+       this.drawFaceRun(layers, usedRows, "s", south.x, south.y, h, lowerTop, row, scaleColor(topTint, 0.82), 1);
+       this.drawFaceRun(layers, usedRows, "e", east.x, east.y, h, lowerTop, row, scaleColor(topTint, 0.66), 1);
     }
     if (upperBottom < top) {
       const upperTint = this.shade(color, top);
       const south = faceTile("s", x, y);
       const east = faceTile("e", x, y);
-      this.drawFaceRun(layers, usedRows, "s", south.x, south.y, upperBottom, top, row, this.scaleColor(upperTint, 0.82), 1);
-      this.drawFaceRun(layers, usedRows, "e", east.x, east.y, upperBottom, top, row, this.scaleColor(upperTint, 0.66), 1);
+       this.drawFaceRun(layers, usedRows, "s", south.x, south.y, upperBottom, top, row, scaleColor(upperTint, 0.82), 1);
+       this.drawFaceRun(layers, usedRows, "e", east.x, east.y, upperBottom, top, row, scaleColor(upperTint, 0.66), 1);
     }
   }
 
@@ -348,7 +368,7 @@ export class ChunkRenderer {
       if (upperBottom < h1) this.drawSideRun(side, layers, usedRows, tile.x, tile.y, upperBottom, h1, h1, key, color, light, fillOnly, row, alpha);
       return;
     }
-    const tint = this.scaleColor(this.shade(color, h1), light);
+    const tint = scaleColor(this.shade(color, h1), light);
     if (h0 < lowerTop) this.drawFaceRun(layers, usedRows, side, tile.x, tile.y, h0, lowerTop, row, tint, alpha);
     if (upperBottom < h1) this.drawFaceRun(layers, usedRows, side, tile.x, tile.y, upperBottom, h1, row, tint, alpha);
   }
@@ -394,131 +414,6 @@ export class ChunkRenderer {
     while (current < top) {
       const units = ([8, 4, 2, 1] as const).find((size) => size <= top - current)!;
       this.drawMask(layers, usedRows, `face${side.toUpperCase()}${units}`, x, y, current + units, row, tint, alpha);
-      current += units;
-    }
-  }
-
-  private scaleColor(color: number, factor: number): number {
-    return (Math.round(((color >> 16) & 0xff) * factor) << 16) |
-      (Math.round(((color >> 8) & 0xff) * factor) << 8) |
-      Math.round((color & 0xff) * factor);
-  }
-
-  private isFrontWall(edge: "n" | "w", x: number, y: number, base: number): boolean {
-    const [nx, ny] = this.view.nikoTile.split(",").map(Number);
-    const mx = edge === "n" ? x + 0.5 : x;
-    const my = edge === "n" ? y : y + 0.5;
-    return (edge === "n" ? y > ny : x > nx) &&
-      (mx + my) - (nx + ny + 1) > 0 && (mx + my) - (nx + ny + 1) <= CUT_DEPTH &&
-      Math.abs((mx - my) - (nx - ny)) <= CUT_WIDTH &&
-      base < this.view.viewerH + 4 && base + MAX_WALL_H > this.view.viewerH;
-  }
-
-  /** The drawn top of one wall edge: the value `drawWall` uses, so a neighbour agrees exactly. */
-  private drawnWallTop(edge: "n" | "w", x: number, y: number, z: number): number {
-    const floorH = this.chunks.levelCell(x, y, z)?.floor_h ?? NO_FLOOR;
-    const base = this.chunks.wallBaseH(x, y, z, floorH);
-    const cap = Math.min(base + MAX_WALL_H, this.view.cutoffAt(x, y));
-    return this.isFrontWall(edge, x, y, base) ? Math.min(base + 1, cap) : cap;
-  }
-
-  private wallJoint(edge: WallEdge, x: number, y: number, z: number): WallJoint {
-    const cell = this.chunks.levelCell(x, y, z);
-    const base = this.chunks.wallBaseH(x, y, z, cell?.floor_h ?? NO_FLOOR);
-    if (!cell) return { shown: false, base, top: base };
-    const doorway = edge === "n" ? EDGE_N_DOORWAY : EDGE_W_DOORWAY;
-    const wall = edge === "n" ? cell.wall_n : cell.wall_w;
-    const shown = wall !== 0 && (cell.edge_flags & doorway) === 0;
-    return { shown, base, top: shown ? this.drawnWallTop(edge, x, y, z) : base };
-  }
-
-  private readonly jointLookup = (edge: WallEdge, x: number, y: number, z: number): WallJoint =>
-    this.wallJoint(edge, x, y, z);
-
-  private drawWall(
-    edge: "n" | "w",
-    layers: ChunkLayers,
-    usedRows: Set<number>,
-    x: number,
-    y: number,
-    z: number,
-    base: number,
-    materialId: number,
-    cutoff: number,
-    window: boolean,
-    stub: boolean,
-    row: number,
-  ): void {
-    const color = this.materialColor(materialId);
-    const light = edge === "n" ? 0.82 : 0.66;
-    const key = this.view.materials?.get(materialId)?.key;
-    const textured = key !== undefined && this.atlas.wallKeys.has(key);
-    const cap = Math.min(base + MAX_WALL_H, cutoff);
-    const top = stub ? Math.min(base + 1, cap) : cap;
-    if (top <= base) return;
-    const run = (bottom: number, runTop: number, tint: number): void => {
-      if (textured && key !== undefined) this.drawWallUnits(edge, layers, usedRows, x, y, bottom, runTop, base, stub, key, light, row);
-      else this.drawWallRun((units) => `wall${edge.toUpperCase()}${units}`, layers, usedRows, x, y, bottom, runTop, row, tint);
-    };
-    if (stub || !window) {
-      run(base, top, this.scaleColor(color, light));
-    } else {
-      run(base, Math.min(base + 2, top), this.scaleColor(color, light));
-      if (top > base + 4) run(base + 4, top, this.scaleColor(color, light));
-      if (top > base + 2) this.drawWallRun((units) => `wall${edge.toUpperCase()}${units}`, layers, usedRows, x, y, base + 2, Math.min(base + 4, top), row, this.scaleColor(0xd8e6f0, light), 0.45);
-    }
-    const joints = wallJoints(edge, x, y, z, this.jointLookup);
-    if (joints.end) {
-      const endTint = this.scaleColor(color, edge === "n" ? 0.66 : 0.82);
-      const frame = (units: 1 | 2 | 4): string => `wallEnd${edge === "n" ? "E" : "S"}${units}`;
-      for (const end of wallEndRuns(joints.end, base, window)) {
-        this.drawWallRun(frame, layers, usedRows, x, y, end.from, end.to, row, endTint);
-      }
-    }
-    const stripTint = this.scaleColor(color, 1.12);
-    this.drawMask(layers, usedRows, `wallTop${edge.toUpperCase()}`, x, y, top, row, stripTint);
-    if (joints.post) this.drawMask(layers, usedRows, "wallPost", x, y, top, row, stripTint);
-  }
-
-  /** Textured walls stack one unit at a time: a cap only on the wall's real top, fill below. */
-  private drawWallUnits(
-    edge: "n" | "w",
-    layers: ChunkLayers,
-    usedRows: Set<number>,
-    x: number,
-    y: number,
-    bottom: number,
-    top: number,
-    base: number,
-    stub: boolean,
-    key: string,
-    light: number,
-    row: number,
-  ): void {
-    const tint = this.scaleColor(0xffffff, light);
-    for (let unitTop = bottom + 1; unitTop <= top; unitTop += 1) {
-      const part = !stub && unitTop === base + MAX_WALL_H ? "cap" : "fill";
-      const frame = `wall:${key}:${edge}:${part}:${sideVariant(x, y, edge, unitTop)}`;
-      this.drawMask(layers, usedRows, frame, x, y, unitTop, row, tint);
-    }
-  }
-
-  private drawWallRun(
-    frame: (units: 1 | 2 | 4) => string,
-    layers: ChunkLayers,
-    usedRows: Set<number>,
-    x: number,
-    y: number,
-    bottom: number,
-    top: number,
-    row: number,
-    tint: number,
-    alpha = 1,
-  ): void {
-    let current = bottom;
-    while (current < top) {
-      const units = ([4, 2, 1] as const).find((size) => size <= top - current)!;
-      this.drawMask(layers, usedRows, frame(units), x, y, current + units, row, tint, alpha);
       current += units;
     }
   }

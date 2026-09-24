@@ -162,15 +162,9 @@ class WorldEngine:
         self._next_seq = next_seq
         self.bus.enqueue(events)
 
-    def _world_row(self, session: Session) -> WorldMeta:
-        world = session.get(WorldMeta, 1)
-        if world is None:
-            raise RuntimeError("world has not been initialized")
-        return world
-
     def get_state(self) -> payloads.WorldState:
         with self.sessions() as session:
-            world = self._world_row(session)
+            world = world_setup.world_row(session)
             actors = tuple(
                 payloads.ActorState(
                     id=actor.id,
@@ -218,7 +212,7 @@ class WorldEngine:
 
     def clock_state(self) -> tuple[int, int, bool]:
         with self.sessions() as session:
-            world = self._world_row(session)
+            world = world_setup.world_row(session)
             return world.game_minute, world.speed, world.paused
 
     def world_info(self) -> payloads.WorldInfo:
@@ -226,42 +220,7 @@ class WorldEngine:
         return payloads.WorldInfo(chunk_size=CHUNK_SIZE, level_h=6, bounds=bounds)
 
     def chunk_payload(self, cx: int, cy: int) -> payloads.ChunkPayload | None:
-        chunk = self.grid.chunk(cx, cy)
-        if chunk is None:
-            return None
-        levels = tuple(
-            payloads.ChunkLevelPayload(
-                z=level.z,
-                floor_h=level.floor_h,
-                floor_mat=level.floor_mat,
-                wall_n=level.wall_n,
-                wall_w=level.wall_w,
-                edge_flags=level.edge_flags,
-                flags=level.flags,
-            )
-            for (level_cx, level_cy, _), level in sorted(self.grid.levels.items())
-            if level_cx == cx and level_cy == cy
-        )
-        return payloads.ChunkPayload(
-            cx=cx,
-            cy=cy,
-            revision=chunk.revision,
-            ground_h=chunk.ground_h,
-            surface_mat=chunk.surface_mat,
-            levels=levels,
-            objects=tuple(
-                payloads.ObjectPayload(
-                    id=obj.id,
-                    kind=obj.kind,
-                    x=obj.x,
-                    y=obj.y,
-                    h=obj.h,
-                    quantity=obj.quantity,
-                    open=obj.open,
-                )
-                for obj in self.grid.objects_at_chunk(cx, cy)
-            ),
-        )
+        return payloads.chunk_payload(self.grid, cx, cy)
 
     def chunks_near(
         self, cx: int, cy: int, radius: int = CHUNK_RADIUS
@@ -294,7 +253,7 @@ class WorldEngine:
                 session.query(ChunkLevelRow).delete()
                 session.query(ChunkRow).delete()
                 session.query(Actor).delete()
-                world = self._world_row(session)
+                world = world_setup.world_row(session)
                 world.seed = seed
                 world.game_minute = 0
                 world.speed = 1
@@ -340,7 +299,7 @@ class WorldEngine:
         events: list[Event] = []
         async with self._lock:
             with self.sessions() as session:
-                world = self._world_row(session)
+                world = world_setup.world_row(session)
                 actor = session.get(Actor, actor_id)
                 if actor is None:
                     raise KeyError(f"unknown actor: {actor_id}")
@@ -462,7 +421,7 @@ class WorldEngine:
         events: list[Event] = []
         async with self._lock:
             with self.sessions() as session:
-                world = self._world_row(session)
+                world = world_setup.world_row(session)
                 actor = session.get(Actor, actor_id)
                 if actor is None:
                     raise KeyError(f"unknown actor: {actor_id}")
@@ -494,7 +453,7 @@ class WorldEngine:
         events: list[Event] = []
         async with self._lock:
             with self.sessions() as session:
-                world = self._world_row(session)
+                world = world_setup.world_row(session)
                 if not world.paused:
                     world.game_minute += 1
                     # Completions come before clock.ticked, in actor-id order: replay needs it.
@@ -535,14 +494,14 @@ class WorldEngine:
         """Generated right-click entries. A read: no lock, since submit validates again."""
         return build_menu(
             self.sessions,
-            actor_id,
-            x,
-            y,
-            z,
             self.grid,
             self.registry,
             self.catalog,
             self._load_cache,
+            actor_id=actor_id,
+            x=x,
+            y=y,
+            z=z,
         )
 
     async def set_clock(
@@ -551,7 +510,7 @@ class WorldEngine:
         events: list[Event] = []
         async with self._lock:
             with self.sessions() as session:
-                world = self._world_row(session)
+                world = world_setup.world_row(session)
                 old_speed, old_paused = world.speed, world.paused
                 if paused is not None:
                     world.paused = paused

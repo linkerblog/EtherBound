@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { ClientPrediction } from "../net/prediction";
-import { EMPTY_POSITION, type Direction, type Position, type ResultMessage } from "../net/protocol";
+import { EMPTY_POSITION, type Direction, type Position } from "../net/protocol";
 import { WebSocketClient } from "../net/client";
 import { ChunkStore } from "../world/ChunkStore";
 import { loadMaterials } from "../world/materials";
@@ -11,16 +11,15 @@ import { H_PX, TILE_H, TILE_W, keysToWorld, nikoDepth, screenToRay, toScreen } f
 import { cutoffH } from "../world/cutaway";
 import { pickTile } from "../world/pick";
 import { isCovered, occludingStructures, type Structure } from "../world/occlusion";
-import { cutoffChunkKeys, changedChunkKeys, materialChunkKeys, structureChunkKeys, tileChunkKeys, viewerHeightChunkKeys, type DirtyChunk } from "./dirty";
+import { cutoffChunkKeys, changedChunkKeys, materialChunkKeys, structureChunkKeys, tileChunkKeys, viewerHeightChunkKeys, type ChunkBounds } from "./dirty";
 import { TERRAIN_SHEETS, TERRAIN_SIDE_SHEETS } from "./terrainSheets";
 import { OBJECT_SHEETS } from "./objectSheets";
 import { PhysicsAnimator } from "./physics";
 import { ExtrasLayer } from "./extras";
 import { buildTerrainAtlas } from "./terrainAtlas";
-import { ChunkRenderer, type ChunkLayers } from "./chunkRenderer";
+import { ChunkRenderer } from "./chunkRenderer";
 type Material = components["schemas"]["MaterialResponse"];
 type ObjectKind = components["schemas"]["ObjectKindResponse"];
-type WorldChunk = components["schemas"]["ChunkResponse"];
 
 // Niko's actor id; the client never guesses the player from a map's iteration order.
 const PLAYER_ID = "niko";
@@ -107,7 +106,6 @@ export class MapScene extends Phaser.Scene {
     const thisScene = this;
     this.chunkRenderer = new ChunkRenderer(this, this.chunks, atlas, {
       get viewerH() { return thisScene.viewerH; },
-      get cutoff() { return thisScene.cutoff; },
       get nikoTile() { return thisScene.nikoTile; },
       get animatedObjectIds() { return thisScene.physicsAnimator.animatedObjectIds; },
       get materials() { return thisScene.materials; },
@@ -188,12 +186,12 @@ export class MapScene extends Phaser.Scene {
     this.applyZoom(loadZoom(defaultZoom(window.devicePixelRatio)));
 
     this.removeSnapshotListener = this.options.client.onSnapshot(() => {
-      this.clearPhysicsAnimations();
+      this.physicsAnimator.clear();
       this.clearChunkLayers();
       this.chunks.clear();
       this.structures = [];
       this.nikoGhost.setVisible(false);
-      this.clearExtras();
+      this.extrasLayer.clear();
       this.hasAuthoritativePosition = false;
       this.telemetryOrigin = null;
       this.telemetryElapsed = 0;
@@ -207,7 +205,7 @@ export class MapScene extends Phaser.Scene {
       }
       const player = state.actors[PLAYER_ID];
       if (player) this.prediction.setLoadKg(player.load_kg ?? 0);
-      this.syncExtras(state.actors, performance.now());
+      this.extrasLayer.sync(state.actors, performance.now());
       if (player && !this.hasAuthoritativePosition) {
         this.prediction.reset(player);
         this.hasAuthoritativePosition = true;
@@ -228,15 +226,15 @@ export class MapScene extends Phaser.Scene {
     this.removeChunkListener = this.options.client.onChunk((chunk) => {
       if (!this.chunks.set(chunk)) return;
       const key = `${chunk.cx},${chunk.cy}`;
-      if (this.chunkRenderer.chunkLayers.has(key)) this.updateChunkBounds(chunk);
-      else this.layersFor(chunk);
+      if (this.chunkRenderer.hasLayers(key)) this.chunkRenderer.updateChunkBounds(chunk);
+      else this.chunkRenderer.layersFor(chunk);
       if (this.structures.some((structure) => this.chunkTouchesStructure(chunk.cx, chunk.cy, structure))) {
         const [x, y] = this.nikoTile.split(",").map(Number);
         this.refreshStructures(x, y, this.viewerH, this.cutoff);
       }
       this.markDirty(changedChunkKeys(this.dirtyChunkInfo(), `${chunk.cx},${chunk.cy}`));
     });
-    this.removeResultListener = this.options.client.onResult((result) => this.animatePhysics(result));
+    this.removeResultListener = this.options.client.onResult((result) => this.physicsAnimator.animate(result));
   }
 
   update(_: number, delta: number): void {
@@ -268,8 +266,8 @@ export class MapScene extends Phaser.Scene {
       isCovered(this.chunks, position.x, position.y, position.h ?? this.viewerH, (x, y) => this.cutoffAt(x, y)),
     );
     this.updateCulling();
-    this.updatePhysicsAnimations(performance.now());
-    this.updateExtras(performance.now());
+    this.physicsAnimator.update(performance.now());
+    this.extrasLayer.update(performance.now());
     this.sampleTelemetry(position, seconds);
   }
 
@@ -303,10 +301,10 @@ export class MapScene extends Phaser.Scene {
     this.removeAckListener?.();
     this.removeChunkListener?.();
     this.removeResultListener?.();
-    this.clearPhysicsAnimations();
+    this.physicsAnimator.clear();
     this.options.client.setBeforeCommand(null);
     this.clearChunkLayers();
-    this.clearExtras();
+    this.extrasLayer.clear();
   }
 
   private flushPartialStep(): void {
@@ -361,38 +359,9 @@ export class MapScene extends Phaser.Scene {
     this.cameras.main.setBounds(left, top, right - left, bottom - top);
   }
 
-  private layersFor(chunk: WorldChunk): void {
-    this.chunkRenderer.layersFor(chunk);
-  }
-
   private clearChunkLayers(): void {
     this.chunkRenderer.clearChunkLayers();
     this.dirtyChunks.clear();
-  }
-
-  /** One body per Extra, drawn like Niko but in the Extra colour and mixed between ticks. */
-  private syncExtras(actors: Parameters<ExtrasLayer["sync"]>[0], now: number): void {
-    this.extrasLayer.sync(actors, now);
-  }
-
-  private updateExtras(now: number): void {
-    this.extrasLayer.update(now);
-  }
-
-  private clearExtras(): void {
-    this.extrasLayer.clear();
-  }
-
-  private animatePhysics(result: ResultMessage): void {
-    this.physicsAnimator.animate(result);
-  }
-
-  private updatePhysicsAnimations(now: number): void {
-    this.physicsAnimator.update(now);
-  }
-
-  private clearPhysicsAnimations(): void {
-    this.physicsAnimator.clear();
   }
 
   private setViewer(x: number, y: number, h: number): void {
@@ -444,33 +413,12 @@ export class MapScene extends Phaser.Scene {
     return minX < bounds.maxX && maxX > bounds.minX && minY < bounds.maxY && maxY > bounds.minY;
   }
 
-  private updateChunkBounds(chunk: WorldChunk): void {
-    this.chunkRenderer.updateChunkBounds(chunk);
-  }
-
   private updateCulling(): void {
-    const view = this.cameras.main.worldView;
-    for (const layers of this.chunkRenderer.chunkLayers.values()) {
-      const visible = this.intersectsView(layers.bbox);
-      if (visible === layers.visible) continue;
-      layers.visible = visible;
-      layers.base.setVisible(visible);
-      for (const row of layers.rows.values()) row.setVisible(visible);
-    }
+    this.chunkRenderer.cull((bbox) => this.intersectsView(bbox));
   }
 
-  private dirtyChunkInfo(): DirtyChunk[] {
-    return [...this.chunkRenderer.chunkLayers].map(([key, layers]) => {
-      const [cx, cy] = key.split(",").map(Number);
-      return {
-        key,
-        cx,
-        cy,
-        hMin: layers.hMin,
-        hMax: layers.hMax,
-        hasLevels: (this.chunks.get(cx, cy)?.levels.length ?? 0) > 0,
-      };
-    });
+  private dirtyChunkInfo() {
+    return this.chunkRenderer.dirtyInfo((cx, cy) => (this.chunks.get(cx, cy)?.levels.length ?? 0) > 0);
   }
 
   private markDirty(keys: string[]): void {
@@ -494,13 +442,13 @@ export class MapScene extends Phaser.Scene {
     const started = performance.now();
     const pending = [...this.dirtyChunks].map((key) => {
       const [cx, cy] = key.split(",").map(Number);
-      const layers = this.chunkRenderer.chunkLayers.get(key)!;
+      const bounds = this.chunkRenderer.boundsOf(key)!;
       const x = (cx + 0.5) * this.chunks.size;
       const y = (cy + 0.5) * this.chunks.size;
-      return { key, layers, distance: (x - viewerX) ** 2 + (y - viewerY) ** 2 };
+      return { key, bounds, distance: (x - viewerX) ** 2 + (y - viewerY) ** 2 };
     }).sort((a, b) => a.distance - b.distance);
-    for (const { key, layers } of pending) {
-      if (!this.intersectsView(layers.bbox)) continue;
+    for (const { key, bounds } of pending) {
+      if (!this.intersectsView(bounds)) continue;
       if (performance.now() - started >= 4) break;
       this.drawDirtyChunk(key);
     }
@@ -518,7 +466,7 @@ export class MapScene extends Phaser.Scene {
     this.chunkRenderer.drawChunk(chunk);
   }
 
-  private intersectsView(bbox: ChunkLayers["bbox"]): boolean {
+  private intersectsView(bbox: ChunkBounds): boolean {
     const view = this.cameras.main.worldView;
     return bbox.maxX >= view.x - TILE_W && bbox.minX <= view.right + TILE_W &&
       bbox.maxY >= view.y - TILE_H && bbox.minY <= view.bottom + TILE_H;

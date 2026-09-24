@@ -56,6 +56,13 @@ def sync_materials(session: Session, registry: MaterialRegistry) -> None:
         )
 
 
+def world_row(session: Session) -> WorldMeta:
+    world = session.get(WorldMeta, 1)
+    if world is None:
+        raise RuntimeError("world has not been initialized")
+    return world
+
+
 def load_grid(session: Session) -> tuple[list[Chunk], list[ChunkLevel]]:
     chunks = [
         Chunk.from_blobs(

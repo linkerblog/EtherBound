@@ -204,6 +204,8 @@ export function buildTerrainAtlas(textures: Phaser.Textures.TextureManager) {
   return { maskOffsets, spriteKeys, sideKeys, wallKeys, objectFrames, objectSpriteKeys };
 }
 
+export type TerrainAtlas = ReturnType<typeof buildTerrainAtlas>;
+
 export function registerObjectFrame(objectFrames: Map<string, ObjectFrameSet>, frame: PendingObjectFrame): void {
   const info = { name: frame.name, anchorX: frame.anchorX, anchorY: frame.anchorY };
   const [, kind, part, heightText] = frame.name.split(":");

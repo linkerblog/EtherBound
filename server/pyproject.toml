@@ -36,8 +36,20 @@ target-version = "py314"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP"]
+select = ["E", "F", "I", "B", "UP", "TID"]
 ignore = ["E501"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"random".msg = "use RNGStreams.stream(system)"
+"time.time".msg = "use the seeded clock, not the wall clock"
+"time.time_ns".msg = "use the seeded clock, not the wall clock"
+"datetime.datetime.now".msg = "use the seeded clock, not the wall clock"
+"datetime.datetime.utcnow".msg = "use the seeded clock, not the wall clock"
+"datetime.date.today".msg = "use the seeded clock, not the wall clock"
+
+[tool.ruff.lint.per-file-ignores]
+"src/etherbound/rng.py" = ["TID251"]
+"tests/**" = ["TID251"]
 
 [tool.pyright]
 include = ["src"]

@@ -17,9 +17,6 @@ Open decisions and loose ends. When one is settled, record the decision where it
 
 ## Planned work
 
-- [ ] **Infra01 repo and checks** (`Infra01.md`): remote, `.gitattributes`, one `npm run check`
-      with hooks, version validator, Ruff determinism rules, Playwright baselines, the `InfraNN`
-      doc type and `utils/COMMITS.md`. Lands after Dev-012, Fix10 and Fix11.
 - [ ] **Dev-014 AI furniture** (`Dev-014.md`): an LLM proposes furniture as a validated primitive
       spec that BitCanvas renders; lands after Dev-012. The `gamesync.js` syntax error was fixed
       independently by Fix10.
@@ -36,6 +33,10 @@ Open decisions and loose ends. When one is settled, record the decision where it
       (`done/Dev-007.md` [Sec. 1]).
 
 ## Manual checks not run
+
+The `check:visual` seed-7 spawn baselines (`web/tests/visual/spawn.spec.ts`, x1/x2/x4) now cover
+the spawn view of the Dev-006, Dev-008, Fix05 and Fix09 checks below; the user still approves the
+three images (`Infra01.md` [Sec. 6] 7).
 
 - [ ] **Fix10 BitCanvas Send to game:** in Chromium, send into a scratch `sprites` folder with a
       `grass` directory; confirm `grass_x4.png` and `grass_side_x4.png` are written and the folder

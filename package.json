@@ -4,11 +4,16 @@
   "version": "0.0.1",
   "description": "EtherBound development launcher",
   "scripts": {
+    "setup": "git config core.hooksPath .githooks",
     "bitcanvas": "start \"\" BitCanvas\\index.html",
     "check:bitcanvas": "node --check BitCanvas/pixelart.js && node --check BitCanvas/gamesync.js && node --check BitCanvas/app.js",
     "launcher:build": "set \"PATH=%PATH%;%ProgramFiles(x86)%\\Microsoft Visual Studio\\Installer\" && dotnet publish launcher/src -c Release",
     "check:launcher": "dotnet build launcher/src -c Release && dotnet test launcher/tests",
     "check:server": "cd server && uv run ruff check && uv run ruff format --check && uv run pyright && uv run pytest",
-    "check:web": "cd web && npm run gen:types && npm run build"
+    "check:web": "cd server && uv run etherbound-schema && cd ../web && npm run gen:types && git diff --exit-code src/net/schema.d.ts && npm test && npm run build",
+    "check:versions": "node scripts/check-versions.mjs",
+    "check": "npm run check:versions && npm run check:server && npm run check:web && npm run check:bitcanvas && npm run check:launcher",
+    "check:fast": "node scripts/check-versions.mjs --staged && cd server && uv run ruff check && uv run ruff format --check && cd .. && npm run check:bitcanvas",
+    "check:visual": "cd web && npx playwright test"
   }
 }

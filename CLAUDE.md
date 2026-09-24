@@ -10,7 +10,8 @@ Write the document, then stop and wait for approval. Do not touch code, do not r
 do not "start with the easy part" while the plan is still on the table.
 
 - The plan goes in `docs/` as `Dev-XYZ.md` (`Dev-001`, `Dev-002`, etc., according to the
-  development version), following the naming rules in `AGENTS.md`.
+  development version), `FixNN.md` for reviews or `InfraNN.md` for tooling and process work,
+  following the naming rules in `AGENTS.md`.
 - It states what changes, which modules are affected, which version each one lands on,
   which primitives or systems it touches, and what must not break.
 - Only after the document is approved does implementation begin, and it follows the

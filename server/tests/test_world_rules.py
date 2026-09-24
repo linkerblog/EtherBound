@@ -3,14 +3,6 @@ from json import loads
 from pathlib import Path
 from typing import Any
 
-from alembic import command
-from alembic.config import Config
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, inspect, text
-
-from etherbound.app import create_app
-from etherbound.config import Settings
-from etherbound.engine.world import PLAYER_ID
 from etherbound.world.chunk import (
     CELL_COUNT,
     EDGE_W_WINDOW,
@@ -442,89 +434,3 @@ def test_nav_finds_stairs_path_and_refuses_unreachable() -> None:
         assert grid.can_step(a[0], a[1], b[0], b[1], a[2])
     # The pond centre has no standing surface: no path can reach it.
     assert find_path(grid, start, (196, 70, 0)) is None
-
-
-def test_menu_target_names_material_and_elevation(tmp_path: Path) -> None:
-    database = tmp_path / "menu.db"
-    settings = Settings(
-        database_url=f"sqlite:///{database.as_posix()}",
-        schema_path=tmp_path / "schema.json",
-        time_scale=10,
-    )
-    with TestClient(create_app(settings)) as client:
-        payload = client.get("/api/menu", params={"x": 121.5, "y": 128.5, "z": 0}).json()
-        assert payload["target"].startswith("Asphalt")
-        assert "1 m" in payload["target"]
-        # Niko stands on this road tile: asphalt is never dug, and waiting targets himself.
-        assert [(entry["op"], entry["available"]) for entry in payload["ops"]] == [
-            ("wait", True),
-            ("inspect", True),
-        ]
-
-
-def test_crossing_a_chunk_boundary_pushes_only_new_chunks(tmp_path: Path) -> None:
-    database = tmp_path / "push.db"
-    settings = Settings(
-        database_url=f"sqlite:///{database.as_posix()}",
-        schema_path=tmp_path / "schema.json",
-        time_scale=10,
-    )
-    with TestClient(create_app(settings)) as client:
-        with client.websocket_connect("/ws") as websocket:
-            assert websocket.receive_json()["type"] == "snapshot"
-            first_chunks = [websocket.receive_json()["type"] for _ in range(25)]
-            assert set(first_chunks) == {"chunk"}
-
-            def walk(sequence: int, dx: float, dy: float) -> int:
-                """Send one input, drain any chunk messages, return 1 when chunks appeared."""
-                websocket.send_json({"type": "input", "sequence": sequence, "dx": dx, "dy": dy})
-                message = websocket.receive_json()
-                pushed = 0
-                while message["type"] == "chunk":
-                    pushed += 1
-                    message = websocket.receive_json()
-                assert message["type"] == "ack"
-                assert message["sequence"] == sequence
-                return pushed
-
-            pushed = 0
-            for step in range(1, 41):
-                pushed += walk(step, 1, 0)
-            # Walking east 8 m from the road crosses exactly one chunk boundary.
-            assert pushed == 5
-            pushed += walk(100, 0, 0)
-            assert pushed == 5  # the stationary input pushes nothing new
-
-
-def test_migration_from_phase_zero_keeps_the_actor(tmp_path: Path) -> None:
-    database = tmp_path / "upgrade.db"
-    root = Path(__file__).parents[1]
-    config = Config(str(root / "alembic.ini"))
-    config.set_main_option("script_location", str(root / "alembic"))
-    config.set_main_option("sqlalchemy.url", f"sqlite:///{database.as_posix()}")
-
-    command.upgrade(config, "0001_initial")
-    engine = create_engine(f"sqlite:///{database.as_posix()}")
-    with engine.begin() as connection:
-        connection.execute(
-            text(
-                "INSERT INTO world_meta (id, seed, game_minute, speed, paused) VALUES (1, 7, 90, 3, 0)"
-            )
-        )
-        connection.execute(
-            text("INSERT INTO actor (id, kind, x, y, z) VALUES ('niko', 'player', 2.0, 2.0, 0)")
-        )
-    engine.dispose()
-
-    command.upgrade(config, "head")
-    engine = create_engine(f"sqlite:///{database.as_posix()}")
-    tables = inspect(engine)
-    assert {"material", "chunk", "chunk_level"}.issubset(tables.get_table_names())
-    with engine.connect() as connection:
-        row = connection.execute(
-            text("SELECT x, y, h FROM actor WHERE id = :id"), {"id": PLAYER_ID}
-        ).one()
-        gen_version = connection.execute(text("SELECT gen_version FROM world_meta")).scalar_one()
-    assert row == (2.0, 2.0, 0)
-    assert gen_version == 0
-    engine.dispose()

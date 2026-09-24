@@ -344,7 +344,7 @@ enforced by the engine as op preconditions, not only in prompts:
 - [ ] Witnesses, knowledge, rumor propagation
 - [x] Tile physics: impulse, knockback, breakable walls
 - [ ] Seeded RNG streams and the decision log
-- [ ] Isometric renderer with placeholder art (`Dev-008`)
+- [x] Isometric renderer with placeholder art (`Dev-008`)
 
 ### Phase 2: Vertical slice
 One block: a pizzeria, an alley, a park, about 20 Extras.

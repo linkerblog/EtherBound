@@ -4,6 +4,8 @@ logs/*.log
 .venv/
 node_modules/
 dist/
+web/test-results/
+web/playwright-report/
 .env
 __pycache__/
 .pytest_cache/

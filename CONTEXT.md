@@ -15,21 +15,21 @@ cumulative material damage, persisted wall integrity, impacts, falls and authori
 
 | Module | Path | Responsibility |
 |---|---|---|
-| server.app | `server/src/etherbound/app.py`, `config.py`, `routes/api.py` | FastAPI app, lifespan (migrations, world, clock, schema export), REST routes (`/api/objects` exposes the kind catalog) |
-| server.clock | `server/src/etherbound/clock.py` | 1 Hz logic clock: speeds x1/x3/x10, pause, autopause locks |
-| server.engine | `server/src/etherbound/engine/` | World engine is the only state writer. Shared action/target models; generated menus; handlers for all existing ops plus push, pull, drag, throw, hit and break; `physics.py` supplies deterministic SI formulas and trajectory resolution. |
-| server.events | `server/src/etherbound/events/` | Typed committed events; `impact` and `physics.resolved` record energy outcomes and full paths; FIFO async subscriber bus and transactional sequence persistence |
-| server.world | `server/src/etherbound/world/` | Append-only material registry (resistance in J per half-metre), validated object kinds (data-defined strike speed), chunk/grid geometry, A*, and seeded generation v5 with a sledgehammer near spawn |
-| server.net | `server/src/etherbound/net/` | WS hub, timed inputs, per-connection chunk tracking; action results carry authoritative physics trajectories; combined OpenAPI + WS schema export |
-| server.db | `server/src/etherbound/db/`, `server/alembic/` | SQLAlchemy models, engine/session factory, Alembic upgrades; `0006_physics` adds actor mass and sparse wall-edge integrity |
-| server.rng | `server/src/etherbound/rng.py` | `RNGStreams.stream(system)` — one seeded stream per system (`worldgen` drives generation) |
-| web.world | `web/src/world/` | `ChunkStore` (public `isVoid` query and `solidTopH`, the solid top under contiguous VOID bands, plus the per-chunk object index and the fetched kind catalog), `rules.ts` (server-parity standing/headroom/wall rules including object volumes and surface tops, slope and material costs), `cutaway.ts` (roof connectivity and height cutoff), `ray.ts` (shared height-stepped floor/ground ray march), `occlusion.ts` (connected structures, storey cutoffs and Niko coverage probes), `pick.ts` (height-aware picking through `ray.ts`, includes VOID floors, solid object tops and skips VOID ground), `materials.ts` |
-| web.game | `web/src/game/` | Phaser isometric renderer and ordered tile-object batches; an ephemeral marker animates the server-computed physics trajectory and hides the static object during motion; no client-side collision simulation |
-| web.net | `web/src/net/` | WS client, movement prediction/reconciliation, generated `schema.d.ts`, protocol types and action-result trajectory listeners |
-| web.ui | `web/src/ui/` | React overlay framed around the Phaser viewport: clock, speeds, pills, meters, `CARRY` panel (hands, back, `LOAD`, amber above 10 kg), `FEED` (kinds `seen`, `act`, `warn`, `fail`, `echo`), `ACT` telemetry row, input, generated context menu (server `target` line, entry label followed by its `subject`, arrow keys, Enter, Esc) that submits each entry's `action`; `NEW` control opens a confirmation popover with a seed field; `DEBUG` opens a right-side drawer with a placeholder tab |
-| launcher | `launcher/` | `EtherBound.exe`, the dev launcher (C#, .NET 10, Native AOT): starts server + web without shells, each in its own job inside a kill-on-close launcher job, health checks, hot reload by restart, leftover and port handling, UTF-8 logs, framed version/services banner |
-| bitcanvas | `BitCanvas/` | Standalone seeded texture (grass, planks, cobblestone, concrete, asphalt, roofing, brick) and furniture sprite generator (plain HTML/JS, no build, opens from disk). "Send to game" writes the 256×32 top atlas and 128×32 side sheet into `src/sprites/` under the game's names (File System Access API, Chromium only); downloads remain available for every export, and the pixel-style furniture exports go to `src/sprites/object/` |
-| tooling | root config: `package.json`, `global.json`, `.gitignore`, `.env.example` | Build and check scripts, pinned .NET SDK |
+| server.app | `server/src/etherbound/app.py`, `config.py`, `routes/api.py` | FastAPI app, lifespan (migrations, world, clock, schema export) and the REST routes. |
+| server.clock | `server/src/etherbound/clock.py` | 1 Hz logic clock: speeds x1/x3/x10, pause, autopause locks. |
+| server.engine | `server/src/etherbound/engine/` | The only state writer: action/target models, generated menus, every handler, deterministic SI physics and trajectory resolution. |
+| server.events | `server/src/etherbound/events/` | Typed committed events, FIFO async subscriber bus and transactional sequence persistence. |
+| server.world | `server/src/etherbound/world/` | Material registry, validated object kinds, chunk/grid geometry, A* and seeded generation. |
+| server.net | `server/src/etherbound/net/` | WS hub, timed inputs, per-connection chunk tracking and the combined OpenAPI + WS schema export. |
+| server.db | `server/src/etherbound/db/`, `server/alembic/` | SQLAlchemy models, engine/session factory and Alembic upgrades. |
+| server.rng | `server/src/etherbound/rng.py` | `RNGStreams.stream(system)` — one seeded stream per system. |
+| web.world | `web/src/world/` | Chunk store, server-parity standing/wall rules, cutaway, ray, occlusion, picking and material tables. |
+| web.game | `web/src/game/` | Phaser isometric renderer and ordered tile-object batches; animates server physics paths, never simulates collision. |
+| web.net | `web/src/net/` | WS client, movement prediction/reconciliation, generated `schema.d.ts` and action-result trajectory listeners. |
+| web.ui | `web/src/ui/` | React overlay: clock, speeds, pills, meters, `CARRY`, `FEED`, `ACT`, input, context menu, `NEW` and `DEBUG`. |
+| launcher | `launcher/` | `EtherBound.exe`, the C# (.NET 10, Native AOT) dev launcher: server + web jobs, health checks, hot reload, leftover and port handling. |
+| bitcanvas | `BitCanvas/` | Standalone seeded texture and furniture generator (HTML/JS, no build) with guarded "Send to game" sync. |
+| tooling | root config: `package.json`, `global.json`, `.gitignore`, `.env.example` | Build and check scripts, pinned .NET SDK. |
 
 ## Data model
 
@@ -154,6 +154,9 @@ further off, it is relocated to spawn (`actor.spawned`, `relocated`).
 ## Commands
 
 ```text
+# One-time per clone: enable the versioned git hooks
+npm run setup
+
 # Launcher: build once, and again after changing launcher/ (the exe is gitignored)
 npm run bitcanvas             # open the standalone sprite generator
 npm run launcher:build        # Native AOT publish, copies EtherBound.exe to the root
@@ -166,14 +169,15 @@ dotnet run --project launcher/src    # while working on the launcher itself
 cd server && uv run etherbound-schema      # writes server/schema.json
 cd web && npm run gen:types                # server/schema.json -> src/net/schema.d.ts
 
-# Checks
-npm run check:bitcanvas         # node --check for all BitCanvas scripts
-cd server && uv run pytest && uv run ruff check && uv run ruff format --check && uv run pyright
-cd web && npm run gen:types && git diff --exit-code src/net/schema.d.ts && npm run build
-npm run check:launcher        # dotnet build -c Release (warnings are errors) + dotnet test
+# Checks (COMMITS.md; hooks run check:fast on commit, check-versions on the message, check on push)
+npm run check                   # versions + server + web + bitcanvas + launcher
+npm run check:fast              # versions (staged), ruff, bitcanvas
+npm run check:visual            # Playwright seed-7 spawn baselines (free ports, msedge)
 ```
 
-`server/schema.json` must be regenerated before `gen:types`; it is not committed. Without a
+`server/schema.json` must be regenerated before `gen:types`; it is not committed. `check:web`
+runs the schema export, the `schema.d.ts` diff, the web tests and the production build.
+`check:visual` is not part of `check`: it needs free ports and a GPU-less renderer run. Without a
 console (an agent, output redirected) `EtherBound.exe` prints plain lines and takes no keys; end
 its process to stop it, and its job takes the services with it. The logs are
 `logs\launcher.log`, `server.log` and `web.log`, with the previous run kept as `*.prev.log`.
@@ -235,9 +239,10 @@ its process to stop it, and its job takes the services with it. The logs are
   logger owns an INFO handler because Alembic leaves root at `WARN`. Transient events
   such as `clock.ticked` and `chunk.changed` are skipped; `/api/events` remains the structured log.
 - **Pytest warnings are third-party** (FastAPI/Starlette/pytest-asyncio deprecations), not project
-  issues. The current server suite is 121 tests, all passing.
-- **Current automated validation:** 121 server tests, Ruff, Pyright, 64 web tests, generated schema
-  types and production web build pass. The launcher suite was not rerun for Dev-013. Manual physics
+  issues. The current server suite is 122 tests, all passing.
+- **Current automated validation:** 122 server tests, Ruff, Pyright, 64 web tests, generated schema
+  types and production web build pass. The `check:visual` Playwright seed-7 spawn baselines pass
+  twice in a row. The launcher suite was not rerun for Dev-013. Manual physics
   animation and the other GUI acceptances remain in `docs/PENDING.md`.
 - **VOID is a ground-volume flag, not a missing-floor flag.** Render and pick stored floors even
   when their band is VOID; suppress only a ground top whose own band is void.
@@ -273,7 +278,7 @@ its process to stop it, and its job takes the services with it. The logs are
 - **A void ground's faces start at its solid top.** `ChunkStore.solidTopH` walks down through
   contiguous VOID bands, and `drawChunk` measures both the face bottom and the "is it higher" test
   with it; void-cut faces are fill only, so the excavated side has no grass lip.
-- **BitCanvas (`bitcanvas` v0.0.5; tooling v0.0.10; project v0.8.2) sends only game-ready terrain sheets.** The File System Access API is Chromium-only
+- **BitCanvas (`bitcanvas` v0.0.5; tooling v0.0.11; project v0.9.1) sends only game-ready terrain sheets.** The File System Access API is Chromium-only
   and requires a user-picked directory named `sprites` containing a `grass` or `floor` directory.
   A send overwrites files: `git restore src/sprites` restores tracked sheets, but newly created
   material PNGs are untracked and need separate cleanup if they were only test outputs. New material

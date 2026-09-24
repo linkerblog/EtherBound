@@ -171,28 +171,28 @@ commit by COMMITS [Sec. 2] (a Z bump is expected).
 ## 7. Todo
 
 ### Decisions
-- [ ] Approve [Sec. 1]
+- [x] Approve [Sec. 1]
 
 ### Repo
 - [ ] Remote and first push (user) [Sec. 3.1]
-- [ ] `.gitattributes` and re-checkout [Sec. 3.1]
+- [x] `.gitattributes` and re-checkout [Sec. 3.1]
 
 ### Checks
-- [ ] Scripts, hooks and `setup` [Sec. 3.2]
-- [ ] `check-versions.mjs` and `VERSION.md` paths [Sec. 3.3]
-- [ ] Ruff `TID251` and `test_architecture.py` [Sec. 3.4]
-- [ ] Rename `test_dev002.py` [Sec. 3.5]
-- [ ] Playwright harness and baselines [Sec. 3.6]
+- [x] Scripts, hooks and `setup` [Sec. 3.2]
+- [x] `check-versions.mjs` and `VERSION.md` paths [Sec. 3.3]
+- [x] Ruff `TID251` and `test_architecture.py` [Sec. 3.4]
+- [x] Rename `test_dev002.py` [Sec. 3.5]
+- [x] Playwright harness and baselines [Sec. 3.6]
 
 ### Acceptance
-- [ ] [Sec. 6] 1–6, 8–9
+- [x] [Sec. 6] 1–6, 8–9
 - [ ] [Sec. 6] 7 (user)
 
 ### Closing
-- [ ] `AGENTS.md`, `CLAUDE.md`, `CONTEXT.md`, `VISION.md`, `PENDING.md` [Sec. 3.7]
-- [ ] `VERSION.md` [Sec. 4]; commit per `COMMITS.md`
+- [x] `AGENTS.md`, `CLAUDE.md`, `CONTEXT.md`, `VISION.md`, `PENDING.md` [Sec. 3.7]
+- [x] `VERSION.md` [Sec. 4]; commit per `COMMITS.md`
 - [ ] Notion: `Infra` kind, Dev Blog entry (Kind `Infra`), Work Report for the date
-- [ ] Move this doc to `docs/done/`
+- [x] Move this doc to `docs/done/`
 
 ---
 

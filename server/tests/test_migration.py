@@ -5,7 +5,7 @@ from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import Session, sessionmaker
 
-from etherbound.engine.world import WorldEngine
+from etherbound.engine.world import PLAYER_ID, WorldEngine
 from etherbound.world.chunk import CELL_COUNT, Chunk
 
 
@@ -119,3 +119,37 @@ def test_upgrade_0004_keeps_the_actor_and_fills_v5_objects(tmp_path: Path) -> No
         "barrel",
         "sledgehammer",
     }
+
+
+def test_migration_from_phase_zero_keeps_the_actor(tmp_path: Path) -> None:
+    database = tmp_path / "upgrade.db"
+    root = Path(__file__).parents[1]
+    config = Config(str(root / "alembic.ini"))
+    config.set_main_option("script_location", str(root / "alembic"))
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{database.as_posix()}")
+
+    command.upgrade(config, "0001_initial")
+    engine = create_engine(f"sqlite:///{database.as_posix()}")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO world_meta (id, seed, game_minute, speed, paused) VALUES (1, 7, 90, 3, 0)"
+            )
+        )
+        connection.execute(
+            text("INSERT INTO actor (id, kind, x, y, z) VALUES ('niko', 'player', 2.0, 2.0, 0)")
+        )
+    engine.dispose()
+
+    command.upgrade(config, "head")
+    engine = create_engine(f"sqlite:///{database.as_posix()}")
+    tables = inspect(engine)
+    assert {"material", "chunk", "chunk_level"}.issubset(tables.get_table_names())
+    with engine.connect() as connection:
+        row = connection.execute(
+            text("SELECT x, y, h FROM actor WHERE id = :id"), {"id": PLAYER_ID}
+        ).one()
+        gen_version = connection.execute(text("SELECT gen_version FROM world_meta")).scalar_one()
+    assert row == (2.0, 2.0, 0)
+    assert gen_version == 0
+    engine.dispose()

@@ -1,0 +1,3 @@
+#!/bin/sh
+# Full check before pushing: every check, exactly as `npm run check`.
+npm run check

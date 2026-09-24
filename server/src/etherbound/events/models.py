@@ -23,6 +23,8 @@ class WorldGenerated(Event):
     type: Literal["world.generated"] = "world.generated"
     seed: int
     gen_version: int
+    generator: str = "test"
+    options: dict[str, Any] = Field(default_factory=dict)
 
 
 class ActorSpawned(Event):

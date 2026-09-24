@@ -95,8 +95,12 @@ three images (`Infra01.md` [Sec. 6] 7).
 - [ ] **Dev-013 physics:** in the running game, push and throw objects into an obstacle, break a
       wall over repeated hits and watch an object fall into the pit; the animation must match the
       committed final positions at x1–x4. See `done/Dev-013.md` [Sec. 4] step 7.
-- [ ] **Fix11 Dev Blog database:** open it in Notion and confirm it reads well, newest first, with
-      the properties visible. See `done/Fix11.md` [Sec. 6] step 7.
+- [ ] **Fix11 Dev Blog database:** open it in Notion and confirm it reads well, newest first, with the
+      properties visible. See `done/Fix11.md` [Sec. 6] step 7.
+- [ ] **Dev-015 lab map:** DEBUG → MAP → LAB, `feature = relief`, `amplitude = 20`, REGENERATE;
+      Niko appears north of the feature bay and walks into the hills; change `scale` and regenerate;
+      then walk bays 1–9 and confirm each matches `done/Dev-015.md` [Sec. 2]. See
+      `done/Dev-015.md` [Sec. 5] acceptance 8.
 
 - [ ] **Fix03 walking:** acceptance 1 (no jump at start or stop) was confirmed by the user on
       22/09/2026 ("walking feels smooth"), and 5 (releasing the keys after `DIG` does not

@@ -38,6 +38,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/gen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Generators */
+        get: operations["generators_api_gen_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/game/state": {
         parameters: {
             query?: never;
@@ -306,6 +323,32 @@ export interface components {
             /** Events */
             events: components["schemas"]["EventRecord"][];
         };
+        /** GeneratorBayResponse */
+        GeneratorBayResponse: {
+            /** Key */
+            key: string;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+            /** Width */
+            width: number;
+            /** Height */
+            height: number;
+        };
+        /** GeneratorInfoResponse */
+        GeneratorInfoResponse: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Version */
+            version: number;
+            /** Fields */
+            fields: components["schemas"]["OptionFieldResponse"][];
+            /** Bays */
+            bays: components["schemas"]["GeneratorBayResponse"][];
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -422,6 +465,12 @@ export interface components {
              * @default 0
              */
             seed: number;
+            /** Generator */
+            generator?: string | null;
+            /** Options */
+            options?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** ObjectKindResponse */
         ObjectKindResponse: {
@@ -482,6 +531,27 @@ export interface components {
              */
             op: "open";
             target: components["schemas"]["ObjectTarget"];
+        };
+        /** OptionFieldResponse */
+        OptionFieldResponse: {
+            /** Path */
+            path: string;
+            /** Label */
+            label: string;
+            /** Kind */
+            kind: string;
+            /** Default */
+            default: unknown;
+            /** Min */
+            min: number | null;
+            /** Max */
+            max: number | null;
+            /** Step */
+            step: number | null;
+            /** Choices */
+            choices: string[];
+            /** Group */
+            group: string | null;
         };
         /** PullAction */
         PullAction: {
@@ -552,6 +622,14 @@ export interface components {
             paused: boolean;
             /** Actors */
             actors: components["schemas"]["ActorResponse"][];
+            /** Generator */
+            generator: string;
+            /** Gen Version */
+            gen_version: number;
+            /** Gen Options */
+            gen_options: {
+                [key: string]: unknown;
+            };
         };
         /** TakeAction */
         TakeAction: {
@@ -1008,6 +1086,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generators_api_gen_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeneratorInfoResponse"][];
                 };
             };
         };

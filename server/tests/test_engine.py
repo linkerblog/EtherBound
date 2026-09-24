@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from etherbound.db.models import Actor, Base
+from etherbound.db.models import Actor, Base, WorldMeta
 from etherbound.engine.actions import MoveAction
 from etherbound.engine.movement import move_in_world, nearest_surface
 from etherbound.engine.world import PLAYER_ID, WorldEngine
@@ -129,6 +129,55 @@ async def test_new_game_wipes_and_regenerates(engine: WorldEngine) -> None:
     niko = next(actor for actor in state.actors if actor.id == PLAYER_ID)
     surface = nearest_surface(engine.grid, niko.x, niko.y, niko.h)
     assert surface is not None and surface.h == niko.h
+
+
+def _set_meta(engine: WorldEngine, **fields: object) -> None:
+    with engine.sessions() as session:
+        meta = session.get(WorldMeta, 1)
+        assert meta is not None
+        for name, value in fields.items():
+            setattr(meta, name, value)
+        session.commit()
+
+
+async def test_new_game_stores_generator_and_options(engine: WorldEngine) -> None:
+    options = {"feature": "relief", "relief": {"amplitude": 20}}
+    state = await engine.new_game(5, "lab", options)
+    assert (state.generator, state.gen_version) == ("lab", 1)
+    assert state.gen_options["feature"] == "relief"
+    assert state.gen_options["relief"]["amplitude"] == 20
+    niko = next(actor for actor in state.actors if actor.id == PLAYER_ID)
+    assert (niko.x, niko.y, niko.h) == (61.5, 41.5, 2)
+    generated = engine.read_events(0, 50, "world.generated")
+    payload = generated[-1].data
+    assert payload["generator"] == "lab"
+    assert payload["options"]["feature"] == "relief"
+
+    restarted = WorldEngine(engine.sessions)
+    restarted.ensure_world()
+    assert restarted.get_state().generator == "lab"
+    assert restarted.get_state().gen_options["relief"]["amplitude"] == 20
+
+    # Lowering the stored version regenerates with the stored options, not the defaults.
+    _set_meta(restarted, gen_version=0)
+    regenerated = WorldEngine(engine.sessions)
+    regenerated.ensure_world()
+    assert regenerated.get_state().generator == "lab"
+    assert regenerated.get_state().gen_options["relief"]["amplitude"] == 20
+    hills = [regenerated.grid.ground_at(x, y) for x in range(44, 80) for y in range(44, 80)]
+    assert any(tile is not None and tile[0] != 2 for tile in hills)
+
+
+def test_unknown_generator_falls_back_to_test(engine: WorldEngine) -> None:
+    _set_meta(engine, generator="nope", gen_version=1)
+    restarted = WorldEngine(engine.sessions)
+    restarted.ensure_world()
+    state = restarted.get_state()
+    assert state.generator == "test"
+    assert state.gen_version >= 5
+    with restarted.sessions() as session:
+        meta = session.get(WorldMeta, 1)
+        assert meta is not None and meta.generator == "test"
 
 
 def _save_actor_h(engine: WorldEngine, h: int) -> Actor:

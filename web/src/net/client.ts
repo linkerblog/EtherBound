@@ -7,6 +7,8 @@ import {
   type ConnectionState,
   type Direction,
   type GameAction,
+  type GameStateResponse,
+  type GeneratorInfo,
   type Position,
   type ResultMessage,
   type ServerMessage,
@@ -57,13 +59,29 @@ function sequenceOf(message: ServerMessage): number | undefined {
   return typeof record.sequence === "number" ? record.sequence : typeof record.seq === "number" ? record.seq : undefined;
 }
 
-export async function requestNewGame(seed: number): Promise<void> {
+export async function requestNewGame(
+  seed: number,
+  generator?: string,
+  options?: Record<string, unknown>,
+): Promise<void> {
   const response = await fetch("/api/game/new", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ seed }),
+    body: JSON.stringify({ seed, generator, options }),
   });
   if (!response.ok) throw new Error(`new game request ${response.status}`);
+}
+
+export async function fetchGenerators(): Promise<GeneratorInfo[]> {
+  const response = await fetch("/api/gen");
+  if (!response.ok) throw new Error(`generator request ${response.status}`);
+  return (await response.json()) as GeneratorInfo[];
+}
+
+export async function fetchGameState(): Promise<GameStateResponse> {
+  const response = await fetch("/api/game/state");
+  if (!response.ok) throw new Error(`state request ${response.status}`);
+  return (await response.json()) as GameStateResponse;
 }
 
 export class WebSocketClient {

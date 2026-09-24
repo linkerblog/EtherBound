@@ -22,6 +22,7 @@ from etherbound.world.chunk import (
     decode_int16,
     encode_int16,
 )
+from etherbound.world.gen.registry import get_generator
 from etherbound.world.gen.testworld import GEN_VERSION, generate_test_world
 from etherbound.world.grid import WorldGrid
 from etherbound.world.materials import MaterialRegistry
@@ -106,6 +107,18 @@ def test_test_world_is_deterministic_and_eight_by_eight() -> None:
     assert len(first.chunks) == 64
     assert first.blob_bytes() == second.blob_bytes()
     assert first.blob_bytes() != other.blob_bytes()
+
+
+def test_registry_test_generator_matches_generate_test_world() -> None:
+    registry = MaterialRegistry.load()
+    spec = get_generator("test")
+    assert spec is not None
+    for seed in (0, 7, 123):
+        direct = generate_test_world(seed, registry)
+        through_registry = spec.generate(seed, spec.options(), registry)
+        assert through_registry.blob_bytes() == direct.blob_bytes()
+        assert through_registry.objects == direct.objects
+        assert through_registry.generator == "test"
 
 
 def test_eight_by_eight_world_generation_stays_under_one_second() -> None:

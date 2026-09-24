@@ -1,8 +1,10 @@
 import asyncio
+import logging
 from dataclasses import dataclass
 from math import floor
+from typing import Any
 
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -50,13 +52,8 @@ from etherbound.events.models import (
     WorldGenerated,
 )
 from etherbound.world.chunk import CHUNK_SIZE, Chunk, ChunkLevel
-from etherbound.world.gen.testworld import (
-    GEN_VERSION,
-    SPAWN_POINT,
-    GeneratedObject,
-    TestWorld,
-    generate_test_world,
-)
+from etherbound.world.gen.registry import DEFAULT_GENERATOR, GeneratorSpec, get_generator
+from etherbound.world.gen.types import GeneratedObject, GeneratedWorld
 from etherbound.world.grid import WorldGrid
 from etherbound.world.materials import MaterialRegistry
 from etherbound.world.objects import ObjectCatalog
@@ -64,6 +61,8 @@ from etherbound.world.objects import ObjectCatalog
 PLAYER_ID = "niko"
 CHUNK_RADIUS = 2
 HANDLING_OPS = frozenset({"take", "drop", "put", "open", "close", "wear", "remove"})
+
+logger = logging.getLogger("etherbound.engine")
 
 action_adapter: TypeAdapter[Action] = TypeAdapter(Action)
 
@@ -89,6 +88,8 @@ class WorldState:
     paused: bool
     actors: tuple[ActorState, ...]
     gen_version: int
+    generator: str = DEFAULT_GENERATOR
+    gen_options: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -253,7 +254,7 @@ class WorldEngine:
         return chunks, levels
 
     @staticmethod
-    def _commit_world(session: Session, world: TestWorld) -> None:
+    def _commit_world(session: Session, world: GeneratedWorld) -> None:
         for chunk in world.chunks.values():
             session.add(
                 ChunkRow(
@@ -337,13 +338,44 @@ class WorldEngine:
     def load_kg(self, actor_id: str) -> float:
         return self._load_cache.get(actor_id, 0.0)
 
+    def _resolve_generator(self, meta: WorldMeta) -> tuple[GeneratorSpec, Any, bool]:
+        """Return the save's generator, its validated options and whether it fell back."""
+        fallback = False
+        spec = get_generator(meta.generator or DEFAULT_GENERATOR)
+        if spec is None:
+            logger.warning(
+                "unknown generator %r in save; falling back to %s",
+                meta.generator,
+                DEFAULT_GENERATOR,
+            )
+            spec = get_generator(DEFAULT_GENERATOR)
+            assert spec is not None
+            meta.generator = spec.key
+            meta.gen_options = {}
+            fallback = True
+        assert spec is not None
+        try:
+            options = spec.options.model_validate(meta.gen_options or {})
+        except ValidationError:
+            logger.warning("stored options for generator %r are invalid; using defaults", spec.key)
+            options = spec.options()
+            fallback = True
+        return spec, options, fallback
+
     def ensure_world(self, seed: int = 0) -> None:
         events: list[Event] = []
         with self.sessions() as session:
             meta = session.get(WorldMeta, 1)
             if meta is None:
                 meta = WorldMeta(
-                    id=1, seed=seed, game_minute=0, speed=1, paused=False, gen_version=0
+                    id=1,
+                    seed=seed,
+                    game_minute=0,
+                    speed=1,
+                    paused=False,
+                    gen_version=0,
+                    generator=DEFAULT_GENERATOR,
+                    gen_options={},
                 )
                 session.add(meta)
                 session.flush()
@@ -352,23 +384,33 @@ class WorldEngine:
                 self.registry = MaterialRegistry.load(existing_ids=saved_ids)
                 self.grid.registry = self.registry
             self._sync_materials(session)
+            spec, options, fallback = self._resolve_generator(meta)
             has_chunks = self._has_chunks(session)
-            generated_world = not has_chunks or meta.gen_version < GEN_VERSION
+            generated_world = fallback or not has_chunks or meta.gen_version < spec.version
             if generated_world:
                 if has_chunks:
                     session.query(WallIntegrity).delete(synchronize_session=False)
                     session.query(ChunkLevelRow).delete(synchronize_session=False)
                     session.query(ChunkRow).delete(synchronize_session=False)
                 self._delete_uncarried_objects(session)
-                world = generate_test_world(meta.seed, self.registry)
+                world = spec.generate(meta.seed, options, self.registry)
                 self._commit_world(session, world)
                 self._commit_objects(session, world.objects)
                 meta.gen_version = world.gen_version
-                events.append(WorldGenerated(seed=meta.seed, gen_version=world.gen_version))
+                meta.generator = spec.key
+                meta.gen_options = options.model_dump(mode="json")
+                events.append(
+                    WorldGenerated(
+                        seed=meta.seed,
+                        gen_version=world.gen_version,
+                        generator=spec.key,
+                        options=meta.gen_options,
+                    )
+                )
             chunks, levels = self._load_grid(session)
             self.grid = WorldGrid(chunks, levels, self.registry, catalog=self.catalog)
             self._load_object_index(session)
-            actor_event = self._ensure_actor(session)
+            actor_event = self._ensure_actor(session, spec, options, meta.seed)
             if actor_event is not None:
                 events.append(actor_event)
             self._refresh_load(session)
@@ -380,11 +422,12 @@ class WorldEngine:
         self._next_seq = next_seq
         self.bus.enqueue(events)
 
-    def _spawn_point(self) -> tuple[float, float, int]:
-        spawn_x, spawn_y = SPAWN_POINT
-        spawn_h = self._standing_h_near(spawn_x, spawn_y)
-        if spawn_h is not None:
-            return spawn_x, spawn_y, spawn_h
+    def _spawn_point(
+        self, spec: GeneratorSpec, options: Any, seed: int
+    ) -> tuple[float, float, int]:
+        spawn = spec.spawn(seed, options)
+        if self._standing_h_near(spawn[0], spawn[1]) is not None:
+            return spawn
         for cx, cy in sorted(self.grid.chunks):
             for local_y in range(CHUNK_SIZE):
                 for local_x in range(CHUNK_SIZE):
@@ -404,8 +447,10 @@ class WorldEngine:
             return None
         return surfaces[0].h
 
-    def _ensure_actor(self, session: Session) -> ActorSpawned | None:
-        spawn_x, spawn_y, spawn_h = self._spawn_point()
+    def _ensure_actor(
+        self, session: Session, spec: GeneratorSpec, options: Any, seed: int
+    ) -> ActorSpawned | None:
+        spawn_x, spawn_y, spawn_h = self._spawn_point(spec, options, seed)
         actor = session.get(Actor, PLAYER_ID)
         reason: str | None = None
         if actor is None:
@@ -459,7 +504,14 @@ class WorldEngine:
                 for actor in session.scalars(select(Actor).order_by(Actor.id))
             )
             return WorldState(
-                world.seed, world.game_minute, world.speed, world.paused, actors, world.gen_version
+                world.seed,
+                world.game_minute,
+                world.speed,
+                world.paused,
+                actors,
+                world.gen_version,
+                world.generator,
+                dict(world.gen_options or {}),
             )
 
     def _carried(self, session: Session, actor_id: str) -> tuple[CarriedObject, ...]:
@@ -536,7 +588,16 @@ class WorldEngine:
                     payloads.append(payload)
         return tuple(payloads)
 
-    async def new_game(self, seed: int) -> WorldState:
+    async def new_game(
+        self,
+        seed: int,
+        generator: str = DEFAULT_GENERATOR,
+        options: dict[str, Any] | None = None,
+    ) -> WorldState:
+        spec = get_generator(generator)
+        if spec is None:
+            raise ValueError(f"unknown generator: {generator}")
+        resolved = spec.options.model_validate(options or {})
         async with self._lock:
             with self.sessions() as session:
                 session.query(EventRow).delete()
@@ -550,10 +611,12 @@ class WorldEngine:
                 world.game_minute = 0
                 world.speed = 1
                 world.paused = False
-                generated = generate_test_world(seed, self.registry)
+                generated = spec.generate(seed, resolved, self.registry)
                 self._commit_world(session, generated)
                 self._commit_objects(session, generated.objects)
-                world.gen_version = GEN_VERSION
+                world.gen_version = generated.gen_version
+                world.generator = spec.key
+                world.gen_options = resolved.model_dump(mode="json")
                 self.grid = WorldGrid(
                     generated.chunks.values(),
                     generated.levels.values(),
@@ -561,8 +624,15 @@ class WorldEngine:
                     catalog=self.catalog,
                 )
                 self._load_object_index(session)
-                events: list[Event] = [WorldGenerated(seed=seed, gen_version=world.gen_version)]
-                actor_event = self._ensure_actor(session)
+                events: list[Event] = [
+                    WorldGenerated(
+                        seed=seed,
+                        gen_version=world.gen_version,
+                        generator=spec.key,
+                        options=world.gen_options,
+                    )
+                ]
+                actor_event = self._ensure_actor(session, spec, resolved, seed)
                 if actor_event is not None:
                     events.append(actor_event)
                 self._refresh_load(session)

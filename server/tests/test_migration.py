@@ -121,6 +121,47 @@ def test_upgrade_0004_keeps_the_actor_and_fills_v5_objects(tmp_path: Path) -> No
     }
 
 
+def test_upgrade_0006_adds_generator_defaults_and_keeps_chunks(tmp_path: Path) -> None:
+    database = tmp_path / "generator.db"
+    config = Config(str(Path(__file__).parents[1] / "alembic.ini"))
+    config.set_main_option("script_location", str(Path(__file__).parents[1] / "alembic"))
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{database.as_posix()}")
+    command.upgrade(config, "0006_physics")
+    chunk = Chunk.flat(0, 0, 2, 1, strata=((0, "topsoil"),))
+    engine = create_engine(f"sqlite:///{database.as_posix()}")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO world_meta (id, seed, game_minute, speed, paused, gen_version) "
+                "VALUES (1, 7, 0, 1, 0, 5)"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO chunk (cx, cy, ground_h, surface_mat, strata, revision, gen_version) "
+                "VALUES (0, 0, :ground, :surface, '[[0, \"topsoil\"]]', 2, 5)"
+            ),
+            {"ground": chunk.ground_blob, "surface": chunk.surface_blob},
+        )
+
+    command.upgrade(config, "head")
+
+    with engine.connect() as connection:
+        generator, options = connection.execute(
+            text("SELECT generator, gen_options FROM world_meta")
+        ).one()
+    assert generator == "test"
+    assert options == "{}"
+
+    sessions = sessionmaker(bind=engine, expire_on_commit=False, class_=Session)
+    world = WorldEngine(sessions)
+    world.ensure_world()
+    loaded = world.grid.chunk(0, 0)
+    assert loaded is not None and loaded.revision == 2
+    assert world.get_state().generator == "test"
+    engine.dispose()
+
+
 def test_migration_from_phase_zero_keeps_the_actor(tmp_path: Path) -> None:
     database = tmp_path / "upgrade.db"
     root = Path(__file__).parents[1]

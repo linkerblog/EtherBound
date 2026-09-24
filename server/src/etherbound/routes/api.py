@@ -1,10 +1,11 @@
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from etherbound.engine.actions import MenuEntry
 from etherbound.engine.world import PLAYER_ID, WorldEngine
+from etherbound.world.gen.registry import DEFAULT_GENERATOR, GENERATORS, option_fields
 
 router = APIRouter(prefix="/api")
 
@@ -16,6 +17,8 @@ class HealthResponse(BaseModel):
 
 class NewGameRequest(BaseModel):
     seed: int = Field(default=0)
+    generator: str | None = None
+    options: dict[str, Any] | None = None
 
 
 class ActorResponse(BaseModel):
@@ -33,6 +36,37 @@ class StateResponse(BaseModel):
     speed: int
     paused: bool
     actors: list[ActorResponse]
+    generator: str
+    gen_version: int
+    gen_options: dict[str, Any]
+
+
+class OptionFieldResponse(BaseModel):
+    path: str
+    label: str
+    kind: str
+    default: Any
+    min: float | None
+    max: float | None
+    step: float | None
+    choices: list[str]
+    group: str | None
+
+
+class GeneratorBayResponse(BaseModel):
+    key: str
+    x: int
+    y: int
+    width: int
+    height: int
+
+
+class GeneratorInfoResponse(BaseModel):
+    key: str
+    name: str
+    version: int
+    fields: list[OptionFieldResponse]
+    bays: list[GeneratorBayResponse]
 
 
 class MaterialResponse(BaseModel):
@@ -131,6 +165,9 @@ def state_response(engine: WorldEngine) -> StateResponse:
             ActorResponse(id=actor.id, kind=actor.kind, x=actor.x, y=actor.y, z=actor.z, h=actor.h)
             for actor in state.actors
         ],
+        generator=state.generator,
+        gen_version=state.gen_version,
+        gen_options=state.gen_options or {},
     )
 
 
@@ -144,8 +181,43 @@ async def new_game(
     body: NewGameRequest,
     engine: WorldEngine = Depends(get_engine),  # noqa: B008
 ) -> StateResponse:
-    await engine.new_game(body.seed)
+    try:
+        await engine.new_game(body.seed, body.generator or DEFAULT_GENERATOR, body.options)
+    except (ValueError, ValidationError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
     return state_response(engine)
+
+
+@router.get("/gen", response_model=list[GeneratorInfoResponse])
+def generators() -> list[GeneratorInfoResponse]:
+    return [
+        GeneratorInfoResponse(
+            key=spec.key,
+            name=spec.name,
+            version=spec.version,
+            fields=[
+                OptionFieldResponse(
+                    path=field.path,
+                    label=field.label,
+                    kind=field.kind,
+                    default=field.default,
+                    min=field.minimum,
+                    max=field.maximum,
+                    step=field.step,
+                    choices=list(field.choices),
+                    group=field.group,
+                )
+                for field in option_fields(spec.options)
+            ],
+            bays=[
+                GeneratorBayResponse(
+                    key=bay.key, x=bay.x, y=bay.y, width=bay.width, height=bay.height
+                )
+                for bay in spec.bays
+            ],
+        )
+        for spec in GENERATORS.values()
+    ]
 
 
 @router.get("/game/state", response_model=StateResponse)

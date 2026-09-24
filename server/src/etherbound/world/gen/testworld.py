@@ -1,6 +1,4 @@
-import json
-from collections.abc import Mapping
-from dataclasses import dataclass
+from pydantic import BaseModel
 
 from etherbound.world.chunk import (
     CELL_COUNT,
@@ -15,6 +13,7 @@ from etherbound.world.chunk import (
     ChunkLevel,
 )
 from etherbound.world.gen.noise import ValueNoise
+from etherbound.world.gen.types import GeneratedObject, GeneratedWorld
 from etherbound.world.materials import MaterialRegistry
 
 GEN_VERSION = 5
@@ -22,17 +21,8 @@ WORLD_CHUNKS = 8
 SPAWN_POINT = (121.5, 128.5)
 
 
-@dataclass(frozen=True, slots=True)
-class GeneratedObject:
-    """One object the generator places. ``parent`` is the index of its container, if any."""
-
-    kind: str
-    x: int
-    y: int
-    h: int
-    quantity: int = 1
-    open: bool = False
-    parent: int | None = None
+class TestOptions(BaseModel):
+    """The test world takes no generation options."""
 
 
 def test_objects() -> tuple[GeneratedObject, ...]:
@@ -59,39 +49,11 @@ def test_objects() -> tuple[GeneratedObject, ...]:
     )
 
 
-@dataclass(frozen=True, slots=True)
-class TestWorld:
-    chunks: Mapping[tuple[int, int], Chunk]
-    levels: Mapping[tuple[int, int, int], ChunkLevel]
-    spawn: tuple[float, float, int]
-    gen_version: int = GEN_VERSION
-    objects: tuple[GeneratedObject, ...] = ()
-
-    def blob_bytes(self) -> bytes:
-        chunks = b"".join(
-            self.chunks[key].ground_blob
-            + self.chunks[key].surface_blob
-            + self.chunks[key].dug_blob
-            + json.dumps(self.chunks[key].strata, separators=(",", ":")).encode("ascii")
-            for key in sorted(self.chunks)
-        )
-        levels = b"".join(
-            self.levels[key].floor_blob
-            + self.levels[key].floor_mat_blob
-            + self.levels[key].wall_n_blob
-            + self.levels[key].wall_w_blob
-            + self.levels[key].edge_flags_blob
-            + self.levels[key].flags_blob
-            for key in sorted(self.levels)
-        )
-        return chunks + levels
-
-
 def _id(registry: MaterialRegistry, key: str) -> int:
     return registry[key].id
 
 
-def generate_test_world(seed: int, registry: MaterialRegistry | None = None) -> TestWorld:
+def generate_test_world(seed: int, registry: MaterialRegistry | None = None) -> GeneratedWorld:
     registry = registry or MaterialRegistry.load()
     noise = ValueNoise(seed)
     grass = _id(registry, "grass")
@@ -261,4 +223,6 @@ def generate_test_world(seed: int, registry: MaterialRegistry | None = None) -> 
         key: ChunkLevel(key[0], key[1], key[2], *[tuple(values) for values in fields])
         for key, fields in levels.items()
     }
-    return TestWorld(chunks, chunk_levels, (*SPAWN_POINT, 0), GEN_VERSION, test_objects())
+    return GeneratedWorld(
+        chunks, chunk_levels, (*SPAWN_POINT, 0), GEN_VERSION, test_objects(), "test"
+    )

@@ -9,6 +9,10 @@ export type ActivitySnapshot = components["schemas"]["ActivitySnapshot"];
 export type ResultMessage = components["schemas"]["ResultMessage"];
 export type ActivityMessage = components["schemas"]["ActivityMessage"];
 export type CarriedObject = components["schemas"]["CarriedObject"];
+export type GeneratorInfo = components["schemas"]["GeneratorInfoResponse"];
+export type GeneratorBay = components["schemas"]["GeneratorBayResponse"];
+export type OptionField = components["schemas"]["OptionFieldResponse"];
+export type GameStateResponse = components["schemas"]["StateResponse"];
 
 export type Position = {
   x: number;

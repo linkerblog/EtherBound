@@ -28,6 +28,10 @@ class WorldMeta(Base):
     speed: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     paused: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     gen_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    generator: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="test", server_default="test"
+    )
+    gen_options: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
 
 
 class Actor(Base):

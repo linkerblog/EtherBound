@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type ReactElement } from "react";
 import { createGame, type ContextTarget, type Telemetry } from "../game/MapScene";
 import type { ZoomLevel } from "../game/zoom";
-import { requestNewGame, WebSocketClient } from "../net/client";
-import type { ConnectionState, MenuEntry, MenuResponse, WorldState } from "../net/protocol";
+import { fetchGameState, fetchGenerators, requestNewGame, WebSocketClient } from "../net/client";
+import type { ConnectionState, GameStateResponse, GeneratorInfo, MenuEntry, MenuResponse, WorldState } from "../net/protocol";
+import { defaultValues, flattenOptions, rows, toOptions, type GenRow, type GenValue, type GenValues } from "./genForm";
 
 type MenuState = { target: ContextTarget; targetLabel?: string; entries: MenuEntry[]; error?: string } | null;
 type ResolvedMenuState = Exclude<MenuState, null>;
@@ -50,6 +51,7 @@ export function App(): ReactElement {
   const [zoom, setZoom] = useState<ZoomLevel | null>(null);
   const [newGameOpen, setNewGameOpen] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
+  const [generators, setGenerators] = useState<GeneratorInfo[]>([]);
   const menuRequest = useRef(0);
   const gameMinute = useRef(0);
   // Results carry only a sequence, so remember which op each sent action was.
@@ -131,6 +133,14 @@ export function App(): ReactElement {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    void fetchGenerators()
+      .then((values) => { if (active) setGenerators(values); })
+      .catch(() => { if (active) setGenerators([]); });
+    return () => { active = false; };
+  }, []);
+
   async function openMenu(target: ContextTarget): Promise<void> {
     const token = ++menuRequest.current;
     setMenu({ target, entries: [] });
@@ -182,9 +192,10 @@ export function App(): ReactElement {
       </div>
       {newGameOpen && <NewGamePopover
         seed={world.seed ?? 0}
+        generators={generators}
         onClose={() => setNewGameOpen(false)}
-        onSuccess={(seed) => {
-          pushFeed(`NEW GAME · SEED ${seed}`, "echo");
+        onSuccess={(seed, generator) => {
+          pushFeed(`NEW GAME · ${generator.toUpperCase()} · SEED ${seed}`, "echo");
           setNewGameOpen(false);
         }}
       />}
@@ -214,7 +225,7 @@ export function App(): ReactElement {
         <input ref={inputRef} value={input} onChange={(event) => setInput(event.target.value)} placeholder="say or try anything" aria-label="Free text action" />
       </form>
     </section>
-    <DebugDrawer open={debugOpen} onClose={() => setDebugOpen(false)} />
+    <DebugDrawer open={debugOpen} onClose={() => setDebugOpen(false)} generators={generators} />
     {menu && <ContextMenu state={menu} onPick={pickEntry} onClose={() => setMenu(null)} />}
   </main>;
 }
@@ -242,36 +253,158 @@ function CarryRow({ slot, item }: { slot: string; item: string }): ReactElement 
   return <div className="row"><span className="slot">{slot}</span><span className="item">{item}</span></div>;
 }
 
-function DebugDrawer({ open, onClose }: { open: boolean; onClose: () => void }): ReactElement {
+function randomSeed(exclude?: number): number {
+  const values = new Uint32Array(1);
+  let seed: number;
+  do {
+    window.crypto.getRandomValues(values);
+    seed = values[0]! & 0x7fffffff;
+  } while (seed === exclude);
+  return seed;
+}
+
+function DebugDrawer({ open, onClose, generators }: { open: boolean; onClose: () => void; generators: GeneratorInfo[] }): ReactElement {
   return <aside id="debug-drawer" className={`drawer ${open ? "open" : ""}`} aria-label="Debug menu" aria-hidden={!open} onClick={(event) => event.stopPropagation()}>
     <div className="drawer-heading">
       <h2>DEBUG CONSOLE</h2>
       <button className="mini" aria-label="Close debug menu" onClick={onClose}>X</button>
     </div>
     <div className="tabs" role="tablist" aria-label="Debug sections">
-      <button className="tab active" id="debug-tab" role="tab" aria-selected="true" aria-controls="debug-panel">DEBUG</button>
+      <button className="tab active" id="debug-tab" role="tab" aria-selected="true" aria-controls="debug-panel">MAP</button>
     </div>
     <div className="drawer-content" id="debug-panel" role="tabpanel" aria-labelledby="debug-tab">
-      <div className="debug-placeholder">
-        <span className="placeholder-mark" aria-hidden="true">[ -- ]</span>
-        <h3>NO DEBUG TOOLS</h3>
-        <p>Debug controls and diagnostics will appear here.</p>
-        <span className="pill">PLACEHOLDER</span>
-      </div>
+      {open && <MapTab generators={generators} />}
     </div>
   </aside>;
 }
 
+function MapTab({ generators }: { generators: GeneratorInfo[] }): ReactElement {
+  const [state, setState] = useState<GameStateResponse | null>(null);
+  const [key, setKey] = useState("");
+  const [values, setValues] = useState<GenValues>({});
+  const [seedText, setSeedText] = useState("0");
+  const [status, setStatus] = useState("");
+  const [pending, setPending] = useState(false);
+  const initialised = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    void fetchGameState()
+      .then((loaded) => { if (active) { setState(loaded); setKey(loaded.generator); setSeedText(String(loaded.seed)); } })
+      .catch(() => { if (active) setStatus("STATE UNAVAILABLE"); });
+    return () => { active = false; };
+  }, []);
+
+  const spec = generators.find((item) => item.key === key);
+
+  useEffect(() => {
+    if (!spec || !state || initialised.current) return;
+    const options = state.generator === spec.key ? state.gen_options : {};
+    setValues(flattenOptions(options, spec.fields));
+    initialised.current = true;
+  }, [spec, state]);
+
+  function chooseGenerator(nextKey: string): void {
+    setKey(nextKey);
+    const next = generators.find((item) => item.key === nextKey);
+    setValues(next ? defaultValues(next.fields) : {});
+    setStatus("");
+  }
+
+  function change(path: string, value: GenValue): void {
+    setValues((current) => ({ ...current, [path]: value }));
+    setStatus("");
+  }
+
+  if (!spec) {
+    return <div className="debug-placeholder">
+      <span className="placeholder-mark" aria-hidden="true">[ -- ]</span>
+      <h3>LOADING GENERATORS</h3>
+      <p>{status || "Reading the map catalog from the server."}</p>
+    </div>;
+  }
+
+  const rendered = rows(spec.fields, values);
+  const seedValid = /^\d+$/.test(seedText) && Number(seedText) <= 2147483647;
+  const hasError = rendered.some((row) => !row.hidden && row.error !== null);
+
+  async function regenerate(): Promise<void> {
+    if (!spec) return;
+    if (!seedValid) { setStatus("SEED MUST BE A WHOLE NUMBER"); return; }
+    if (hasError) { setStatus("FIX THE HIGHLIGHTED FIELDS"); return; }
+    setPending(true);
+    setStatus("");
+    try {
+      await requestNewGame(Number(seedText), spec.key, toOptions(spec.fields, values));
+      setStatus("REGENERATED");
+    } catch {
+      setStatus("REGENERATE FAILED");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return <div className="gen-panel">
+    <div className="gen-meta">
+      <div className="readout"><span className="label">MAP</span><span>{spec.name}</span></div>
+      <div className="readout"><span className="label">VERSION</span><span>v{spec.version}</span></div>
+      <div className="readout"><span className="label">CURRENT</span><span>{state ? `${state.generator} v${state.gen_version}` : "—"}</span></div>
+    </div>
+    <div className="seed">
+      <label className="label" htmlFor="debug-map">MAP</label>
+      <select id="debug-map" value={spec.key} onChange={(event) => chooseGenerator(event.target.value)}>
+        {generators.map((item) => <option key={item.key} value={item.key}>{item.name}</option>)}
+      </select>
+    </div>
+    <div className="seed">
+      <label className="label" htmlFor="debug-seed">SEED</label>
+      <input id="debug-seed" type="number" min="0" max="2147483647" value={seedText} aria-invalid={!seedValid} onChange={(event) => { setSeedText(event.target.value); setStatus(""); }} />
+      <button className="mini" type="button" onClick={() => setSeedText(String(randomSeed(Number(seedText))))}>RANDOM</button>
+    </div>
+    <div className="gen-form">
+      {rendered.filter((row) => !row.hidden).map((row) => <GenRowView key={row.field.path} row={row} onChange={change} />)}
+    </div>
+    {spec.bays.length > 0 && <div className="bay-list">
+      <div className="feed-label">▍BAYS</div>
+      {spec.bays.map((bay) => <div className="row" key={bay.key}><span className="slot">{bay.key.toUpperCase()}</span><span className="item">{bay.x},{bay.y} · {bay.width}×{bay.height}</span></div>)}
+    </div>}
+    {status && <p className="error" role="status">{status}</p>}
+    <div className="actions">
+      <button type="button" onClick={() => { setValues(defaultValues(spec.fields)); setStatus(""); }}>RESET</button>
+      <button className="danger" type="button" disabled={pending} onClick={() => void regenerate()}>{pending ? "WORKING" : "REGENERATE"}</button>
+    </div>
+  </div>;
+}
+
+function GenRowView({ row, onChange }: { row: GenRow; onChange: (path: string, value: GenValue) => void }): ReactElement {
+  const { field, value, error } = row;
+  const id = `gen-${field.path}`;
+  return <div className="gen-row">
+    <label className="label" htmlFor={id}>{field.label}</label>
+    {field.kind === "choice"
+      ? <select id={id} value={String(value)} onChange={(event) => onChange(field.path, event.target.value)}>
+        {field.choices.map((choice) => <option key={choice} value={choice}>{choice}</option>)}
+      </select>
+      : field.kind === "bool"
+        ? <input id={id} type="checkbox" checked={Boolean(value)} onChange={(event) => onChange(field.path, event.target.checked)} />
+        : <input id={id} type="number" value={String(value)} min={field.min ?? undefined} max={field.max ?? undefined} step={field.step ?? undefined} aria-invalid={Boolean(error)} onChange={(event) => onChange(field.path, event.target.value === "" ? "" : Number(event.target.value))} />}
+    {error && <small className="why">{error}</small>}
+  </div>;
+}
+
 function NewGamePopover({
   seed: initialSeed,
+  generators,
   onClose,
   onSuccess,
 }: {
   seed: number;
+  generators: GeneratorInfo[];
   onClose: () => void;
-  onSuccess: (seed: number) => void;
+  onSuccess: (seed: number, generator: string) => void;
 }): ReactElement {
   const [seedText, setSeedText] = useState(String(initialSeed));
+  const [generator, setGenerator] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const pendingRef = useRef(false);
@@ -280,6 +413,11 @@ function NewGamePopover({
   useEffect(() => {
     seedRef.current?.focus();
     seedRef.current?.select();
+    let active = true;
+    void fetchGameState()
+      .then((state) => { if (active) setGenerator(state.generator); })
+      .catch(() => {});
+    return () => { active = false; };
   }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -299,8 +437,8 @@ function NewGamePopover({
     setPending(true);
     setError("");
     try {
-      await requestNewGame(seed);
-      onSuccess(seed);
+      await requestNewGame(seed, generator || undefined);
+      onSuccess(seed, generator || "test");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message.toUpperCase() : "NEW GAME REQUEST FAILED");
     } finally {
@@ -310,13 +448,7 @@ function NewGamePopover({
   }
 
   function randomizeSeed(): void {
-    const values = new Uint32Array(1);
-    let seed: number;
-    do {
-      window.crypto.getRandomValues(values);
-      seed = values[0]! & 0x7fffffff;
-    } while (seed === Number(seedText));
-    setSeedText(String(seed));
+    setSeedText(String(randomSeed(Number(seedText))));
     setError("");
   }
 
@@ -330,6 +462,13 @@ function NewGamePopover({
   return <form id="new-game-dialog" role="dialog" aria-label="New game" aria-modal="false" className="hud-panel confirm" noValidate onSubmit={(event) => void submit(event)} onClick={(event) => event.stopPropagation()} onKeyDown={handleKeyDown}>
     <h3>NEW GAME</h3>
     <p>Wipes the city, Niko and the event log. This cannot be undone.</p>
+    <div className="seed">
+      <label className="label" htmlFor="new-game-map">MAP</label>
+      <select id="new-game-map" value={generator} onChange={(event) => setGenerator(event.target.value)}>
+        {generators.length === 0 && <option value="">test</option>}
+        {generators.map((item) => <option key={item.key} value={item.key}>{item.name}</option>)}
+      </select>
+    </div>
     <div className="seed">
       <label className="label" htmlFor="new-game-seed">SEED</label>
       <input ref={seedRef} id="new-game-seed" type="number" min="0" max="2147483647" step="1" value={seedText} aria-invalid={Boolean(error)} aria-describedby={error ? "new-game-error" : undefined} onChange={(event) => { setSeedText(event.target.value); setError(""); }} />
@@ -384,3 +523,4 @@ function ContextMenu({ state, onPick, onClose }: { state: ResolvedMenuState; onP
     </button>)}
   </div>;
 }
+

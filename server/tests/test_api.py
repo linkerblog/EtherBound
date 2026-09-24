@@ -356,3 +356,52 @@ def test_crossing_a_chunk_boundary_pushes_only_new_chunks(tmp_path: Path) -> Non
             assert pushed == 5
             pushed += walk(100, 0, 0)
             assert pushed == 5  # the stationary input pushes nothing new
+
+
+def test_generators_endpoint_and_new_game_options(tmp_path: Path) -> None:
+    settings = Settings(
+        database_url=f"sqlite:///{(tmp_path / 'gen.db').as_posix()}",
+        schema_path=tmp_path / "schema.json",
+    )
+    with TestClient(create_app(settings)) as client:
+        generators = {info["key"]: info for info in client.get("/api/gen").json()}
+        assert set(generators) == {"test", "lab"}
+        fields = {field["path"]: field for field in generators["lab"]["fields"]}
+        assert fields["relief.amplitude"]["group"] == "relief"
+        assert fields["relief.amplitude"]["min"] == 0
+        assert fields["relief.amplitude"]["max"] == 24
+        assert fields["feature"]["choices"] == ["none", "relief"]
+        bays = generators["lab"]["bays"]
+        assert len(bays) == 9
+        assert all(bay["width"] == 36 and bay["height"] == 36 for bay in bays)
+        assert generators["test"]["bays"] == []
+
+        default = client.post("/api/game/new", json={"seed": 3})
+        assert default.status_code == 200
+        assert default.json()["generator"] == "test"
+
+        custom = client.post(
+            "/api/game/new",
+            json={
+                "seed": 5,
+                "generator": "lab",
+                "options": {"feature": "relief", "relief": {"amplitude": 20}},
+            },
+        )
+        assert custom.status_code == 200
+        state = custom.json()
+        assert state["generator"] == "lab"
+        assert state["gen_version"] == 1
+        assert state["gen_options"]["relief"]["amplitude"] == 20
+
+        before = client.get("/api/game/state").json()
+        invalid = client.post(
+            "/api/game/new",
+            json={"seed": 5, "generator": "lab", "options": {"relief": {"amplitude": 999}}},
+        )
+        assert invalid.status_code == 422
+        assert client.get("/api/game/state").json() == before
+
+        unknown = client.post("/api/game/new", json={"seed": 5, "generator": "nope"})
+        assert unknown.status_code == 422
+        assert client.get("/api/game/state").json() == before

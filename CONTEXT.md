@@ -10,6 +10,8 @@ the standalone terrain/furniture generator and adds guarded game-sheet sync. `De
 `docs/done/`) adds objects: the Matter primitive as data (kinds, volumes, carrying and the first
 handling ops). `Dev-013` (archived in `docs/done/`) adds deterministic action-time tile physics,
 cumulative material damage, persisted wall integrity, impacts, falls and authoritative paths.
+`Dev-015` (archived in `docs/done/`) adds the generator registry, the `lab` debug generator and
+per-save generator options (migration `0007_generator`).
 
 ## Modules
 
@@ -19,14 +21,14 @@ cumulative material damage, persisted wall integrity, impacts, falls and authori
 | server.clock | `server/src/etherbound/clock.py` | 1 Hz logic clock: speeds x1/x3/x10, pause, autopause locks. |
 | server.engine | `server/src/etherbound/engine/` | The only state writer: action/target models, generated menus, every handler, deterministic SI physics and trajectory resolution. |
 | server.events | `server/src/etherbound/events/` | Typed committed events, FIFO async subscriber bus and transactional sequence persistence. |
-| server.world | `server/src/etherbound/world/` | Material registry, validated object kinds, chunk/grid geometry, A* and seeded generation. |
+| server.world | `server/src/etherbound/world/` | Material registry, validated object kinds, chunk/grid geometry, A*, the generator registry and seeded generation (`test` and `lab`). |
 | server.net | `server/src/etherbound/net/` | WS hub, timed inputs, per-connection chunk tracking and the combined OpenAPI + WS schema export. |
 | server.db | `server/src/etherbound/db/`, `server/alembic/` | SQLAlchemy models, engine/session factory and Alembic upgrades. |
 | server.rng | `server/src/etherbound/rng.py` | `RNGStreams.stream(system)` — one seeded stream per system. |
 | web.world | `web/src/world/` | Chunk store, server-parity standing/wall rules, cutaway, ray, occlusion, picking and material tables. |
 | web.game | `web/src/game/` | Phaser isometric renderer and ordered tile-object batches; animates server physics paths, never simulates collision. |
 | web.net | `web/src/net/` | WS client, movement prediction/reconciliation, generated `schema.d.ts` and action-result trajectory listeners. |
-| web.ui | `web/src/ui/` | React overlay: clock, speeds, pills, meters, `CARRY`, `FEED`, `ACT`, input, context menu, `NEW` and `DEBUG`. |
+| web.ui | `web/src/ui/` | React overlay: clock, speeds, pills, meters, `CARRY`, `FEED`, `ACT`, input, context menu, `NEW` map select and the DEBUG `MAP` generator form (`genForm.ts`). |
 | launcher | `launcher/` | `EtherBound.exe`, the C# (.NET 10, Native AOT) dev launcher: server + web jobs, health checks, hot reload, leftover and port handling. |
 | bitcanvas | `BitCanvas/` | Standalone seeded texture and furniture generator (HTML/JS, no build) with guarded "Send to game" sync. |
 | tooling | root config: `package.json`, `global.json`, `.gitignore`, `.env.example` | Build and check scripts, pinned .NET SDK. |
@@ -34,11 +36,11 @@ cumulative material damage, persisted wall integrity, impacts, falls and authori
 ## Data model
 
 SQLite at `data/etherbound.db` (gitignored). Migrations `0001_initial`, `0002_world`, `0003_event`,
-`0004_dig_activity`, `0005_object` and `0006_physics`:
+`0004_dig_activity`, `0005_object`, `0006_physics` and `0007_generator`:
 
 | Table | Columns |
 |---|---|
-| `world_meta` | `id` (pk, always 1), `seed`, `game_minute`, `speed` (1/3/10), `paused`, `gen_version` |
+| `world_meta` | `id` (pk, always 1), `seed`, `game_minute`, `speed` (1/3/10), `paused`, `gen_version`, `generator` (default `test`), `gen_options` (JSON, default `{}`) |
 | `actor` | `id` (pk), `kind` (`player`), `x`, `y`, `z` (derived `h // 6`), `h` (half-metres), `mass_kg` (default 80), nullable JSON `activity` (`op`, `action`, `started_minute`, `ends_minute`) |
 | `material` | append-only `id` ↔ `key` mapping plus rendering/physics properties |
 | `chunk` | pk `(cx, cy)`; blobs `ground_h` (int16×1024), `surface_mat` (uint16×1024), nullable `dug` (uint8×1024, NULL = all zeros), `strata` JSON, `revision`, `gen_version` |
@@ -64,6 +66,22 @@ held and worn objects with their contents and deleting the uncarried ones before
 layout. On load, a saved actor within
 0.5 m of a standing surface in its tile is snapped to that surface's exact `h` (no event);
 further off, it is relocated to spawn (`actor.spawned`, `relocated`).
+
+**Generators.** `world/gen/registry.py` holds `GENERATORS`: `test` (version 5, the existing test
+world, unchanged) and `lab` (version 1, `world/gen/lab.py`). A `GeneratorSpec` carries `key`,
+`name`, `version`, a Pydantic options model, `generate(seed, options, registry) -> GeneratedWorld`
+and a pure, cheap `spawn(seed, options)`. `GeneratedWorld` (in `world/gen/types.py`) holds the
+chunks, levels, objects, spawn, version and generator key; `generate_test_world` keeps its byte
+output. `new_game` validates the options, stores `generator` and the full options dump, generates
+through the spec and logs `world.generated` with both. `ensure_world` resolves the save's generator
+(an unknown key falls back to `test` with a warning) and regenerates when `gen_version` is below the
+spec version; `_spawn_point` calls `spec.spawn` instead of the generator running again on load. The
+`lab` map is a 4×4-chunk (128 m) flat fixture with asphalt paths and nine 36×36 bays — steps,
+materials, water, structure, feature, objects, dig, walls and open — around central bay `feature`,
+where a feature (today only `relief`, noise hills) is stamped through a `GenCanvas`
+(`world/gen/canvas.py`); the default spawn is the path north of the feature bay. `GET /api/gen`
+describes each generator as data: `fields` (path, label, kind, default, min, max, step, choices,
+group) and, for `lab`, its `bays`.
 
 ## Contracts
 
@@ -121,7 +139,10 @@ further off, it is relocated to spawn (`actor.spawned`, `relocated`).
   Handlers run in subscription order; reentrant events append to the active FIFO drain. Handler
   failures are logged and isolated; a cascade is capped at 10,000 events. `seq` is unique among
   stored events; a transient event's `seq` may be reused after a restart, so never key state on it.
-- **REST.** `GET /api/health`, `POST /api/game/new {seed}`, `GET /api/game/state`,
+- **REST.** `GET /api/health`, `POST /api/game/new {seed, generator?, options?}` (an unknown
+  generator or invalid options returns 422 and leaves the world untouched; `{seed}` alone gives the
+  `test` world), `GET /api/game/state` (with `generator`, `gen_version`, `gen_options`),
+  `GET /api/gen` (every generator's options as form fields plus the lab bays),
   `GET /api/materials`, `GET /api/objects` (the kind catalog), `GET /api/world/chunk?cx&cy`,
   `GET /api/menu?x&y&z` (any `z`, computed for Niko;
   returns a `target` line like `Asphalt · 1 m` and `ops: MenuEntry[]`; the client renders, never
@@ -212,7 +233,15 @@ its process to stop it, and its job takes the services with it. The logs are
   map rather than scanning every level in the world. The optional `WorldGrid.chunk()` loader caches
   hits and misses; the current test world is eagerly loaded before movement.
 - **Test-world changes require a generator version bump.** `ensure_world` regenerates an older
-  generator's chunks and preserves actor rows; it does not wipe the save or change the schema.
+  generator's chunks and preserves actor rows; it does not wipe the save or change the schema. Bump
+  the generator's `version` in its spec, and every save regenerates with its stored options.
+- **A generator's options are data, not code.** `GET /api/gen` walks the Pydantic options model;
+  adding a field to the model makes it appear in the DEBUG form, and the client never names an
+  option. To add a feature: a module in `world/gen/features/` with
+  `stamp(canvas, rect, seed, options) -> list[GeneratedObject]`, its options model as a nested field
+  of `LabOptions`, and its key in the `feature` choice; then bump the `lab` version.
+- **An unknown generator row falls back to `test`.** `ensure_world` logs a warning, resets
+  `generator`/`gen_options` and regenerates, so an old or hand-edited save always opens.
 - **The WebSocket hub should use action results for chunk tracking.** `ActionResult.x/y` already
   identify the resulting player chunk, avoiding a DB-backed `get_state()` on every movement input.
 - **Edge walls belong to the tile that owns the edge.** A wall west of tile (1,0) is `wall_w[1]`
@@ -240,10 +269,9 @@ its process to stop it, and its job takes the services with it. The logs are
   such as `clock.ticked` and `chunk.changed` are skipped; `/api/events` remains the structured log.
 - **Pytest warnings are third-party** (FastAPI/Starlette/pytest-asyncio deprecations), not project
   issues. The current server suite is 122 tests, all passing.
-- **Current automated validation:** 122 server tests, Ruff, Pyright, 64 web tests, generated schema
+- **Current automated validation:** 135 server tests, Ruff, Pyright, 68 web tests, generated schema
   types and production web build pass. The `check:visual` Playwright seed-7 spawn baselines pass
-  twice in a row. The launcher suite was not rerun for Dev-013. Manual physics
-  animation and the other GUI acceptances remain in `docs/PENDING.md`.
+  twice in a row. Manual physics animation and the other GUI acceptances remain in `docs/PENDING.md`.
 - **VOID is a ground-volume flag, not a missing-floor flag.** Render and pick stored floors even
   when their band is VOID; suppress only a ground top whose own band is void.
 - **Do not mix separate sprites with a same-depth terrain batch.** Phaser preserves display-list

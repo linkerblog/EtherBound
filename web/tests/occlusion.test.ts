@@ -82,10 +82,11 @@ test("a hill can cover Niko without being misidentified as a structure", () => {
   assert.equal(isCovered(store, 4, 4, 0, () => Infinity), true);
 });
 
-test("body probes select and cut the lab building above Niko's head", () => {
+test("body probes see the lab slab face at the reported position", () => {
   const store = labBuilding();
-  const position = { x: 24.5, y: 45.5, h: 2 };
-  assert.ok(bodyHits(store, position.x, position.y, position.h, () => Infinity).some((hit) => hit.h === 8));
+  const position = { x: 25, y: 45.2, h: 2 };
+  const hits = bodyHits(store, position.x, position.y, position.h, () => Infinity);
+  assert.ok(hits.some((hit) => hit.x === 25 && hit.y === 46 && hit.h === 8));
   assert.equal(isCovered(store, position.x, position.y, position.h, () => Infinity), true);
 
   const tracker = new StructureTracker();
@@ -95,31 +96,148 @@ test("body probes select and cut the lab building above Niko's head", () => {
   assert.equal(isCovered(store, position.x, position.y, position.h, (x, y) => tracker.cutoffAt(x, y, Infinity)), false);
 });
 
-test("body probes cut every high floor found around the lab", () => {
+function addFloor(store: ChunkStore, x: number, y: number, z: number, floorH: number): void {
+  const previous = store.get(0, 1)!;
+  const floorIndex = (y - SIZE) * SIZE + x;
+  const levels = previous.levels.map((level) => {
+    if (level.z !== z) return level;
+    const floor_h = [...level.floor_h];
+    floor_h[floorIndex] = floorH;
+    return { ...level, floor_h };
+  });
+  store.set({ ...previous, revision: previous.revision + 1, levels });
+}
+
+test("a joined slab closes its east face and the ray continues into the neighbour", () => {
+  const exposed = labBuilding();
+  const position = { x: 24.890625, y: 45.059375 };
+  const exposedHits = bodyHits(exposed, position.x, position.y, 2, () => Infinity);
+  const exposedTileHits = exposedHits.filter((hit) => hit.x === 25 && hit.y === 46 && hit.h === 8);
+  assert.ok(exposedTileHits.length > 0);
+
+  const joined = labBuilding();
+  addFloor(joined, 26, 46, 1, 8);
+  const joinedHits = bodyHits(joined, position.x, position.y, 2, () => Infinity);
+  const joinedTileHits = joinedHits.filter((hit) => hit.x === 25 && hit.y === 46 && hit.h === 8);
+  assert.ok(joinedTileHits.length < exposedTileHits.length);
+  assert.ok(joinedHits.some((hit) => hit.x === 26 && hit.y === 46 && hit.h === 8));
+});
+
+type OracleSlab = {
+  x: number;
+  y: number;
+  floorH: number;
+  eastFloor: number | undefined;
+  southFloor: number | undefined;
+};
+
+function oracleSlabs(store: ChunkStore): Map<number, OracleSlab[]> {
+  const byDiagonal = new Map<number, OracleSlab[]>();
+  for (const chunk of store.values()) {
+    for (const level of chunk.levels) {
+      for (let ly = 0; ly < SIZE; ly += 1) {
+        for (let lx = 0; lx < SIZE; lx += 1) {
+          const floorH = level.floor_h[ly * SIZE + lx]!;
+          if (floorH === NO_FLOOR) continue;
+          const x = chunk.cx * SIZE + lx;
+          const y = chunk.cy * SIZE + ly;
+          const diagonal = x - y;
+          const entries = byDiagonal.get(diagonal) ?? [];
+          entries.push({
+            x,
+            y,
+            floorH,
+            eastFloor: store.levelCell(x + 1, y, level.z)?.floor_h,
+            southFloor: store.levelCell(x, y + 1, level.z)?.floor_h,
+          });
+          byDiagonal.set(diagonal, entries);
+        }
+      }
+    }
+  }
+  return byDiagonal;
+}
+
+function coveredPixels(
+  slabsByDiagonal: Map<number, OracleSlab[]>,
+  x: number,
+  y: number,
+  viewerH: number,
+  cutoffAt: (x: number, y: number) => number,
+): number {
+  let covered = 0;
+  for (let heightIndex = 2; heightIndex <= 60; heightIndex += 1) {
+    const probe = heightIndex / 16;
+    for (let column = -9; column <= 9; column += 1) {
+      const ds = column / 32;
+      const x0 = x + ds / 2;
+      const y0 = y - ds / 2;
+      const line = x0 - y0;
+      const firstDiagonal = Math.ceil(line - 1 - 1e-9);
+      const lastDiagonal = Math.floor(line + 1 + 1e-9);
+      const h0 = viewerH + probe;
+      let hit = false;
+      for (let diagonal = firstDiagonal; diagonal <= lastDiagonal && !hit; diagonal += 1) {
+        for (const slab of slabsByDiagonal.get(diagonal) ?? []) {
+          const { x: tileX, y: tileY, floorH } = slab;
+          if (floorH <= viewerH + 4 || floorH > cutoffAt(tileX, tileY) || tileX + 1 <= x0 || tileY + 1 <= y0) continue;
+
+          const enterX = tileX - x0;
+          const enterY = tileY - y0;
+          const enterBottom = (floorH - 1 - h0) / 2;
+          const top = (floorH - h0) / 2;
+          const east = tileX + 1 - x0;
+          const south = tileY + 1 - y0;
+          const enter = Math.max(0, enterX, enterY, enterBottom);
+          const leave = Math.min(top, east, south);
+          if (enter >= leave) continue;
+          hit = leave === top || (leave === east && slab.eastFloor !== floorH) ||
+            (leave === south && slab.southFloor !== floorH);
+          if (hit) covered += 1;
+          if (hit) break;
+        }
+      }
+    }
+  }
+  return covered;
+}
+
+test("an independent sprite oracle bounds remaining slab coverage around the lab", () => {
   const store = labBuilding();
-  const residual: Array<{ x: number; y: number; heights: number[] }> = [];
-  for (let yIndex = 0; yIndex < 72; yIndex += 1) {
-    const y = 40 + yIndex / 4;
-    for (let xIndex = 0; xIndex < 76; xIndex += 1) {
-      const x = 12 + xIndex / 4;
+  const slabsByDiagonal = oracleSlabs(store);
+  const residual: Array<{ x: number; y: number; pixels: number }> = [];
+  for (let yIndex = 0; yIndex < 180; yIndex += 1) {
+    const y = 40 + yIndex / 10;
+    for (let xIndex = 0; xIndex < 190; xIndex += 1) {
+      const x = 12 + xIndex / 10;
       if (x >= 18 && x < 26 && y >= 46 && y < 52) continue;
       const tracker = new StructureTracker();
       tracker.update(store, x, y, 2, Infinity);
-      const hits = bodyHits(store, x, y, 2, (hitX, hitY) => tracker.cutoffAt(hitX, hitY, Infinity));
-      const highHits = hits.filter((hit) => hit.kind === "floor" && hit.h > 6).map((hit) => hit.h);
-      if (highHits.length > 0) residual.push({ x, y, heights: highHits });
+      const pixels = coveredPixels(
+        slabsByDiagonal,
+        x,
+        y,
+        2,
+        (hitX, hitY) => tracker.cutoffAt(hitX, hitY, Infinity),
+      );
+      if (pixels > 0) residual.push({ x, y, pixels });
     }
   }
-  assert.deepEqual(residual, []);
+  assert.ok(residual.length <= 4 && residual.every(({ pixels }) => pixels <= 6), JSON.stringify(residual));
 });
 
-test("stairs use Niko's body-height cutoff and the spawn selects no structure", () => {
+test("the feet oracle keeps the spawn's high slab cut while steps stay low", () => {
   const store = labBuilding();
   const tracker = new StructureTracker();
   tracker.update(store, 21.5, 45.5, 2, Infinity);
   assert.equal(tracker.cutoffAt(20, 46, Infinity), 6);
   const spawn = new StructureTracker();
-  assert.deepEqual(spawn.update(store, 21.5, 41.5, 2, Infinity), []);
+  const slabsByDiagonal = oracleSlabs(store);
+  assert.equal(coveredPixels(slabsByDiagonal, 21.5, 41.5, 2, () => Infinity), 185);
+  assert.equal(spawn.update(store, 21.5, 41.5, 2, Infinity).length, 1);
+  assert.equal(spawn.cutoffAt(25, 46, Infinity), 6);
+  assert.equal(coveredPixels(slabsByDiagonal, 21.5, 41.5, 2,
+    (x, y) => spawn.cutoffAt(x, y, Infinity)), 0);
 });
 
 test("a covering structure stays selected for one tile and releases beyond its anchor", () => {

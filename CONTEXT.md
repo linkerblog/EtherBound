@@ -346,8 +346,10 @@ it skips generated `web/src/net/schema.d.ts` and warns without failing. Only
   side and owner coordinates separately so south and east faces cannot drift across a ledge.
 - **Occlusion probes follow Niko's body, not a shortened feet ray.** Trace each point with
   `t = x + y - (viewerH + probeH)`, and select structures every frame from Niko's rendered
-  position against uncut geometry. Keep the cut for one tile beyond its last covering point and
-  apply its cutoff per tile at draw and pick time; probing the cut map can make a building flicker.
+  position against uncut geometry. Slabs are drawn as 0.5 m boxes, so test their exposed south/east
+  faces as well as their tops, and probe the whole sprite. Keep the cut for one tile beyond its last
+  covering point and apply its cutoff per tile at draw and pick time; use an independent coverage
+  oracle because probing the cut map can make a building flicker.
 - **A front-wall stub needs a clear floor-plan line from Niko's tile centre.** The screen window
   alone cuts walls behind other shown walls; doorway edges are open and window walls still block.
 - **Assets outside `web/` must be static imports.** Vite refuses a `new URL(…, import.meta.url)`

@@ -83,11 +83,12 @@ canvas; that approval is tracked under Dev-019.
       The paused visual spec generated both baselines; GUI acceptance and user approval remain open.
       See `done/Fix13.md` [Sec. 5] acceptance 6.
 
-- [ ] **Fix14 body occlusion:** in the user's lab save at x1 and x2, walk the outside of all four
-      walls and stand at the spot in the user's screenshot. No floor more than 2 m above Niko hides
-      him, wall-walking causes no cut/uncut flashing, and the silhouette shows for steps, hills and
-      objects. Manual because it is a frame-feel check in the user's save. See `done/Fix14.md`
-      [Sec. 4] acceptance 3.
+- [ ] **Fix14/Fix16 body and slab occlusion:** in the user's lab save at x1, x2 and x4, stand at the
+      third screenshot and spawn positions, then walk outside the north and west walls and past the
+      corners. The spawn's confirmed slab coverage is cut and no slab still overlaps Niko; steps and
+      terraces do not light the silhouette, and walking remains smooth. Manual because the user's
+      save and frame-feel cannot be covered headlessly. See `done/Fix14.md` [Sec. 4] 3 and
+      `done/Fix16.md` [Sec. 4] 3.
 
 - [ ] **Fix15 front-wall stubs:** in the user's lab save at x1 and x2, walk along all four outer
       walls, around each corner and through the west doorway. No section on the far side of a wall
@@ -194,7 +195,8 @@ open, and actor-vs-actor collision stays deferred. Dev-019 is implemented: a fra
 are corrected by Fix13: the faces hang from their draw height and the render-only thickness is
 1/4 m with a parallelogram strip, end faces and a corner post. Fix13's baseline approval and
 x1–x4 GUI acceptance remain open. Fix14 selects structure cutaways from body-height probes every
-frame with a one-tile release; its lab GUI acceptance remains open. Fix15 limits front-wall stubs to
+frame with a one-tile release; Fix16 tests drawn slab faces against an independent pixel oracle and
+probes the full sprite. The Fix14/Fix16 lab GUI check remains open. Fix15 limits front-wall stubs to
 unobstructed sightlines; its lab GUI acceptance remains open. Two deferred items (input replay,
 events to the client) plus lost
 activity progress, actor pass-through and W/A/S/D

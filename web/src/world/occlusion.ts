@@ -2,9 +2,11 @@ import type { ChunkStore } from "./ChunkStore";
 import { NO_FLOOR } from "./rules";
 import { marchRay, type CutoffAt, type RayHit } from "./ray";
 
-const PROBE_HEIGHTS = [1, 2.5, 3.5] as const;
+const PROBE_HEIGHTS = [0.125, 1, 2, 3, 3.75] as const; // Spans MapScene's 58 px body at 16 px/unit.
+const FEET_PROBE = 0.125;
 const BODY_HALF_S = 9 / 32; // Half the 18 px Niko body, converted to ray units.
 const MAX_STRUCTURE_TILES = 4096;
+const RAY_EPSILON = 1e-9;
 
 export type StructureBounds = { minX: number; minY: number; maxX: number; maxY: number };
 export type Structure = {
@@ -79,18 +81,83 @@ export function bodyHits(
   const hits: RayHit[] = [];
   for (const probeHeight of PROBE_HEIGHTS) {
     for (const ds of [-BODY_HALF_S, 0, BODY_HALF_S]) {
-      const hit = marchRay(
-        store,
-        x - y + ds,
-        x + y - (viewerH + probeHeight),
-        viewerH + 40,
-        viewerH + probeHeight + 0.5,
-        cutoffAt,
-      );
-      if (hit) hits.push(hit);
+      const originX = x + ds / 2;
+      const originY = y - ds / 2;
+      if (probeHeight !== FEET_PROBE) {
+        const hit = marchRay(
+          store,
+          x - y + ds,
+          x + y - (viewerH + probeHeight),
+          viewerH + 40,
+          viewerH + probeHeight + 0.5,
+          cutoffAt,
+        );
+        if (hit) hits.push(hit);
+      }
+      const slab = slabHit(store, originX, originY, viewerH + probeHeight, viewerH + 40, cutoffAt);
+      if (slab && (probeHeight !== FEET_PROBE || slab.h > viewerH + 4)) hits.push(slab);
     }
   }
   return hits;
+}
+
+function slabHit(
+  store: ChunkStore,
+  x0: number,
+  y0: number,
+  h0: number,
+  maxH: number,
+  cutoffAt: CutoffAt,
+): RayHit | null {
+  const maxK = (maxH - h0) / 2;
+  if (maxK < 0) return null;
+  let x = Math.floor(x0);
+  let y = Math.floor(y0);
+  let east = x + 1 - x0;
+  let south = y + 1 - y0;
+
+  while (true) {
+    const cellCutoff = cutoffAt(x, y);
+    let firstHit: { hit: RayHit; k: number } | null = null;
+    for (const level of store.levelsAt(x, y)) {
+      const cell = store.levelCell(x, y, level.z);
+      const floorH = cell?.floor_h;
+      if (floorH === undefined || floorH === NO_FLOOR || floorH > cellCutoff) continue;
+
+      const westEntry = x - x0;
+      const northEntry = y - y0;
+      const bottomEntry = (floorH - 1 - h0) / 2;
+      const topExit = (floorH - h0) / 2;
+      const entry = Math.max(westEntry, northEntry, bottomEntry, 0);
+      const exit = Math.min(east, south, topExit);
+      if (!(entry < exit) || exit > maxK) continue;
+
+      const topExits = Math.abs(topExit - exit) < RAY_EPSILON;
+      const eastExits = Math.abs(east - exit) < RAY_EPSILON;
+      const southExits = Math.abs(south - exit) < RAY_EPSILON;
+      const eastFloor = store.levelCell(x + 1, y, level.z)?.floor_h;
+      const southFloor = store.levelCell(x, y + 1, level.z)?.floor_h;
+      if (!topExits && !(eastExits && eastFloor !== floorH) && !(southExits && southFloor !== floorH)) continue;
+      if (!firstHit || exit < firstHit.k) {
+        firstHit = { hit: { x, y, h: floorH, kind: "floor", z: level.z }, k: exit };
+      }
+    }
+    if (firstHit) return firstHit.hit;
+
+    if (Math.min(east, south) >= maxK) return null;
+    if (east < south - RAY_EPSILON) {
+      x += 1;
+      east += 1;
+    } else if (south < east - RAY_EPSILON) {
+      y += 1;
+      south += 1;
+    } else {
+      x += 1;
+      y += 1;
+      east += 1;
+      south += 1;
+    }
+  }
 }
 
 export function occludingStructures(

@@ -42,6 +42,9 @@ Open decisions and loose ends. When one is settled, record the decision where it
 - [ ] **Dev-021 wall lines and heights** (`Dev-021.md`): six full-length wall lines per tile
       (edges, midlines, diagonals) and 0.5 m / 1 m / full heights; lands after Dev-022. The `build`
       op that places them is the next doc. Fix13's mask geometry is in place; awaiting approval.
+- [ ] **Dev-024 baked ambient occlusion** (`Dev-024.md`): per-tile edge/corner AO computed at
+      chunk draw time and painted in the existing `Blitter` batches, plus face, wall-base and
+      object contact darks, with a `DEBUG` toggle. Awaiting approval.
 - [ ] **Infra03 CI on GitHub Actions**: run the checks on push now that the remote exists. The
       number was earmarked as Infra02 by `Infra01`; Infra02 became the agent context diet. No doc yet.
 

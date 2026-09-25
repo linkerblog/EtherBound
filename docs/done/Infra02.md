@@ -174,7 +174,7 @@ commit by `COMMITS.md` [Sec. 2] (a Z bump is expected).
 
 ### Closing
 - [x] `VERSION.md` ([Sec. 4]); commit per `COMMITS.md`
-- [ ] Notion: Dev Blog entry (Kind `Infra`), Work Report for the date (per `NOTION.md`)
+- [x] Notion: Dev Blog entry (Kind `Infra`), Work Report for the date (per `NOTION.md`)
 - [x] Move this doc to `docs/done/`
 
 ---

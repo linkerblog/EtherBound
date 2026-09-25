@@ -1,0 +1,25 @@
+T:System.Random;Use the system's RngStream, never System.Random
+P:System.DateTime.Now;The sim has no wall clock; use the game minute
+P:System.DateTime.UtcNow;The sim has no wall clock; use the game minute
+P:System.DateTime.Today;The sim has no wall clock; use the game minute
+P:System.DateTimeOffset.Now;The sim has no wall clock; use the game minute
+P:System.DateTimeOffset.UtcNow;The sim has no wall clock; use the game minute
+P:System.Environment.TickCount;The sim has no wall clock; use the game minute
+P:System.Environment.TickCount64;The sim has no wall clock; use the game minute
+T:System.Diagnostics.Stopwatch;Timing belongs to the host, not the sim
+T:System.Threading.Thread;The sim runs on the host's one thread
+T:System.Threading.ThreadPool;The sim runs on the host's one thread
+T:System.Threading.Timer;Ticks come from the host
+T:System.Threading.Tasks.Parallel;The sim runs on the host's one thread
+M:System.Threading.Tasks.Task.Run(System.Action);The sim runs on the host's one thread
+M:System.Threading.Tasks.Task.Run(System.Action,System.Threading.CancellationToken);The sim runs on the host's one thread
+M:System.Threading.Tasks.Task.Run(System.Func{System.Threading.Tasks.Task});The sim runs on the host's one thread
+M:System.Threading.Tasks.Task.Run(System.Func{System.Threading.Tasks.Task},System.Threading.CancellationToken);The sim runs on the host's one thread
+M:System.Threading.Tasks.Task.Run``1(System.Func{``0});The sim runs on the host's one thread
+M:System.Threading.Tasks.Task.Run``1(System.Func{``0},System.Threading.CancellationToken);The sim runs on the host's one thread
+M:System.Threading.Tasks.Task.Run``1(System.Func{System.Threading.Tasks.Task{``0}});The sim runs on the host's one thread
+M:System.Threading.Tasks.Task.Run``1(System.Func{System.Threading.Tasks.Task{``0}},System.Threading.CancellationToken);The sim runs on the host's one thread
+M:System.Guid.NewGuid;Ids come from the sim's counters, not from entropy
+T:System.Security.Cryptography.RandomNumberGenerator;Use the system's RngStream
+T:System.HashCode;HashCode is seeded per process; hash with a fixed function
+M:System.String.GetHashCode;String hashes are seeded per process; hash with a fixed function

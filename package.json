@@ -9,12 +9,15 @@
     "check:bitcanvas": "node --check BitCanvas/pixelart.js && node --check BitCanvas/gamesync.js && node --check BitCanvas/core.js && node --check BitCanvas/terrain.js && node --check BitCanvas/sides.js && node --check BitCanvas/furnitureData.js && node --check BitCanvas/furniture.js && node --check BitCanvas/app.js",
     "launcher:build": "set \"PATH=%PATH%;%ProgramFiles(x86)%\\Microsoft Visual Studio\\Installer\" && dotnet publish launcher/src -c Release",
     "check:launcher": "dotnet build launcher/src -c Release && dotnet test launcher/tests",
+    "check:sim": "dotnet test sim/EtherBound.Sim.Tests",
+    "check:game": "node scripts/check-game.mjs",
+    "check:goldens": "cd server && uv run python scripts/export_goldens.py && git diff --exit-code -- ../sim/EtherBound.Sim.Tests/Goldens",
     "check:server": "cd server && uv run ruff check && uv run ruff format --check && uv run pyright && uv run pytest",
     "check:web": "cd server && uv run etherbound-schema && cd ../web && npm run gen:types && git diff --exit-code src/net/schema.d.ts && npm test && npm run build",
     "check:versions": "node scripts/check-versions.mjs",
     "check:docs": "node scripts/check-docs.mjs",
     "check:sizes": "node scripts/check-sizes.mjs",
-    "check": "npm run check:versions && npm run check:docs && npm run check:sizes && npm run check:server && npm run check:web && npm run check:bitcanvas && npm run check:launcher",
+    "check": "npm run check:versions && npm run check:docs && npm run check:sizes && npm run check:server && npm run check:web && npm run check:bitcanvas && npm run check:launcher && npm run check:goldens && npm run check:sim && npm run check:game",
     "check:fast": "node scripts/check-versions.mjs --staged && npm run check:docs && npm run check:sizes && cd server && uv run ruff check && uv run ruff format --check && cd .. && npm run check:bitcanvas",
     "check:visual": "cd web && npx playwright test"
   }

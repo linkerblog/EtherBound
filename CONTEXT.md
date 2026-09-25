@@ -22,6 +22,7 @@ Design lives in `docs/utils/VISION.md`.
 | web.ui | `web/src/ui/` (`ContextMenus.tsx`, `NewGamePopover.tsx`, `DebugViews.tsx`, `HudPanels.tsx`) | React overlay in a framed viewport with `GAME`/`DEBUG`/`LLM` view tabs (`viewTabs.ts`, `Alt+1..3`): clock, speeds, pills, meters, `CARRY`, `FEED`, `ACT`, input, context/radial menus (`radialMenu.ts`), `NEW` map select; the `DEBUG` view holds the `MAP` generator form (`genForm.ts`), `LLM` is a placeholder. No debug drawer. |
 | launcher | `launcher/` | `EtherBound.exe`, the C# (.NET 10, Native AOT) dev launcher: server + web jobs, health checks, hot reload, leftover and port handling. |
 | bitcanvas | `BitCanvas/` (`pixelart.js`, `gamesync.js`, `core.js`, `terrain.js`, `sides.js`, `furnitureData.js`, `furniture.js`, `app.js`) | Standalone seeded texture and furniture generator (classic deferred scripts, HTML/JS, no build) with guarded "Send to game" sync. |
+| sim | `EtherBound.sln`, `sim/` (`EtherBound.Sim`, `.Host`, `.Sim.Tests`, `.Bench`) | Dev-025 C# port, stage 1: solution, `BannedSymbols.txt` (no `System.Random`, clocks, threads or seeded hashes in the sim), the architecture test and the Python goldens in `Sim.Tests/Goldens/`. No system is ported yet. |
 | game.app, game.render | `game/` (`project.godot`, `EtherBound.Game.csproj`, `spike/`) | Dev-025 stage 0 look spike: Godot 4.7.2 .NET, `net10.0`. Loads a JSON world dump and draws it with the ortho camera, iso-space shader, sun, SSAO and cutaway; `--shots`, `--bench` and `--shimmer` modes. Not wired to the sim yet. |
 | tooling | root config: `package.json`, `global.json`, `.gitignore`, `.env.example`; `server/scripts/` | Build and check scripts, pinned .NET SDK, `export_world.py` (world dumps for `game/`). |
 
@@ -202,6 +203,7 @@ npm run setup
 # Launcher: build once, and again after changing launcher/ (the exe is gitignored)
 npm run bitcanvas             # open the standalone sprite generator
 cd server && uv run python scripts/export_world.py   # dumps for the Godot spike
+cd server && uv run python scripts/export_goldens.py # sim/EtherBound.Sim.Tests/Goldens
 "$GODOT_BIN" --path game -- --world test-7 [--shots|--bench|--shimmer DIR]
 npm run launcher:build        # Native AOT publish, copies EtherBound.exe to the root
 EtherBound.exe                # server (hot reload) + web; keys O R W L H Q; logs in logs\
@@ -214,7 +216,10 @@ cd server && uv run etherbound-schema      # writes server/schema.json
 cd web && npm run gen:types                # server/schema.json -> src/net/schema.d.ts
 
 # Checks (COMMITS.md; hooks run check:fast on commit, check-versions on the message, check on push)
-npm run check                   # versions + docs + sizes + server + web + bitcanvas + launcher
+npm run check                   # versions, docs, sizes, server, web, bitcanvas, launcher, goldens, sim, game
+npm run check:sim               # dotnet test sim/EtherBound.Sim.Tests
+npm run check:game              # dotnet build game; headless Godot import when GODOT_BIN is set
+npm run check:goldens           # re-export the goldens; fails if Python drifted
 npm run check:fast              # versions (staged), docs, sizes, ruff, bitcanvas
 npm run check:docs              # fails on a broken `X.md` [Sec. N] reference
 npm run check:sizes             # warning-only scan: sources over 600 lines, doc budgets

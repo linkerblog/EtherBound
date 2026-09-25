@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Owns the sim thread, real-time pacing, the command queue and published frames. -->
+  <PropertyGroup>
+    <RootNamespace>EtherBound.Host</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\EtherBound.Sim\EtherBound.Sim.csproj" />
+    <InternalsVisibleTo Include="EtherBound.Sim.Tests" />
+  </ItemGroup>
+
+</Project>

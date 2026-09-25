@@ -21,3 +21,5 @@ game/bin/
 game/obj/
 game/spike/dumps/
 game/spike/out/
+sim/**/bin/
+sim/**/obj/

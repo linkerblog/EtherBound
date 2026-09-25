@@ -1,6 +1,6 @@
 # Versions
 
-Overall project version: `v2.3.0`
+Overall project version: `v2.4.0`
 
 Every module and its current version. Modules start at `v0.0.0`; each modification bumps its
 version by `0.0.1`, and the bump ships in the same change. The overall project version tracks the
@@ -25,6 +25,7 @@ whenever the overall version changes.
 | web.ui | `web/src/ui/` | v0.0.13 |
 | launcher | `launcher/` | v0.0.4 |
 | bitcanvas | `BitCanvas/` | v0.0.6 |
+| sim.host | `sim/EtherBound.Host/` | v0.0.1 |
 | game.app | `game/project.godot`, `game/EtherBound.Game.csproj` | v0.0.1 |
 | game.render | `game/spike/` | v0.0.1 |
-| tooling | `.gitattributes`, `.githooks/`, `scripts/`, `server/scripts/`, `package.json`, `global.json`, `.gitignore`, `.env.example`, `server/pyproject.toml`, `server/uv.lock`, `web/package.json`, `web/package-lock.json`, `web/vite.config.ts`, `web/playwright.config.ts` | v0.0.14 |
+| tooling | `.gitattributes`, `.githooks/`, `scripts/`, `server/scripts/`, `EtherBound.sln`, `sim/Directory.Build.props`, `sim/EtherBound.Sim/EtherBound.Sim.csproj`, `sim/EtherBound.Sim/BannedSymbols.txt`, `sim/EtherBound.Bench/`, `package.json`, `global.json`, `.gitignore`, `.env.example`, `server/pyproject.toml`, `server/uv.lock`, `web/package.json`, `web/package-lock.json`, `web/vite.config.ts`, `web/playwright.config.ts` | v0.0.15 |

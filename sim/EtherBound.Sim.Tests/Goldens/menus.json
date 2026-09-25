@@ -1,0 +1,8382 @@
+[
+ {
+  "label": "table",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "climb",
+      "target": {
+       "h": 14,
+       "kind": "tile",
+       "x": 137,
+       "y": 133
+      }
+     },
+     "available": true,
+     "label": "Climb",
+     "op": "climb",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "movement",
+      "risky"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 14,
+       "kind": "tile",
+       "x": 137,
+       "y": 133
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "id": 6,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": "Table",
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "id": 7,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": "Bottle",
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "take",
+      "target": {
+       "id": 6,
+       "kind": "object"
+      }
+     },
+     "available": false,
+     "label": "Take",
+     "op": "take",
+     "reason": "something is on it",
+     "subject": "Table",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "take",
+      "target": {
+       "id": 7,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Take",
+     "op": "take",
+     "reason": null,
+     "subject": "Bottle",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": -1,
+      "dy": 0,
+      "op": "drag",
+      "target": {
+       "id": 6,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Drag",
+     "op": "drag",
+     "reason": null,
+     "subject": "Table west",
+     "tags": [
+      "handling",
+      "heavy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": -1,
+      "dy": 0,
+      "op": "drag",
+      "target": {
+       "id": 7,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Drag",
+     "op": "drag",
+     "reason": null,
+     "subject": "Bottle west",
+     "tags": [
+      "handling",
+      "heavy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "id": 6,
+       "kind": "object"
+      },
+      "tool": null
+     },
+     "available": true,
+     "label": "Break",
+     "op": "break",
+     "reason": null,
+     "subject": "Table",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "id": 7,
+       "kind": "object"
+      },
+      "tool": null
+     },
+     "available": true,
+     "label": "Break",
+     "op": "break",
+     "reason": null,
+     "subject": "Bottle",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": 1,
+      "dy": 0,
+      "op": "push",
+      "target": {
+       "id": 6,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Push",
+     "op": "push",
+     "reason": null,
+     "subject": "Table east",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": 1,
+      "dy": 0,
+      "op": "push",
+      "target": {
+       "id": 7,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Push",
+     "op": "push",
+     "reason": null,
+     "subject": "Bottle east",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": -1,
+      "dy": 0,
+      "op": "pull",
+      "target": {
+       "id": 6,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Pull",
+     "op": "pull",
+     "reason": null,
+     "subject": "Table west",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": -1,
+      "dy": 0,
+      "op": "pull",
+      "target": {
+       "id": 7,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Pull",
+     "op": "pull",
+     "reason": null,
+     "subject": "Bottle west",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "id": 6,
+       "kind": "object"
+      },
+      "tool": null
+     },
+     "available": true,
+     "label": "Hit",
+     "op": "hit",
+     "reason": null,
+     "subject": "Table",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "id": 7,
+       "kind": "object"
+      },
+      "tool": null
+     },
+     "available": true,
+     "label": "Hit",
+     "op": "hit",
+     "reason": null,
+     "subject": "Bottle",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": 14,
+     "label": "Wood"
+    }
+   ],
+   "target": "Wood \u00b7 7 m",
+   "x": 137.0,
+   "y": 133.0,
+   "z": 2
+  },
+  "radius": 0,
+  "world": "test-0"
+ },
+ {
+  "label": "table",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "climb",
+      "target": {
+       "h": 14,
+       "kind": "tile",
+       "x": 137,
+       "y": 133
+      }
+     },
+     "available": true,
+     "label": "Climb",
+     "op": "climb",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "movement",
+      "risky"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "climb",
+      "target": {
+       "h": -1,
+       "kind": "tile",
+       "x": 136,
+       "y": 134
+      }
+     },
+     "available": false,
+     "label": "Climb",
+     "op": "climb",
+     "reason": "too high to climb",
+     "subject": null,
+     "tags": [
+      "movement",
+      "risky"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "climb",
+      "target": {
+       "h": 0,
+       "kind": "tile",
+       "x": 136,
+       "y": 132
+      }
+     },
+     "available": false,
+     "label": "Climb",
+     "op": "climb",
+     "reason": "too high to climb",
+     "subject": null,
+     "tags": [
+      "movement",
+      "risky"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "available": true,
+     "label": "Wait",
+     "op": "wait",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "idle"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 14,
+       "kind": "tile",
+       "x": 137,
+       "y": 133
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "id": 6,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": "Table",
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "id": 7,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": "Bottle",
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": -1,
+       "kind": "tile",
+       "x": 136,
+       "y": 133
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": -1,
+       "kind": "tile",
+       "x": 136,
+       "y": 134
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 0,
+       "kind": "tile",
+       "x": 136,
+       "y": 132
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "take",
+      "target": {
+       "id": 6,
+       "kind": "object"
+      }
+     },
+     "available": false,
+     "label": "Take",
+     "op": "take",
+     "reason": "something is on it",
+     "subject": "Table",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "take",
+      "target": {
+       "id": 7,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Take",
+     "op": "take",
+     "reason": null,
+     "subject": "Bottle",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": -1,
+      "dy": 0,
+      "op": "drag",
+      "target": {
+       "id": 6,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Drag",
+     "op": "drag",
+     "reason": null,
+     "subject": "Table west",
+     "tags": [
+      "handling",
+      "heavy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": -1,
+      "dy": 0,
+      "op": "drag",
+      "target": {
+       "id": 7,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Drag",
+     "op": "drag",
+     "reason": null,
+     "subject": "Bottle west",
+     "tags": [
+      "handling",
+      "heavy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": -1,
+       "kind": "tile",
+       "x": 136,
+       "y": 133
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": -1,
+       "kind": "tile",
+       "x": 136,
+       "y": 134
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 0,
+       "kind": "tile",
+       "x": 136,
+       "y": 132
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "id": 6,
+       "kind": "object"
+      },
+      "tool": null
+     },
+     "available": true,
+     "label": "Break",
+     "op": "break",
+     "reason": null,
+     "subject": "Table",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "id": 7,
+       "kind": "object"
+      },
+      "tool": null
+     },
+     "available": true,
+     "label": "Break",
+     "op": "break",
+     "reason": null,
+     "subject": "Bottle",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 136,
+       "y": 133,
+       "z": 1
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Break",
+     "op": "break",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 136,
+       "y": 133,
+       "z": 2
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Break",
+     "op": "break",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 136,
+       "y": 133,
+       "z": 3
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Break",
+     "op": "break",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 136,
+       "y": 133,
+       "z": 4
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Break",
+     "op": "break",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 136,
+       "y": 134,
+       "z": 1
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Break",
+     "op": "break",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 136,
+       "y": 134,
+       "z": 2
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Break",
+     "op": "break",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 136,
+       "y": 134,
+       "z": 3
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Break",
+     "op": "break",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 136,
+       "y": 134,
+       "z": 4
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Break",
+     "op": "break",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "direction": "north",
+       "kind": "edge",
+       "x": 136,
+       "y": 132,
+       "z": 1
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Break",
+     "op": "break",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 136,
+       "y": 132,
+       "z": 1
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Break",
+     "op": "break",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "direction": "north",
+       "kind": "edge",
+       "x": 136,
+       "y": 132,
+       "z": 2
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Break",
+     "op": "break",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 136,
+       "y": 132,
+       "z": 2
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Break",
+     "op": "break",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "direction": "north",
+       "kind": "edge",
+       "x": 136,
+       "y": 132,
+       "z": 3
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Break",
+     "op": "break",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 136,
+       "y": 132,
+       "z": 3
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Break",
+     "op": "break",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "direction": "north",
+       "kind": "edge",
+       "x": 136,
+       "y": 132,
+       "z": 4
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Break",
+     "op": "break",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 136,
+       "y": 132,
+       "z": 4
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Break",
+     "op": "break",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "dx": 1,
+      "dy": 0,
+      "op": "push",
+      "target": {
+       "id": 6,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Push",
+     "op": "push",
+     "reason": null,
+     "subject": "Table east",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": 1,
+      "dy": 0,
+      "op": "push",
+      "target": {
+       "id": 7,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Push",
+     "op": "push",
+     "reason": null,
+     "subject": "Bottle east",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": -1,
+      "dy": 0,
+      "op": "pull",
+      "target": {
+       "id": 6,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Pull",
+     "op": "pull",
+     "reason": null,
+     "subject": "Table west",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": -1,
+      "dy": 0,
+      "op": "pull",
+      "target": {
+       "id": 7,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Pull",
+     "op": "pull",
+     "reason": null,
+     "subject": "Bottle west",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "id": 6,
+       "kind": "object"
+      },
+      "tool": null
+     },
+     "available": true,
+     "label": "Hit",
+     "op": "hit",
+     "reason": null,
+     "subject": "Table",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "id": 7,
+       "kind": "object"
+      },
+      "tool": null
+     },
+     "available": true,
+     "label": "Hit",
+     "op": "hit",
+     "reason": null,
+     "subject": "Bottle",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 136,
+       "y": 133,
+       "z": 1
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Hit",
+     "op": "hit",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 136,
+       "y": 133,
+       "z": 2
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Hit",
+     "op": "hit",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 136,
+       "y": 133,
+       "z": 3
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Hit",
+     "op": "hit",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 136,
+       "y": 133,
+       "z": 4
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Hit",
+     "op": "hit",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 136,
+       "y": 134,
+       "z": 1
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Hit",
+     "op": "hit",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 136,
+       "y": 134,
+       "z": 2
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Hit",
+     "op": "hit",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 136,
+       "y": 134,
+       "z": 3
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Hit",
+     "op": "hit",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 136,
+       "y": 134,
+       "z": 4
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Hit",
+     "op": "hit",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "direction": "north",
+       "kind": "edge",
+       "x": 136,
+       "y": 132,
+       "z": 1
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Hit",
+     "op": "hit",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 136,
+       "y": 132,
+       "z": 1
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Hit",
+     "op": "hit",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "direction": "north",
+       "kind": "edge",
+       "x": 136,
+       "y": 132,
+       "z": 2
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Hit",
+     "op": "hit",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 136,
+       "y": 132,
+       "z": 2
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Hit",
+     "op": "hit",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "direction": "north",
+       "kind": "edge",
+       "x": 136,
+       "y": 132,
+       "z": 3
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Hit",
+     "op": "hit",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 136,
+       "y": 132,
+       "z": 3
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Hit",
+     "op": "hit",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "direction": "north",
+       "kind": "edge",
+       "x": 136,
+       "y": 132,
+       "z": 4
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Hit",
+     "op": "hit",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 136,
+       "y": 132,
+       "z": 4
+      },
+      "tool": null
+     },
+     "available": false,
+     "label": "Hit",
+     "op": "hit",
+     "reason": "out of reach",
+     "subject": "Brick wall",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": 14,
+     "label": "Wood"
+    },
+    {
+     "dx": -1,
+     "dy": 0,
+     "h": -1,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": 1,
+     "h": -1,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": -1,
+     "h": 0,
+     "label": "Grass"
+    }
+   ],
+   "target": "Wood \u00b7 7 m",
+   "x": 137.0,
+   "y": 133.0,
+   "z": 2
+  },
+  "radius": 1,
+  "world": "test-0"
+ },
+ {
+  "label": "stacked-chests",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "climb",
+      "target": {
+       "h": 5,
+       "kind": "tile",
+       "x": 126,
+       "y": 127
+      }
+     },
+     "available": true,
+     "label": "Climb",
+     "op": "climb",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "movement",
+      "risky"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 5,
+       "kind": "tile",
+       "x": 126,
+       "y": 127
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "id": 13,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "id": 14,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "take",
+      "target": {
+       "id": 13,
+       "kind": "object"
+      }
+     },
+     "available": false,
+     "label": "Take",
+     "op": "take",
+     "reason": "something is on it",
+     "subject": "Chest",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "take",
+      "target": {
+       "id": 14,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Take",
+     "op": "take",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "open",
+      "target": {
+       "id": 13,
+       "kind": "object"
+      }
+     },
+     "available": false,
+     "label": "Open",
+     "op": "open",
+     "reason": "something is on it",
+     "subject": "Chest",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "open",
+      "target": {
+       "id": 14,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Open",
+     "op": "open",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "close",
+      "target": {
+       "id": 13,
+       "kind": "object"
+      }
+     },
+     "available": false,
+     "label": "Close",
+     "op": "close",
+     "reason": "already closed",
+     "subject": "Chest",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "close",
+      "target": {
+       "id": 14,
+       "kind": "object"
+      }
+     },
+     "available": false,
+     "label": "Close",
+     "op": "close",
+     "reason": "already closed",
+     "subject": "Chest",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": -1,
+      "dy": 0,
+      "op": "drag",
+      "target": {
+       "id": 13,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Drag",
+     "op": "drag",
+     "reason": null,
+     "subject": "Chest west",
+     "tags": [
+      "handling",
+      "heavy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": -1,
+      "dy": 0,
+      "op": "drag",
+      "target": {
+       "id": 14,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Drag",
+     "op": "drag",
+     "reason": null,
+     "subject": "Chest west",
+     "tags": [
+      "handling",
+      "heavy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "id": 13,
+       "kind": "object"
+      },
+      "tool": null
+     },
+     "available": true,
+     "label": "Break",
+     "op": "break",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "id": 14,
+       "kind": "object"
+      },
+      "tool": null
+     },
+     "available": true,
+     "label": "Break",
+     "op": "break",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": 1,
+      "dy": 0,
+      "op": "push",
+      "target": {
+       "id": 13,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Push",
+     "op": "push",
+     "reason": null,
+     "subject": "Chest east",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": 1,
+      "dy": 0,
+      "op": "push",
+      "target": {
+       "id": 14,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Push",
+     "op": "push",
+     "reason": null,
+     "subject": "Chest east",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": -1,
+      "dy": 0,
+      "op": "pull",
+      "target": {
+       "id": 13,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Pull",
+     "op": "pull",
+     "reason": null,
+     "subject": "Chest west",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": -1,
+      "dy": 0,
+      "op": "pull",
+      "target": {
+       "id": 14,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Pull",
+     "op": "pull",
+     "reason": null,
+     "subject": "Chest west",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "id": 13,
+       "kind": "object"
+      },
+      "tool": null
+     },
+     "available": true,
+     "label": "Hit",
+     "op": "hit",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "id": 14,
+       "kind": "object"
+      },
+      "tool": null
+     },
+     "available": true,
+     "label": "Hit",
+     "op": "hit",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": 5,
+     "label": "Wood"
+    }
+   ],
+   "target": "Wood \u00b7 2.5 m",
+   "x": 126.0,
+   "y": 127.0,
+   "z": 0
+  },
+  "radius": 0,
+  "world": "test-0"
+ },
+ {
+  "label": "stacked-chests",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "climb",
+      "target": {
+       "h": 5,
+       "kind": "tile",
+       "x": 126,
+       "y": 127
+      }
+     },
+     "available": true,
+     "label": "Climb",
+     "op": "climb",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "movement",
+      "risky"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "available": true,
+     "label": "Wait",
+     "op": "wait",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "idle"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 5,
+       "kind": "tile",
+       "x": 126,
+       "y": 127
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "id": 13,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "id": 14,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 125,
+       "y": 127
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 1,
+       "kind": "tile",
+       "x": 125,
+       "y": 128
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 125,
+       "y": 126
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "id": 2,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": "Backpack",
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "take",
+      "target": {
+       "id": 13,
+       "kind": "object"
+      }
+     },
+     "available": false,
+     "label": "Take",
+     "op": "take",
+     "reason": "something is on it",
+     "subject": "Chest",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "take",
+      "target": {
+       "id": 14,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Take",
+     "op": "take",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "take",
+      "target": {
+       "id": 2,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Take",
+     "op": "take",
+     "reason": null,
+     "subject": "Backpack",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "open",
+      "target": {
+       "id": 13,
+       "kind": "object"
+      }
+     },
+     "available": false,
+     "label": "Open",
+     "op": "open",
+     "reason": "something is on it",
+     "subject": "Chest",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "open",
+      "target": {
+       "id": 14,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Open",
+     "op": "open",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "open",
+      "target": {
+       "id": 2,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Open",
+     "op": "open",
+     "reason": null,
+     "subject": "Backpack",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "close",
+      "target": {
+       "id": 13,
+       "kind": "object"
+      }
+     },
+     "available": false,
+     "label": "Close",
+     "op": "close",
+     "reason": "already closed",
+     "subject": "Chest",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "close",
+      "target": {
+       "id": 14,
+       "kind": "object"
+      }
+     },
+     "available": false,
+     "label": "Close",
+     "op": "close",
+     "reason": "already closed",
+     "subject": "Chest",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "close",
+      "target": {
+       "id": 2,
+       "kind": "object"
+      }
+     },
+     "available": false,
+     "label": "Close",
+     "op": "close",
+     "reason": "already closed",
+     "subject": "Backpack",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "dx": -1,
+      "dy": 0,
+      "op": "drag",
+      "target": {
+       "id": 13,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Drag",
+     "op": "drag",
+     "reason": null,
+     "subject": "Chest west",
+     "tags": [
+      "handling",
+      "heavy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": -1,
+      "dy": 0,
+      "op": "drag",
+      "target": {
+       "id": 14,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Drag",
+     "op": "drag",
+     "reason": null,
+     "subject": "Chest west",
+     "tags": [
+      "handling",
+      "heavy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": 0,
+      "dy": 1,
+      "op": "drag",
+      "target": {
+       "id": 2,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Drag",
+     "op": "drag",
+     "reason": null,
+     "subject": "Backpack south",
+     "tags": [
+      "handling",
+      "heavy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 125,
+       "y": 127
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 1,
+       "kind": "tile",
+       "x": 125,
+       "y": 128
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 125,
+       "y": 126
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "something is on it",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "id": 13,
+       "kind": "object"
+      },
+      "tool": null
+     },
+     "available": true,
+     "label": "Break",
+     "op": "break",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "id": 14,
+       "kind": "object"
+      },
+      "tool": null
+     },
+     "available": true,
+     "label": "Break",
+     "op": "break",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "id": 2,
+       "kind": "object"
+      },
+      "tool": null
+     },
+     "available": true,
+     "label": "Break",
+     "op": "break",
+     "reason": null,
+     "subject": "Backpack",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "dx": 1,
+      "dy": 0,
+      "op": "push",
+      "target": {
+       "id": 13,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Push",
+     "op": "push",
+     "reason": null,
+     "subject": "Chest east",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": 1,
+      "dy": 0,
+      "op": "push",
+      "target": {
+       "id": 14,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Push",
+     "op": "push",
+     "reason": null,
+     "subject": "Chest east",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": 0,
+      "dy": -1,
+      "op": "push",
+      "target": {
+       "id": 2,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Push",
+     "op": "push",
+     "reason": null,
+     "subject": "Backpack north",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "dx": -1,
+      "dy": 0,
+      "op": "pull",
+      "target": {
+       "id": 13,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Pull",
+     "op": "pull",
+     "reason": null,
+     "subject": "Chest west",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": -1,
+      "dy": 0,
+      "op": "pull",
+      "target": {
+       "id": 14,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Pull",
+     "op": "pull",
+     "reason": null,
+     "subject": "Chest west",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": 0,
+      "dy": 1,
+      "op": "pull",
+      "target": {
+       "id": 2,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Pull",
+     "op": "pull",
+     "reason": null,
+     "subject": "Backpack south",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "id": 13,
+       "kind": "object"
+      },
+      "tool": null
+     },
+     "available": true,
+     "label": "Hit",
+     "op": "hit",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "id": 14,
+       "kind": "object"
+      },
+      "tool": null
+     },
+     "available": true,
+     "label": "Hit",
+     "op": "hit",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "id": 2,
+       "kind": "object"
+      },
+      "tool": null
+     },
+     "available": true,
+     "label": "Hit",
+     "op": "hit",
+     "reason": null,
+     "subject": "Backpack",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": 5,
+     "label": "Wood"
+    },
+    {
+     "dx": -1,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": 1,
+     "h": 1,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": -1,
+     "h": 2,
+     "label": "Grass"
+    }
+   ],
+   "target": "Wood \u00b7 2.5 m",
+   "x": 126.0,
+   "y": 127.0,
+   "z": 0
+  },
+  "radius": 1,
+  "world": "test-0"
+ },
+ {
+  "label": "closed-chest",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "climb",
+      "target": {
+       "h": 4,
+       "kind": "tile",
+       "x": 124,
+       "y": 127
+      }
+     },
+     "available": true,
+     "label": "Climb",
+     "op": "climb",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "movement",
+      "risky"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 4,
+       "kind": "tile",
+       "x": 124,
+       "y": 127
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "id": 3,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "take",
+      "target": {
+       "id": 3,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Take",
+     "op": "take",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "open",
+      "target": {
+       "id": 3,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Open",
+     "op": "open",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "close",
+      "target": {
+       "id": 3,
+       "kind": "object"
+      }
+     },
+     "available": false,
+     "label": "Close",
+     "op": "close",
+     "reason": "already closed",
+     "subject": "Chest",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": -1,
+      "dy": 0,
+      "op": "drag",
+      "target": {
+       "id": 3,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Drag",
+     "op": "drag",
+     "reason": null,
+     "subject": "Chest west",
+     "tags": [
+      "handling",
+      "heavy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "id": 3,
+       "kind": "object"
+      },
+      "tool": null
+     },
+     "available": true,
+     "label": "Break",
+     "op": "break",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": 1,
+      "dy": 0,
+      "op": "push",
+      "target": {
+       "id": 3,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Push",
+     "op": "push",
+     "reason": null,
+     "subject": "Chest east",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": -1,
+      "dy": 0,
+      "op": "pull",
+      "target": {
+       "id": 3,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Pull",
+     "op": "pull",
+     "reason": null,
+     "subject": "Chest west",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "id": 3,
+       "kind": "object"
+      },
+      "tool": null
+     },
+     "available": true,
+     "label": "Hit",
+     "op": "hit",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": 4,
+     "label": "Wood"
+    }
+   ],
+   "target": "Wood \u00b7 2 m",
+   "x": 124.0,
+   "y": 127.0,
+   "z": 0
+  },
+  "radius": 0,
+  "world": "test-0"
+ },
+ {
+  "label": "closed-chest",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "climb",
+      "target": {
+       "h": 4,
+       "kind": "tile",
+       "x": 124,
+       "y": 127
+      }
+     },
+     "available": true,
+     "label": "Climb",
+     "op": "climb",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "movement",
+      "risky"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "available": true,
+     "label": "Wait",
+     "op": "wait",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "idle"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 4,
+       "kind": "tile",
+       "x": 124,
+       "y": 127
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "id": 3,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 123,
+       "y": 127
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 123,
+       "y": 128
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 123,
+       "y": 126
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "take",
+      "target": {
+       "id": 3,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Take",
+     "op": "take",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "open",
+      "target": {
+       "id": 3,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Open",
+     "op": "open",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "close",
+      "target": {
+       "id": 3,
+       "kind": "object"
+      }
+     },
+     "available": false,
+     "label": "Close",
+     "op": "close",
+     "reason": "already closed",
+     "subject": "Chest",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": -1,
+      "dy": 0,
+      "op": "drag",
+      "target": {
+       "id": 3,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Drag",
+     "op": "drag",
+     "reason": null,
+     "subject": "Chest west",
+     "tags": [
+      "handling",
+      "heavy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "break",
+      "target": {
+       "id": 3,
+       "kind": "object"
+      },
+      "tool": null
+     },
+     "available": true,
+     "label": "Break",
+     "op": "break",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "violent",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": 1,
+      "dy": 0,
+      "op": "push",
+      "target": {
+       "id": 3,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Push",
+     "op": "push",
+     "reason": null,
+     "subject": "Chest east",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "dx": -1,
+      "dy": 0,
+      "op": "pull",
+      "target": {
+       "id": 3,
+       "kind": "object"
+      }
+     },
+     "available": true,
+     "label": "Pull",
+     "op": "pull",
+     "reason": null,
+     "subject": "Chest west",
+     "tags": [
+      "handling"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "hit",
+      "target": {
+       "id": 3,
+       "kind": "object"
+      },
+      "tool": null
+     },
+     "available": true,
+     "label": "Hit",
+     "op": "hit",
+     "reason": null,
+     "subject": "Chest",
+     "tags": [
+      "violent"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": 4,
+     "label": "Wood"
+    },
+    {
+     "dx": -1,
+     "dy": 0,
+     "h": 2,
+     "label": "Asphalt"
+    },
+    {
+     "dx": -1,
+     "dy": 1,
+     "h": 2,
+     "label": "Asphalt"
+    },
+    {
+     "dx": -1,
+     "dy": -1,
+     "h": 2,
+     "label": "Asphalt"
+    }
+   ],
+   "target": "Wood \u00b7 2 m",
+   "x": 124.0,
+   "y": 127.0,
+   "z": 0
+  },
+  "radius": 1,
+  "world": "test-0"
+ },
+ {
+  "label": "spawn",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "available": true,
+     "label": "Wait",
+     "op": "wait",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "idle"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 121,
+       "y": 128
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": 2,
+     "label": "Asphalt"
+    }
+   ],
+   "target": "Asphalt \u00b7 1 m",
+   "x": 121.0,
+   "y": 128.0,
+   "z": 0
+  },
+  "radius": 0,
+  "world": "test-0"
+ },
+ {
+  "label": "spawn",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "available": true,
+     "label": "Wait",
+     "op": "wait",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "idle"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 121,
+       "y": 128
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 122,
+       "y": 128
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 120,
+       "y": 128
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 121,
+       "y": 129
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 121,
+       "y": 127
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 122,
+       "y": 129
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 122,
+       "y": 127
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 120,
+       "y": 129
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 120,
+       "y": 127
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": 2,
+     "label": "Asphalt"
+    },
+    {
+     "dx": 1,
+     "dy": 0,
+     "h": 2,
+     "label": "Asphalt"
+    },
+    {
+     "dx": -1,
+     "dy": 0,
+     "h": 2,
+     "label": "Asphalt"
+    },
+    {
+     "dx": 0,
+     "dy": 1,
+     "h": 2,
+     "label": "Asphalt"
+    },
+    {
+     "dx": 0,
+     "dy": -1,
+     "h": 2,
+     "label": "Asphalt"
+    },
+    {
+     "dx": 1,
+     "dy": 1,
+     "h": 2,
+     "label": "Asphalt"
+    },
+    {
+     "dx": 1,
+     "dy": -1,
+     "h": 2,
+     "label": "Asphalt"
+    },
+    {
+     "dx": -1,
+     "dy": 1,
+     "h": 2,
+     "label": "Asphalt"
+    },
+    {
+     "dx": -1,
+     "dy": -1,
+     "h": 2,
+     "label": "Asphalt"
+    }
+   ],
+   "target": "Asphalt \u00b7 1 m",
+   "x": 121.0,
+   "y": 128.0,
+   "z": 0
+  },
+  "radius": 1,
+  "world": "test-0"
+ },
+ {
+  "label": "steps",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "available": true,
+     "label": "Wait",
+     "op": "wait",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "idle"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 12,
+       "kind": "tile",
+       "x": 22,
+       "y": 22
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 12,
+       "kind": "tile",
+       "x": 22,
+       "y": 22
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": 12,
+     "label": "Grass"
+    }
+   ],
+   "target": "Grass \u00b7 6 m",
+   "x": 22.0,
+   "y": 22.0,
+   "z": 2
+  },
+  "radius": 0,
+  "world": "lab-0"
+ },
+ {
+  "label": "steps",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "available": true,
+     "label": "Wait",
+     "op": "wait",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "idle"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 12,
+       "kind": "tile",
+       "x": 22,
+       "y": 22
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 12,
+       "kind": "tile",
+       "x": 23,
+       "y": 22
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 12,
+       "kind": "tile",
+       "x": 21,
+       "y": 22
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 12,
+       "kind": "tile",
+       "x": 22,
+       "y": 23
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 12,
+       "kind": "tile",
+       "x": 22,
+       "y": 21
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 12,
+       "kind": "tile",
+       "x": 23,
+       "y": 23
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 12,
+       "kind": "tile",
+       "x": 23,
+       "y": 21
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 12,
+       "kind": "tile",
+       "x": 21,
+       "y": 23
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 12,
+       "kind": "tile",
+       "x": 21,
+       "y": 21
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 12,
+       "kind": "tile",
+       "x": 22,
+       "y": 22
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 12,
+       "kind": "tile",
+       "x": 23,
+       "y": 22
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 12,
+       "kind": "tile",
+       "x": 21,
+       "y": 22
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 12,
+       "kind": "tile",
+       "x": 22,
+       "y": 23
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 12,
+       "kind": "tile",
+       "x": 22,
+       "y": 21
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 12,
+       "kind": "tile",
+       "x": 23,
+       "y": 23
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 12,
+       "kind": "tile",
+       "x": 23,
+       "y": 21
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 12,
+       "kind": "tile",
+       "x": 21,
+       "y": 23
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 12,
+       "kind": "tile",
+       "x": 21,
+       "y": 21
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": 12,
+     "label": "Grass"
+    },
+    {
+     "dx": 1,
+     "dy": 0,
+     "h": 12,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": 0,
+     "h": 12,
+     "label": "Grass"
+    },
+    {
+     "dx": 0,
+     "dy": 1,
+     "h": 12,
+     "label": "Grass"
+    },
+    {
+     "dx": 0,
+     "dy": -1,
+     "h": 12,
+     "label": "Grass"
+    },
+    {
+     "dx": 1,
+     "dy": 1,
+     "h": 12,
+     "label": "Grass"
+    },
+    {
+     "dx": 1,
+     "dy": -1,
+     "h": 12,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": 1,
+     "h": 12,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": -1,
+     "h": 12,
+     "label": "Grass"
+    }
+   ],
+   "target": "Grass \u00b7 6 m",
+   "x": 22.0,
+   "y": 22.0,
+   "z": 2
+  },
+  "radius": 1,
+  "world": "lab-0"
+ },
+ {
+  "label": "materials",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "available": true,
+     "label": "Wait",
+     "op": "wait",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "idle"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 62,
+       "y": 22
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 62,
+       "y": 22
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    }
+   ],
+   "target": "Grass \u00b7 1 m",
+   "x": 62.0,
+   "y": 22.0,
+   "z": 0
+  },
+  "radius": 0,
+  "world": "lab-0"
+ },
+ {
+  "label": "materials",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "available": true,
+     "label": "Wait",
+     "op": "wait",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "idle"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 62,
+       "y": 22
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 63,
+       "y": 22
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 61,
+       "y": 22
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 62,
+       "y": 23
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 62,
+       "y": 21
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 63,
+       "y": 23
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 63,
+       "y": 21
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 61,
+       "y": 23
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 61,
+       "y": 21
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 62,
+       "y": 22
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 63,
+       "y": 22
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 61,
+       "y": 22
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 62,
+       "y": 23
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 62,
+       "y": 21
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 63,
+       "y": 23
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 63,
+       "y": 21
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 61,
+       "y": 23
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 61,
+       "y": 21
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 1,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 0,
+     "dy": 1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 0,
+     "dy": -1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 1,
+     "dy": 1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 1,
+     "dy": -1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": 1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": -1,
+     "h": 2,
+     "label": "Grass"
+    }
+   ],
+   "target": "Grass \u00b7 1 m",
+   "x": 62.0,
+   "y": 22.0,
+   "z": 0
+  },
+  "radius": 1,
+  "world": "lab-0"
+ },
+ {
+  "label": "water",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "available": true,
+     "label": "Wait",
+     "op": "wait",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "idle"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": -6,
+     "label": "nothing"
+    }
+   ],
+   "target": "nothing",
+   "x": 102.0,
+   "y": 22.0,
+   "z": -1
+  },
+  "radius": 0,
+  "world": "lab-0"
+ },
+ {
+  "label": "water",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "available": true,
+     "label": "Wait",
+     "op": "wait",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "idle"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": -6,
+     "label": "nothing"
+    },
+    {
+     "dx": 1,
+     "dy": 0,
+     "h": -6,
+     "label": "nothing"
+    },
+    {
+     "dx": -1,
+     "dy": 0,
+     "h": -6,
+     "label": "nothing"
+    },
+    {
+     "dx": 0,
+     "dy": 1,
+     "h": -6,
+     "label": "nothing"
+    },
+    {
+     "dx": 0,
+     "dy": -1,
+     "h": -6,
+     "label": "nothing"
+    },
+    {
+     "dx": 1,
+     "dy": 1,
+     "h": -6,
+     "label": "nothing"
+    },
+    {
+     "dx": 1,
+     "dy": -1,
+     "h": -6,
+     "label": "nothing"
+    },
+    {
+     "dx": -1,
+     "dy": 1,
+     "h": -6,
+     "label": "nothing"
+    },
+    {
+     "dx": -1,
+     "dy": -1,
+     "h": -6,
+     "label": "nothing"
+    }
+   ],
+   "target": "nothing",
+   "x": 102.0,
+   "y": 22.0,
+   "z": -1
+  },
+  "radius": 1,
+  "world": "lab-0"
+ },
+ {
+  "label": "structure",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "available": true,
+     "label": "Wait",
+     "op": "wait",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "idle"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 22,
+       "y": 62
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 22,
+       "y": 62
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    }
+   ],
+   "target": "Grass \u00b7 1 m",
+   "x": 22.0,
+   "y": 62.0,
+   "z": 0
+  },
+  "radius": 0,
+  "world": "lab-0"
+ },
+ {
+  "label": "structure",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "available": true,
+     "label": "Wait",
+     "op": "wait",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "idle"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 22,
+       "y": 62
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 23,
+       "y": 62
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 21,
+       "y": 62
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 22,
+       "y": 63
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 22,
+       "y": 61
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 23,
+       "y": 63
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 23,
+       "y": 61
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 21,
+       "y": 63
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 21,
+       "y": 61
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 22,
+       "y": 62
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 23,
+       "y": 62
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 21,
+       "y": 62
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 22,
+       "y": 63
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 22,
+       "y": 61
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 23,
+       "y": 63
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 23,
+       "y": 61
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 21,
+       "y": 63
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 21,
+       "y": 61
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 1,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 0,
+     "dy": 1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 0,
+     "dy": -1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 1,
+     "dy": 1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 1,
+     "dy": -1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": 1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": -1,
+     "h": 2,
+     "label": "Grass"
+    }
+   ],
+   "target": "Grass \u00b7 1 m",
+   "x": 22.0,
+   "y": 62.0,
+   "z": 0
+  },
+  "radius": 1,
+  "world": "lab-0"
+ },
+ {
+  "label": "feature",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "available": true,
+     "label": "Wait",
+     "op": "wait",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "idle"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 62,
+       "y": 62
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 62,
+       "y": 62
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    }
+   ],
+   "target": "Grass \u00b7 1 m",
+   "x": 62.0,
+   "y": 62.0,
+   "z": 0
+  },
+  "radius": 0,
+  "world": "lab-0"
+ },
+ {
+  "label": "feature",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "available": true,
+     "label": "Wait",
+     "op": "wait",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "idle"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 62,
+       "y": 62
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 63,
+       "y": 62
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 61,
+       "y": 62
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 62,
+       "y": 63
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 62,
+       "y": 61
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 63,
+       "y": 63
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 63,
+       "y": 61
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 61,
+       "y": 63
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 61,
+       "y": 61
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 62,
+       "y": 62
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 63,
+       "y": 62
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 61,
+       "y": 62
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 62,
+       "y": 63
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 62,
+       "y": 61
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 63,
+       "y": 63
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 63,
+       "y": 61
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 61,
+       "y": 63
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 61,
+       "y": 61
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 1,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 0,
+     "dy": 1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 0,
+     "dy": -1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 1,
+     "dy": 1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 1,
+     "dy": -1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": 1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": -1,
+     "h": 2,
+     "label": "Grass"
+    }
+   ],
+   "target": "Grass \u00b7 1 m",
+   "x": 62.0,
+   "y": 62.0,
+   "z": 0
+  },
+  "radius": 1,
+  "world": "lab-0"
+ },
+ {
+  "label": "objects",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "available": true,
+     "label": "Wait",
+     "op": "wait",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "idle"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 102,
+       "y": 62
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 102,
+       "y": 62
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    }
+   ],
+   "target": "Grass \u00b7 1 m",
+   "x": 102.0,
+   "y": 62.0,
+   "z": 0
+  },
+  "radius": 0,
+  "world": "lab-0"
+ },
+ {
+  "label": "objects",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "available": true,
+     "label": "Wait",
+     "op": "wait",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "idle"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 102,
+       "y": 62
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 103,
+       "y": 62
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 101,
+       "y": 62
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 102,
+       "y": 63
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 102,
+       "y": 61
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 103,
+       "y": 63
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 103,
+       "y": 61
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 101,
+       "y": 63
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 101,
+       "y": 61
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 102,
+       "y": 62
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 103,
+       "y": 62
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 101,
+       "y": 62
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 102,
+       "y": 63
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 102,
+       "y": 61
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 103,
+       "y": 63
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 103,
+       "y": 61
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 101,
+       "y": 63
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 101,
+       "y": 61
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 1,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 0,
+     "dy": 1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 0,
+     "dy": -1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 1,
+     "dy": 1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 1,
+     "dy": -1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": 1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": -1,
+     "h": 2,
+     "label": "Grass"
+    }
+   ],
+   "target": "Grass \u00b7 1 m",
+   "x": 102.0,
+   "y": 62.0,
+   "z": 0
+  },
+  "radius": 1,
+  "world": "lab-0"
+ },
+ {
+  "label": "dig",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "available": true,
+     "label": "Wait",
+     "op": "wait",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "idle"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 22,
+       "y": 102
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 22,
+       "y": 102
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    }
+   ],
+   "target": "Grass \u00b7 1 m",
+   "x": 22.0,
+   "y": 102.0,
+   "z": 0
+  },
+  "radius": 0,
+  "world": "lab-0"
+ },
+ {
+  "label": "dig",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "climb",
+      "target": {
+       "h": -2,
+       "kind": "tile",
+       "x": 21,
+       "y": 102
+      }
+     },
+     "available": false,
+     "label": "Climb",
+     "op": "climb",
+     "reason": "too high to climb",
+     "subject": null,
+     "tags": [
+      "movement",
+      "risky"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "available": true,
+     "label": "Wait",
+     "op": "wait",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "idle"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 22,
+       "y": 102
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 23,
+       "y": 102
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": -2,
+       "kind": "tile",
+       "x": 21,
+       "y": 102
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 22,
+       "y": 103
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 22,
+       "y": 101
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 23,
+       "y": 103
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 23,
+       "y": 101
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": -2,
+       "kind": "tile",
+       "x": 21,
+       "y": 103
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": -2,
+       "kind": "tile",
+       "x": 21,
+       "y": 101
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 22,
+       "y": 102
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 23,
+       "y": 102
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": -2,
+       "kind": "tile",
+       "x": 21,
+       "y": 102
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 22,
+       "y": 103
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 22,
+       "y": 101
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 23,
+       "y": 103
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 23,
+       "y": 101
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": -2,
+       "kind": "tile",
+       "x": 21,
+       "y": 103
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": -2,
+       "kind": "tile",
+       "x": 21,
+       "y": 101
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 1,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": 0,
+     "h": -2,
+     "label": "Grass"
+    },
+    {
+     "dx": 0,
+     "dy": 1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 0,
+     "dy": -1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 1,
+     "dy": 1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 1,
+     "dy": -1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": 1,
+     "h": -2,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": -1,
+     "h": -2,
+     "label": "Grass"
+    }
+   ],
+   "target": "Grass \u00b7 1 m",
+   "x": 22.0,
+   "y": 102.0,
+   "z": 0
+  },
+  "radius": 1,
+  "world": "lab-0"
+ },
+ {
+  "label": "walls",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "available": true,
+     "label": "Wait",
+     "op": "wait",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "idle"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 62,
+       "y": 102
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 62,
+       "y": 102
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    }
+   ],
+   "target": "Grass \u00b7 1 m",
+   "x": 62.0,
+   "y": 102.0,
+   "z": 0
+  },
+  "radius": 0,
+  "world": "lab-0"
+ },
+ {
+  "label": "walls",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "available": true,
+     "label": "Wait",
+     "op": "wait",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "idle"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 62,
+       "y": 102
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 63,
+       "y": 102
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 61,
+       "y": 102
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 62,
+       "y": 103
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 62,
+       "y": 101
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 63,
+       "y": 103
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 63,
+       "y": 101
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 61,
+       "y": 103
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 61,
+       "y": 101
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 62,
+       "y": 102
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 63,
+       "y": 102
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 61,
+       "y": 102
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 62,
+       "y": 103
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 62,
+       "y": 101
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 63,
+       "y": 103
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 63,
+       "y": 101
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 61,
+       "y": 103
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 61,
+       "y": 101
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 1,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 0,
+     "dy": 1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 0,
+     "dy": -1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 1,
+     "dy": 1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 1,
+     "dy": -1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": 1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": -1,
+     "h": 2,
+     "label": "Grass"
+    }
+   ],
+   "target": "Grass \u00b7 1 m",
+   "x": 62.0,
+   "y": 102.0,
+   "z": 0
+  },
+  "radius": 1,
+  "world": "lab-0"
+ },
+ {
+  "label": "open",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "available": true,
+     "label": "Wait",
+     "op": "wait",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "idle"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 102,
+       "y": 102
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 102,
+       "y": 102
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    }
+   ],
+   "target": "Grass \u00b7 1 m",
+   "x": 102.0,
+   "y": 102.0,
+   "z": 0
+  },
+  "radius": 0,
+  "world": "lab-0"
+ },
+ {
+  "label": "open",
+  "menu": {
+   "entries": [
+    {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "available": true,
+     "label": "Wait",
+     "op": "wait",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "idle"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 102,
+       "y": 102
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 103,
+       "y": 102
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 101,
+       "y": 102
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 102,
+       "y": 103
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 102,
+       "y": 101
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 0,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 103,
+       "y": 103
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 103,
+       "y": 101
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": 1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 101,
+       "y": 103
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "inspect",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 101,
+       "y": 101
+      }
+     },
+     "available": true,
+     "label": "Inspect",
+     "op": "inspect",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "perception"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 102,
+       "y": 102
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 103,
+       "y": 102
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 101,
+       "y": 102
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 0
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 102,
+       "y": 103
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 102,
+       "y": 101
+      }
+     },
+     "available": true,
+     "label": "Dig",
+     "op": "dig",
+     "reason": null,
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 0,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 103,
+       "y": 103
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 103,
+       "y": 101
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": 1,
+     "tile_dy": -1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 101,
+       "y": 103
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": 1
+    },
+    {
+     "action": {
+      "op": "dig",
+      "target": {
+       "h": 2,
+       "kind": "tile",
+       "x": 101,
+       "y": 101
+      }
+     },
+     "available": false,
+     "label": "Dig",
+     "op": "dig",
+     "reason": "out of reach",
+     "subject": null,
+     "tags": [
+      "labor",
+      "noisy"
+     ],
+     "tile_dx": -1,
+     "tile_dy": -1
+    }
+   ],
+   "places": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 1,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": 0,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 0,
+     "dy": 1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 0,
+     "dy": -1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 1,
+     "dy": 1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": 1,
+     "dy": -1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": 1,
+     "h": 2,
+     "label": "Grass"
+    },
+    {
+     "dx": -1,
+     "dy": -1,
+     "h": 2,
+     "label": "Grass"
+    }
+   ],
+   "target": "Grass \u00b7 1 m",
+   "x": 102.0,
+   "y": 102.0,
+   "z": 0
+  },
+  "radius": 1,
+  "world": "lab-0"
+ }
+]

@@ -283,8 +283,9 @@ it skips generated `web/src/net/schema.d.ts` and warns without failing. Only
 - **Edge walls belong to the tile that owns the edge.** A wall west of tile (1,0) is `wall_w[1]`
   of the same chunk; chunk-border walls are stored by the neighbouring chunk's first column.
 - **Walls stay thin planes on their edge for every system.** Physics, picking, occlusion and the
-  cutaway treat a wall as its tile edge. `WALL_T` (1/8 m) and the top strip, end faces and corner
+  cutaway treat a wall as its tile edge. `WALL_T` (1/4 m) and the top strip, end faces and corner
   post are render-only, drawn outward behind the visible face, so nothing moves on the plane.
+  Wall-face masks hang from their draw height (the run top), like ground faces.
 - **Spawn must come from the generator's road.** A first-walkable-tile scan starts in the map
   corner, where radius-2 chunk streaming only finds 9 chunks instead of 25.
 - **A* needs two guards.** A goal whose tile has no standing surface must return `None`

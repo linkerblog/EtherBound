@@ -136,67 +136,106 @@ test("the old edge line mask is gone", () => {
   assert.equal("edgeLineMask" in masks, false);
 });
 
-test("wall top strips are four-pixel columns on the wall's top line", () => {
-  for (const edge of ["n", "w"] as const) {
-    const mask = wallTopMask(edge);
-    const columns = new Map<number, number[]>();
-    for (let py = 0; py < mask.height; py += 1) {
-      for (let px = 0; px < mask.width; px += 1) {
-        if (!mask.alpha[py * mask.width + px]) continue;
-        const x = mask.offsetX + px;
-        columns.set(x, [...(columns.get(x) ?? []), mask.offsetY + py]);
-      }
-    }
-    let count = 0;
-    for (const rows of columns.values()) count += rows.length;
-    assert.equal(count, 128, `${edge} pixel count`);
-    assert.equal(columns.size, 32, `${edge} column count`);
-    for (const [x, rows] of columns) {
-      assert.equal(rows.length, WALL_T_PX, `${edge} column ${x} height`);
-      assert.equal(Math.max(...rows), topRow(x), `${edge} column ${x} bottom`);
-    }
+test("wall top strips rasterize the quarter-metre parallelogram", () => {
+  const northMask = wallTopMask("n");
+  const north = placedPixels(northMask);
+  const west = placedPixels(wallTopMask("w"));
+  assert.equal(northMask.width, 38);
+  assert.equal(northMask.height, 20);
+  assert.equal(northMask.offsetX, 33);
+  assert.equal(northMask.offsetY, -4);
+  assert.equal(north.size, 256);
+  assert.equal(west.size, 256);
+  for (const [x, y] of [[32, 0], [63, 15], [64, 14], [71, 11]]) {
+    const dx = x + 0.5 - 32;
+    const dy = y + 0.5;
+    const along = (dx / 2 + dy) / 32;
+    const across = (dx / 2 - dy) / WALL_T_PX;
+    assert.equal(north.has(`${x},${y}`), along >= 0 && along < 1 && across >= 0 && across <= 1);
   }
 });
 
 test("the north and west top strips are mirror images", () => {
   const north = placedPixels(wallTopMask("n"));
   const west = placedPixels(wallTopMask("w"));
-  assert.equal(north.size, 128);
-  assert.equal(west.size, 128);
+  assert.equal(north.size, 256);
+  assert.equal(west.size, 256);
   for (const pixel of north) {
     const [x, y] = pixel.split(",").map(Number);
     assert.ok(west.has(`${63 - x},${y}`), `mirror of ${pixel}`);
   }
 });
 
-test("wall end masks are four pixels wide and 16 x units tall", () => {
+test("wall end masks hang from the draw height for 16 x units", () => {
   for (const face of ["e", "s"] as const) {
     for (const units of [1, 2, 4] as const) {
       const mask = wallEndMask(face, units);
       const pixels = placedPixels(mask);
-      const columns = new Set([...pixels].map((pixel) => pixel.split(",")[0]));
-      assert.equal(pixels.size, 64 * units, `${face}/${units} pixel count`);
+      const columns = new Map<number, number[]>();
+      for (const pixel of pixels) {
+        const [x, y] = pixel.split(",").map(Number);
+        columns.set(x, [...(columns.get(x) ?? []), y]);
+      }
+      assert.equal(pixels.size, 128 * units, `${face}/${units} pixel count`);
       assert.equal(mask.width, WALL_T_PX, `${face}/${units} width`);
       assert.equal(columns.size, WALL_T_PX, `${face}/${units} column count`);
+      for (let column = 0; column < WALL_T_PX; column += 1) {
+        const eastX = 64 + column;
+        const x = face === "e" ? eastX : 63 - eastX;
+        const top = Math.round(16 - (column + 0.5) / 2);
+        const rows = columns.get(x) ?? [];
+        assert.equal(rows.length, 16 * units, `${face}/${units} column ${column} height`);
+        assert.equal(Math.min(...rows), top, `${face}/${units} column ${column} top`);
+        assert.equal(Math.max(...rows), top + 16 * units - 1, `${face}/${units} column ${column} bottom`);
+      }
     }
   }
 });
 
-test("the corner post is 16 px above the top vertex, touching both strips", () => {
-  const post = placedPixels(wallPostMask());
-  assert.equal(post.size, 16);
+test("the quarter-metre corner post joins both strips without overlap", () => {
+  const postMask = wallPostMask();
+  const post = placedPixels(postMask);
+  assert.equal(postMask.width, 14);
+  assert.equal(postMask.height, 8);
+  assert.equal(postMask.offsetX, 25);
+  assert.equal(postMask.offsetY, -8);
+  assert.equal(post.size, 64);
   const diamond = diamondMask();
   for (const pixel of post) {
     const [x, y] = pixel.split(",").map(Number);
     assert.equal(maskHasPixel(diamond, x, y), false, `post overlaps the diamond at ${pixel}`);
   }
   for (const strip of [placedPixels(wallTopMask("n")), placedPixels(wallTopMask("w"))]) {
+    assert.equal([...post].some((pixel) => strip.has(pixel)), false, "post must not overlap a strip");
     const touching = [...post].some((pixel) => {
       const [x, y] = pixel.split(",").map(Number);
       return strip.has(`${x},${y - 1}`) || strip.has(`${x},${y + 1}`) ||
         strip.has(`${x - 1},${y}`) || strip.has(`${x + 1},${y}`);
     });
     assert.ok(touching, "post must touch a strip");
+  }
+});
+
+test("six wall units tile the band from the base edge to the top without gaps", () => {
+  const base = 3;
+  for (const edge of ["n", "w"] as const) {
+    const firstX = edge === "n" ? 32 : 0;
+    const cells = new Set<string>();
+    for (let drawHeight = base + 1; drawHeight <= base + 6; drawHeight += 1) {
+      for (const pixel of placedPixels(wallMask(edge, 1), 0, -16 * drawHeight)) {
+        assert.equal(cells.has(pixel), false, `${edge}/${drawHeight} overlaps at ${pixel}`);
+        cells.add(pixel);
+      }
+    }
+    const expected = new Set<string>();
+    for (let x = firstX; x < firstX + 32; x += 1) {
+      for (let y = topRow(x) - 16 * (base + 6); y < topRow(x) - 16 * base; y += 1) {
+        expected.add(`${x},${y}`);
+      }
+    }
+    assert.deepEqual(cells, expected, `${edge} wall units exactly fill the base-to-top band`);
+    const topCell = placedPixels(wallMask(edge, 1), 0, -16 * (base + 6));
+    assert.equal(topCell.size, 512);
   }
 });
 
@@ -218,7 +257,7 @@ test("every sheared side cell has exactly the footprint of a one-unit face", () 
   }
 });
 
-test("every sheared wall cell has exactly the footprint of a one-unit wall", () => {
+test("every sheared wall cell hangs from its draw height", () => {
   const sheet = encodedSheet();
   for (const edge of ["n", "w"] as const) {
     const wall = wallMask(edge, 1);

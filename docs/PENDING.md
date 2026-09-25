@@ -41,7 +41,7 @@ Open decisions and loose ends. When one is settled, record the decision where it
       opening and navigation, ARIA roles, layout and contrast fixes, live refresh. Awaiting approval.
 - [ ] **Dev-021 wall lines and heights** (`Dev-021.md`): six full-length wall lines per tile
       (edges, midlines, diagonals) and 0.5 m / 1 m / full heights; lands after Dev-022. The `build`
-      op that places them is the next doc. Awaiting approval.
+      op that places them is the next doc. Fix13's mask geometry is in place; awaiting approval.
 
 ## Deferred work
 
@@ -76,12 +76,12 @@ canvas; that approval is tracked under Dev-019.
       headlessly: layout box, tab hotkeys, `Esc`, the `W` gate and the right-click anchor at x2. See
       `done/Dev-019.md` [Sec. 5] acceptance 3, 5–6.
 
-- [ ] **Dev-020 wall thickness:** at x1/x2/x4, room walls read as solid with a visible top, door
-      openings and wall ends show thickness, corners have no notch or overhang, brick walls keep
-      their courses, and walking Niko next to a front wall cuts it to a one-unit stub that shows its
-      cut strip. Verified once by the agent at x2 at the building's west doorway (`X 135.83 ·
-      Y 145.98`): brick walls carry a lighter top strip and the doorway shows an end face. See
-      `done/Dev-020.md` [Sec. 5] acceptance 5–6.
+- [ ] **Fix13 wall faces and 1/4 m body:** approve the new `building-x1.png` and
+      `building-x2.png` baselines, then at x1/x2/x4 verify that walls sit on the floor, the top reads
+      as a solid 25 cm slab, front walls have no grey band, ends do not float, windows sit at 1–2 m,
+      corners close, brick courses remain intact, and a front wall still cuts to a one-unit stub.
+      The paused visual spec generated both baselines; GUI acceptance and user approval remain open.
+      See `done/Fix13.md` [Sec. 5] acceptance 6.
 
 - [ ] **Dev-018 basic Extras:** in the running game at seed 7, six green bodies stand near the spawn
       and, unpaused, walk and wait near their homes without overlapping the tiles they walk; `Inspect`
@@ -179,10 +179,11 @@ Blog migration landed; Fix10's manual Send to game acceptance remains open. Dev-
 its live physics/animation acceptance remains open. Dev-018 is implemented: six seeded Extras walk
 and wait near the spawn; its GUI acceptance and the approval of the re-shot paused baselines remain
 open, and actor-vs-actor collision stays deferred. Dev-019 is implemented: a framed viewport with
-`GAME`/`DEBUG`/`LLM` tabs; its baseline approval and GUI/Edge checks remain open. Dev-020 is
-implemented: walls have a render-only 1/8 m body with a top strip, end faces and a corner post; its
-x1–x4 GUI acceptance remains open. Two deferred items
-(input replay, events to the client) plus lost activity progress, actor pass-through and W/A/S/D
+`GAME`/`DEBUG`/`LLM` tabs; its baseline approval and GUI/Edge checks remain open. Dev-020's walls
+are corrected by Fix13: the faces hang from their draw height and the render-only thickness is
+1/4 m with a parallelogram strip, end faces and a corner post. Fix13's baseline approval and
+x1–x4 GUI acceptance remain open. Two deferred items (input replay, events to the client) plus lost
+activity progress, actor pass-through and W/A/S/D
 swallowed in text fields. Manual
 acceptances remain for
 Dev-003 browser, Dev-006 new game, Fix03 logging, Fix04 logging/movement, and Dev-008/Fix05/Fix06/Fix07

@@ -144,7 +144,7 @@ def _set_meta(engine: WorldEngine, **fields: object) -> None:
 async def test_new_game_stores_generator_and_options(engine: WorldEngine) -> None:
     options = {"feature": "relief", "relief": {"amplitude": 20}}
     state = await engine.new_game(5, "lab", options)
-    assert (state.generator, state.gen_version) == ("lab", 1)
+    assert (state.generator, state.gen_version) == ("lab", 2)
     assert state.gen_options["feature"] == "relief"
     assert state.gen_options["relief"]["amplitude"] == 20
     niko = next(actor for actor in state.actors if actor.id == PLAYER_ID)

@@ -15,7 +15,7 @@ from etherbound.world.gen.types import GeneratedObject, GeneratedWorld, Generato
 from etherbound.world.materials import MaterialRegistry
 from etherbound.world.objects import ObjectCatalog
 
-GEN_VERSION = 1
+GEN_VERSION = 2
 CHUNKS = 4
 BASE_H = 2
 PATH_TILES = (0, 1, 2, 3, 40, 41, 42, 43, 80, 81, 82, 83, 120, 121, 122, 123)
@@ -129,7 +129,7 @@ def _water(canvas: GenCanvas, shallow: int, deep: int) -> None:
 
 
 def _structure(canvas: GenCanvas, registry: MaterialRegistry) -> None:
-    x0, y0 = 14, 54
+    x0, y0 = 17, 45
     x1, y1 = x0 + 9, y0 + 7
     brick = _id(registry, "brick")
     concrete = _id(registry, "concrete")
@@ -142,18 +142,18 @@ def _structure(canvas: GenCanvas, registry: MaterialRegistry) -> None:
         for y in range(y0 + 1, y1):
             for x in range(x0 + 1, x1):
                 level.set_floor(x, y, floor_h, floor_material)
-        for y in range(y0, y1 + 1):
-            level.set_wall(x0, y, "west", brick)
+        for y in range(y0 + 1, y1):
+            level.set_wall(x0 + 1, y, "west", brick)
             level.set_wall(x1, y, "west", brick)
-        for x in range(x0, x1 + 1):
-            level.set_wall(x, y0, "north", brick)
+        for x in range(x0 + 1, x1):
+            level.set_wall(x, y0 + 1, "north", brick)
             level.set_wall(x, y1, "north", brick)
         if z == 0:
-            level.set_edge(x0, (y0 + y1) // 2, EDGE_W_DOORWAY)
+            level.set_edge(x0 + 1, (y0 + y1) // 2, EDGE_W_DOORWAY)
         else:
             for x in range(x0 + 1, x1):
                 if x % 3 == 0:
-                    level.set_edge(x, y0, EDGE_N_WINDOW)
+                    level.set_edge(x, y0 + 1, EDGE_N_WINDOW)
     roof = canvas.level(2)
     for y in range(y0 + 1, y1):
         for x in range(x0 + 1, x1):

@@ -395,7 +395,7 @@ def test_generators_endpoint_and_new_game_options(tmp_path: Path) -> None:
         assert custom.status_code == 200
         state = custom.json()
         assert state["generator"] == "lab"
-        assert state["gen_version"] == 1
+        assert state["gen_version"] == 2
         assert state["gen_options"]["relief"]["amplitude"] == 20
 
         before = client.get("/api/game/state").json()

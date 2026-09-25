@@ -1,6 +1,6 @@
 # Versions
 
-Overall project version: `v2.1.1`
+Overall project version: `v2.1.2`
 
 Every module and its current version. Modules start at `v0.0.0`; each modification bumps its
 version by `0.0.1`, and the bump ships in the same change. The overall project version tracks the
@@ -16,9 +16,9 @@ version assigned to the latest commit.
 | server.net | `server/src/etherbound/net/` | v0.0.11 |
 | server.db | `server/src/etherbound/db/`, `server/alembic/` | v0.0.9 |
 | server.rng | `server/src/etherbound/rng.py` | v0.0.2 |
-| server.world | `server/src/etherbound/world/` | v0.0.8 |
+| server.world | `server/src/etherbound/world/` | v0.0.9 |
 | web.world | `web/src/world/` | v0.0.9 |
-| web.game | `web/src/game/` | v0.1.15 |
+| web.game | `web/src/game/` | v0.1.16 |
 | web.net | `web/src/net/` | v0.0.14 |
 | web.ui | `web/src/ui/` | v0.0.12 |
 | launcher | `launcher/` | v0.0.4 |

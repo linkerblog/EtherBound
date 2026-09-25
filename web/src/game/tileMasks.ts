@@ -65,48 +65,52 @@ export function wallMask(edge: "n" | "w", units: 1 | 2 | 4): TileMask {
   const lastX = firstX + 31;
   for (let x = firstX; x <= lastX; x += 1) {
     const top = topRow(x);
-    for (let y = top - 16 * units; y < top; y += 1) pixels.push({ x, y });
+    for (let y = top; y < top + 16 * units; y += 1) pixels.push({ x, y });
   }
   return packPixels(pixels);
 }
 
-// The wall body thickness in screen pixels at x1: 1/8 m, which projects to four pixels.
-export const WALL_T_PX = 4;
+// A quarter-metre wall projects to eight pixels along its edge at x1.
+export const WALL_T_PX = 8;
 
 export function wallTopMask(edge: "n" | "w"): TileMask {
-  const firstX = edge === "n" ? 32 : 0;
   const pixels: Pixel[] = [];
-  for (let x = firstX; x < firstX + 32; x += 1) {
-    const top = topRow(x);
-    for (let row = 0; row < WALL_T_PX; row += 1) pixels.push({ x, y: top - row });
+  for (let y = -WALL_T_PX; y < 32; y += 1) {
+    for (let x = 32; x < 64 + WALL_T_PX; x += 1) {
+      const dx = x + 0.5 - 32;
+      const dy = y + 0.5;
+      const along = (dx / 2 + dy) / 32;
+      const across = (dx / 2 - dy) / WALL_T_PX;
+      if (along < 0 || along >= 1 || across < 0 || across > 1) continue;
+      pixels.push({ x: edge === "n" ? x : 63 - x, y });
+    }
   }
   return packPixels(pixels);
 }
 
-/** A wall run's end face: `WALL_T_PX` wide, one 16-px unit per `units`, rising from its vertex. */
+/** A wall run's end face hangs from its draw height, one 16-px unit per `units`. */
 export function wallEndMask(face: "e" | "s", units: 1 | 2 | 4): TileMask {
   const pixels: Pixel[] = [];
   for (let column = 0; column < WALL_T_PX; column += 1) {
-    const x = face === "e" ? 64 + column : -WALL_T_PX + column;
-    const bottom = face === "e"
-      ? 16 - Math.round(column / 2)
-      : 16 - Math.round((WALL_T_PX - 1 - column) / 2);
-    for (let row = 0; row < 16 * units; row += 1) pixels.push({ x, y: bottom - row });
+    const eastX = 64 + column;
+    const x = face === "e" ? eastX : 63 - eastX;
+    const top = Math.round(16 - (column + 0.5) / 2);
+    for (let row = 0; row < 16 * units; row += 1) pixels.push({ x, y: top + row });
   }
   return packPixels(pixels);
 }
 
-/** The top of the corner post: the 1/8 m by 1/8 m square above the diamond's top vertex. */
+/** The corner post fills the rhombus at the join of two quarter-metre wall tops. */
 export function wallPostMask(): TileMask {
   const pixels: Pixel[] = [];
-  const rows: Array<[number, number, number]> = [
-    [-4, 31, 32],
-    [-3, 29, 34],
-    [-2, 29, 34],
-    [-1, 31, 32],
-  ];
-  for (const [y, from, to] of rows) {
-    for (let x = from; x <= to; x += 1) pixels.push({ x, y });
+  for (let y = -WALL_T_PX; y < 0; y += 1) {
+    for (let x = 32 - WALL_T_PX; x < 32 + WALL_T_PX; x += 1) {
+      const dx = x + 0.5 - 32;
+      const dy = y + 0.5 + WALL_T_PX / 2;
+      if (Math.abs(dx) / WALL_T_PX + Math.abs(dy) / (WALL_T_PX / 2) <= 1) {
+        pixels.push({ x, y });
+      }
+    }
   }
   return packPixels(pixels);
 }
@@ -172,9 +176,9 @@ export function shearSideCell(
 
 /**
  * Shears one 32x16 wall-sheet cell into the exact footprint of `wallMask(edge, 1)`. Every mask
- * column takes its whole 16-pixel sheet column, moved up to the wall's top contour, so no pixel is
- * dropped. The cap cell is row 0 and the fill cell row 16 of the sheet. It mirrors `shearSideCell`
- * across the diamond.
+ * column takes its whole 16-pixel sheet column, moved down from the wall's draw-height contour, so
+ * no pixel is dropped. The cap cell is row 0 and the fill cell row 16 of the sheet. It mirrors
+ * `shearSideCell` across the diamond.
  */
 export function shearWallCell(
   sheet: SideSheet,
@@ -188,8 +192,8 @@ export function shearWallCell(
   let maxY = Number.NEGATIVE_INFINITY;
   for (let x = firstX; x <= lastX; x += 1) {
     const top = topRow(x);
-    minY = Math.min(minY, top - 16);
-    maxY = Math.max(maxY, top - 1);
+    minY = Math.min(minY, top);
+    maxY = Math.max(maxY, top + 15);
   }
   const width = lastX - firstX + 1;
   const height = maxY - minY + 1;
@@ -202,7 +206,7 @@ export function shearWallCell(
       const source = (partRow + r) * sheet.width + sheetX;
       const at = source * 4;
       const localX = x - firstX;
-      const localY = top - 16 + r - minY;
+      const localY = top + r - minY;
       const to = (localY * width + localX) * 4;
       rgba[to] = sheet.data[at] ?? 0;
       rgba[to + 1] = sheet.data[at + 1] ?? 0;

@@ -1,5 +1,6 @@
 from time import perf_counter
 
+from etherbound.world.chunk import CHUNK_SIZE, EDGE_N_WINDOW, EDGE_W_DOORWAY, NO_FLOOR
 from etherbound.world.gen.features.relief import ReliefOptions
 from etherbound.world.gen.lab import BAY_KEYS, BAY_RECTS, LabOptions, generate_lab, lab_spawn
 from etherbound.world.grid import WorldGrid
@@ -54,6 +55,82 @@ def test_every_spawn_bay_is_standable() -> None:
         grid = WorldGrid(world.chunks.values(), world.levels.values(), registry)
         surfaces = grid.standing_surfaces(int(spawn_x), int(spawn_y))
         assert any(surface.h == spawn_h for surface in surfaces), key
+
+
+def test_structure_walls_enclose_the_floor_without_corner_stubs() -> None:
+    world = generate_lab(SEED, LabOptions())
+    x0, y0 = 17, 45
+    x1, y1 = x0 + 9, y0 + 7
+
+    for z in range(3):
+        floors = {
+            (
+                level.cx * CHUNK_SIZE + index % CHUNK_SIZE,
+                level.cy * CHUNK_SIZE + index // CHUNK_SIZE,
+            )
+            for level in world.levels.values()
+            if level.z == z
+            for index, floor_h in enumerate(level.floor_h)
+            if floor_h != NO_FLOOR
+        }
+        floors = {(x, y) for x, y in floors if x0 <= x <= x1 and y0 <= y <= y1}
+        expected_floors = {(x, y) for x in range(x0 + 1, x1) for y in range(y0 + 1, y1)}
+        stairwell = (x0 + 1, y0 + (1 if z == 1 else 2))
+        if z in (1, 2):
+            for x in range(stairwell[0], stairwell[0] + 3):
+                expected_floors.remove((x, stairwell[1]))
+        assert floors == expected_floors
+
+        north = {
+            (x, y)
+            for level in world.levels.values()
+            if level.z == z
+            for index, material in enumerate(level.wall_n)
+            if material
+            for x, y in [
+                (
+                    level.cx * CHUNK_SIZE + index % CHUNK_SIZE,
+                    level.cy * CHUNK_SIZE + index // CHUNK_SIZE,
+                )
+            ]
+            if x0 <= x <= x1 and y0 <= y <= y1
+        }
+        west = {
+            (x, y)
+            for level in world.levels.values()
+            if level.z == z
+            for index, material in enumerate(level.wall_w)
+            if material
+            for x, y in [
+                (
+                    level.cx * CHUNK_SIZE + index % CHUNK_SIZE,
+                    level.cy * CHUNK_SIZE + index // CHUNK_SIZE,
+                )
+            ]
+            if x0 <= x <= x1 and y0 <= y <= y1
+        }
+        assert north == {(x, y) for x in range(x0 + 1, x1) for y in (y0 + 1, y1)}
+        assert west == {(x, y) for y in range(y0 + 1, y1) for x in (x0 + 1, x1)}
+
+    doorway = next(
+        level for level in world.levels.values() if level.z == 0 and level.cx == 0 and level.cy == 1
+    )
+    door_index = doorway.index(x0 + 1, (y0 + y1) // 2 - CHUNK_SIZE)
+    assert doorway.edge_flags[door_index] & EDGE_W_DOORWAY
+
+    for z in (1, 2):
+        level = next(
+            level
+            for level in world.levels.values()
+            if level.z == z and level.cx == 0 and level.cy == 1
+        )
+        window_tiles = {
+            (x, y)
+            for index, flags in enumerate(level.edge_flags)
+            if flags & EDGE_N_WINDOW
+            for x, y in [(index % 32, level.cy * 32 + index // 32)]
+        }
+        assert window_tiles == {(x, y0 + 1) for x in range(x0 + 1, x1) if x % 3 == 0}
 
 
 def get_bays():

@@ -3,8 +3,8 @@
 [Vision] [Architecture] [Planning]
 
 The living vision of EtherBound, the remake of NikoStory. It records every design decision
-taken during the brainstorm and the order in which the game gets built. No code exists yet;
-nothing is implemented until this document is approved.
+taken during the brainstorm and the order in which the game gets built. Every plan is checked
+against it. A section ending in "Full text" keeps its body in `MINDS.md` or `ROADMAP.md`.
 
 ---
 
@@ -187,110 +187,28 @@ its behaviour, and an op without one is never offered. An op that takes game tim
 
 ## 8. Characters and minds
 
-### Niko
+Niko is fixed, cannot die (only be incapacitated) and progresses without cap; Ether is his alone.
+NPCs are Extras (rules and utility), Agents (LLM near, Jev far, rules very far) or Extras on a
+relevance turn. Three brains split the work (LLM strategy, Jev tactics, code routine); traits shift
+utility weights per tag, reactions need knowledge, and relationships are multi-axis and asymmetric.
 
-- Fixed character; his traits (literal, calm, introverted, easily overwhelmed) weigh on prose and on
-  what certain options cost him.
-- **Incapacitation, not death.** What happens next depends on who finds him: hospital and a bill,
-  arrest if wanted, kidnapping by a faction curious about Ether, or waking up robbed in an alley.
-- **Infinite progression** on a logarithmic curve. Tension is kept by systemic reaction (the
-  stronger and better known Niko is, the more attention he draws), never by level-scaled enemies.
-  Heavy Ether use strains him. Reputation, money, property and influence also grow without cap.
-- **Ether is unique.** Witnesses do not know what they saw; rumors, recordings and internet spread
-  it; scientists, government and factions take interest on their own.
-
-### NPC tiers
-
-| Tier | Brain | Notes |
-|---|---|---|
-| Extra (Figurante) | Deterministic rules + utility | Assigned history, abilities matching traits. Token-free |
-| Agent (Agente) | LLM near/relevant, Jev when far, rules when very far | Full tools: interaction, thoughts, reasoning |
-| Relevance turn | Extra temporarily run as an Agent | Chosen by the storyteller |
-
-- A relevance turn must leave **facts and traits** behind that the deterministic layer understands,
-  not just prose. An Extra can be promoted to Agent permanently.
-- The first Extras are six seeded people placed by `world.population` within 15 m of the spawn; their
-  deterministic brain (`server.minds`) holds one goal at a time, published as `mind = {anchor, goal}`
-  and fulfilled only through the action API, so a restart replays it.
-- LOD is by **relevance**, not raw distance: distance + relationship with Niko + active plot
-  involving him.
-
-### Three brains
-
-| Brain | Role |
-|---|---|
-| LLM | **Strategy:** forms goals and plans |
-| Jev | **Tactics:** picks the next step among legal actions |
-| Code | **Routine** and deterministic failures |
-
-**Plan loop:** plan → execute → on failure, classify:
-
-| Failure | Example | Resolved by |
-|---|---|---|
-| Deterministic | Locked door, blocked path, shop closed | Code: alternate route, wait, knock, find key |
-| Broken precondition | Target is no longer there | Jev: alternate step within the plan |
-| Semantic surprise | Target shows up with armed friends | LLM: rethink the goal (queued if not available) |
-
-- A plan is a list of ops from the shared vocabulary with a goal, never prose.
-- Anti-loop: after N failures on the same step, drop or change the goal.
-- Replanning is triggered (plan done, semantic failure, relevant event, long periodic refresh),
-  never every tick.
-
-### Traits → utility
-
-- Responses are generic and tagged (violent, risky, covert, planned, legal, social, protective...).
-- Each trait only shifts weights per tag. Context adds weight (relationship, relative strength,
-  witnesses, abilities on both sides). Pick with some randomness among the top options.
-- Combinations are never written; they emerge. Aggressive + Fearless attacks now; Smart +
-  Aggressive ambushes unseen; Fearful + Smart moves the sister away.
-- Reactions need **knowledge**: X reacts only once X learns of the event, and the reaction becomes a
-  persistent goal that survives days of routine.
-
-### Relationships
-
-- Multi-axis (affection, trust, respect, fear, attraction) and asymmetric.
-- Code + traits give the expected effect of an event; random noise varies each interaction; Jev
-  only interprets ambiguous cases (mostly the player's free text).
-
-### Life cycle
-
-- NPCs age, die, have children, migrate in and out.
-- Old memories compact into facts ("Z hit my sister years ago" → grudge against Z).
-- A city history log of major events feeds the storyteller and the Agents; local legends emerge.
+Full text: `docs/utils/MINDS.md` [Sec. 8]
 
 ## 9. Emergent society
 
-- **Knowledge and rumors:** every event has witnesses (perception, line of sight, height, light,
-  noise). Knowledge spreads through the social graph, distorts, reaches people who were not there.
-- **Economy:** macro inflation is a slow controlled drift (about 3% a year, events can shift it);
-  micro prices come from local supply and demand. Each merchant has a stable personal margin from
-  seed and traits (Greedy: high margin plus small per-sale noise), bargained against Niko's rapport.
-  Money sinks (rent, taxes, spoilage, repairs) keep it from piling up.
-- **Jobs:** organizations with unmet demand post paid tasks. Anyone can take them. If the business
-  dies, so does the job.
-- **Internet:** a channel reached through devices that need power and connection. Listings, job
-  posts, messages, social media (rumors with huge reach), online shopping with delivery.
-- **Factions:** a periodic deterministic pass looks for connected NPCs in similar situations
-  (shared need, grievance, ability, neighborhood, class). Density + catalyst (a leader trait or a
-  shared event, gated by Jev) forms a faction. Goal comes from the shared situation; modus operandi
-  from aggregated member traits. Factions are organizations; they grow, split, merge, dissolve.
-  War appears when opposing goals compete for the same territory or resource.
-- **Laws:** there are no hybrid laws at start. A law is a data row
-  `{op/tag, context, applies to, penalty}`. Incidents move public opinion; pressure past a
-  threshold makes politicians (with traits) propose laws; utility + Jev decide; police enforce;
-  people react. Laws can be repealed. Different seeds end with different legal systems.
+Witnessed events spread as knowledge and rumors through the social graph. Prices, jobs, the
+internet channel, factions and laws emerge from data and utility: organizations post jobs, factions
+form from shared situations, and laws are data rows proposed under public pressure.
+
+Full text: `docs/utils/MINDS.md` [Sec. 9]
 
 ## 10. Storyteller
 
-```text
-Trigger (time / event / pacing)
-  → candidates: code filters what is POSSIBLE (preconditions, cooldowns, tension budget)
-  → Jev: which one FITS now, or none (+ confidence as threshold)
-  → world engine commits it as a fact
-  → full LLM only for prose or to wake an Agent
-```
+Code filters which events are possible, Jev picks the one that fits (or none), the world engine
+commits it as a fact, and the full LLM only writes prose or wakes an Agent. The storyteller also
+runs long arcs and grants relevance turns.
 
-It also runs long arcs (a gang growing, a neighborhood gentrifying) and grants relevance turns.
+Full text: `docs/utils/MINDS.md` [Sec. 10]
 
 ## 11. Determinism and replay
 
@@ -310,17 +228,11 @@ enforced by the engine as op preconditions, not only in prompts:
 
 ## 13. LLM layer
 
-- OpenRouter for Agent strategy and prose; TypeSafe `choice` (Jev) for gates, tactics, free-text
-  interpretation and relationship ambiguity.
-- Carry over NikoStory's measured lessons: do not pass `reasoning` to a non-reasoning model, keep
-  prose models out of state, benchmark before switching a model into the loop.
-- Token budget is a design input: cap concurrent LLM Agents.
-- **Art authoring.** At authoring time, never during play, an LLM may propose a furniture spec
-  (primitives, roles, patterns, seeded slots) through BitCanvas. Code validates it, and BitCanvas
-  renders it with the game's projection, light and ramps. The game only loads the resulting PNG.
-  The recipe saved next to the sprite (prompt, model, spec, render settings) is its record; it
-  decides nothing in the world, so it is not a logged event. Image models (diffusion) are not part
-  of the pipeline.
+OpenRouter serves Agent strategy and prose; Jev serves gates, tactics and free-text
+interpretation. NikoStory's lessons carry over, the token budget caps concurrent LLM Agents, and at
+authoring time only, an LLM may propose furniture specs that BitCanvas validates and renders.
+
+Full text: `docs/utils/MINDS.md` [Sec. 13]
 
 ## 14. What must not break
 
@@ -334,48 +246,14 @@ enforced by the engine as op preconditions, not only in prompts:
 
 ## 15. Roadmap
 
-### Phase 0: Skeleton
-- [x] Create the repo, `AGENTS.md`, `CONTEXT.md`, `docs/utils/VERSION.md`
-- [x] FastAPI app with WebSocket, 1 Hz clock, pause and speeds
-- [x] SQLite + Alembic, first migration
-- [x] Phaser client: top-down map, WASD with prediction, right-click menu stub, HTML overlay
-- [x] OpenAPI → TypeScript type generation in the build
+Phase 0 skeleton, Phase 1 core without LLM, Phase 2 a one-block vertical slice whose acceptances
+must produce unprogrammed behavior, Phase 3 minds, Phase 4 scale.
 
-### Phase 1: Core (no LLM)
-- [x] World model: chunks, heightmap, floors, underground levels, materials
-- [ ] The eight primitives as data models
-- [x] Op vocabulary and action API; generated context menus
-- [x] Event bus and action pipeline
-- [ ] Witnesses, knowledge, rumor propagation
-- [x] Tile physics: impulse, knockback, breakable walls
-- [ ] Seeded RNG streams and the decision log
-- [x] Isometric renderer with placeholder art (`Dev-008`)
-
-### Phase 2: Vertical slice
-One block: a pizzeria, an alley, a park, about 20 Extras.
-- [ ] Needs, utility with trait weights, organizations posting tasks
-- [ ] **Acceptance:** a delivery job appears without being programmed; Niko can take it
-- [ ] **Acceptance:** selling in the alley works and reacts to traffic, law and witnesses
-- [ ] **Acceptance:** Niko can dig a hole in the park and enter it; someone may notice
-- [ ] **Acceptance:** a hit seen by a witness turns into a rumor and a reaction days later
-
-### Phase 3: Minds
-- [ ] Jev integration: free text, storyteller gate, tactics
-- [ ] Agents with LLM plans, relevance LOD, failure taxonomy, anti-loop
-- [ ] Relevance turns and permanent promotion
-- [ ] Scenes with autopause, options and prose
-
-### Phase 4: Scale
-- [ ] Full city, wilderness
-- [ ] Transport (bus, metro, taxi, owned car), only once core systems are consolidated
-- [ ] Internet channel
-- [ ] Abilities distribution, Ether and its strain
-- [ ] Factions, public opinion, laws
-- [ ] Life cycle, memory compaction, city history
+Full text: `docs/utils/ROADMAP.md` [Sec. 15]
 
 ## 16. Open questions
 
-Tracked in [`PENDING.md`](PENDING.md).
+Tracked in `docs/PENDING.md`.
 
 ---
 

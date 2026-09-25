@@ -1,7 +1,7 @@
 # CLAUDE.md
 
-Start with [`AGENTS.md`](AGENTS.md) and [`docs/utils/VISION.md`](docs/utils/VISION.md), plus
-[`CONTEXT.md`](CONTEXT.md) once it exists. They still apply in full.
+Start with the reading map at the top of [`AGENTS.md`](AGENTS.md) and read its "Planner" row:
+`AGENTS.md`, `CONTEXT.md`, `docs/utils/VISION.md`, `docs/utils/PLANS.md` and `docs/PENDING.md`.
 
 ## The plan is written before it is executed
 
@@ -18,7 +18,7 @@ do not "start with the easy part" while the plan is still on the table.
   document. If reality turns out to be different, update the `.md` first, then keep going.
 - A plan that contradicts `docs/utils/VISION.md` updates the vision first, with approval.
 - Once the content is implemented, the doc moves to `docs/done/`. When the phase closes,
-  `docs/done/` is emptied (see "Closing a phase" in `AGENTS.md`).
+  `docs/done/` is emptied (see "Closing a phase" in `docs/utils/PLANS.md`).
 
 This applies to anything with more than one moving part. A one-line fix, a typo or an
 explicitly requested edit does not need a plan; when in doubt, write the `.md`.

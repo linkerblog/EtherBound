@@ -42,6 +42,8 @@ Open decisions and loose ends. When one is settled, record the decision where it
 - [ ] **Dev-021 wall lines and heights** (`Dev-021.md`): six full-length wall lines per tile
       (edges, midlines, diagonals) and 0.5 m / 1 m / full heights; lands after Dev-022. The `build`
       op that places them is the next doc. Fix13's mask geometry is in place; awaiting approval.
+- [ ] **Infra03 CI on GitHub Actions**: run the checks on push now that the remote exists. The
+      number was earmarked as Infra02 by `Infra01`; Infra02 became the agent context diet. No doc yet.
 
 ## Deferred work
 
@@ -178,6 +180,10 @@ canvas; that approval is tracked under Dev-019.
       nor act, and x10 leaves walking at real-time speed (the clock speed only scales game
        minutes). Still open in `docs/done/Fix03.md` [Sec. 6]: 6 (confirming event lines in `server.log`).
 
+- [ ] **Infra02 reading map:** give a cold subagent only the reading map in `AGENTS.md` and check
+      that it picks `PITFALLS.md` [Sec. 1] for "change the launcher's port handling" and [Sec. 4]
+      for "add a new object kind". See `done/Infra02.md` [Sec. 6] acceptance 6.
+
 The Dev-005 GUI acceptance passed; details are recorded in `docs/done/Fix02.md`.
 
 ---
@@ -210,3 +216,4 @@ furniture, seed-0 layout and save-migration checks, the Dev-013 physics and anim
 the Dev-018 Extras acceptance, and the Fix11 Dev Blog database's Notion-UI read-through; Dev-007 was
 fully accepted on 22/09/2026.
 Fix05–Fix09 automated validation passed; their GUI visual/performance checklists remain open.
+Infra02 moved agent boot text into on-demand guides; its cold-subagent reading-map check remains open.

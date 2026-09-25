@@ -1,10 +1,12 @@
 # Versions
 
-Overall project version: `v2.1.6`
+Overall project version: `v2.1.7`
 
 Every module and its current version. Modules start at `v0.0.0`; each modification bumps its
 version by `0.0.1`, and the bump ships in the same change. The overall project version tracks the
-version assigned to the latest commit.
+version assigned to the latest commit. The launcher banner and console title display this overall
+version from `docs/utils/VERSION.md`, not the launcher's module version; keep both displays in sync
+whenever the overall version changes.
 
 | Module | Path | Version |
 |---|---|---|
@@ -23,4 +25,4 @@ version assigned to the latest commit.
 | web.ui | `web/src/ui/` | v0.0.12 |
 | launcher | `launcher/` | v0.0.4 |
 | bitcanvas | `BitCanvas/` | v0.0.6 |
-| tooling | `.gitattributes`, `.githooks/`, `scripts/`, `package.json`, `global.json`, `.gitignore`, `.env.example`, `server/pyproject.toml`, `server/uv.lock`, `web/package.json`, `web/package-lock.json`, `web/vite.config.ts`, `web/playwright.config.ts` | v0.0.12 |
+| tooling | `.gitattributes`, `.githooks/`, `scripts/`, `package.json`, `global.json`, `.gitignore`, `.env.example`, `server/pyproject.toml`, `server/uv.lock`, `web/package.json`, `web/package-lock.json`, `web/vite.config.ts`, `web/playwright.config.ts` | v0.0.13 |

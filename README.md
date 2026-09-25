@@ -77,8 +77,13 @@ npm run check:visual          # Playwright isometric baselines (needs free ports
 | Doc | Purpose |
 |---|---|
 | [`docs/utils/VISION.md`](docs/utils/VISION.md) | Pitch, pillars, architecture, primitives and build order |
-| [`CONTEXT.md`](CONTEXT.md) | Current technical context: modules, data model, commands, known pitfalls |
-| [`AGENTS.md`](AGENTS.md) | Rules for anyone (human or agent) changing the repository |
+| [`docs/utils/MINDS.md`](docs/utils/MINDS.md) | Vision detail: characters and minds, emergent society, storyteller, LLM layer |
+| [`docs/utils/ROADMAP.md`](docs/utils/ROADMAP.md) | Vision detail: build phases and open questions |
+| [`CONTEXT.md`](CONTEXT.md) | Current technical context: modules, data model, contracts, commands, pitfalls index |
+| [`docs/utils/PITFALLS.md`](docs/utils/PITFALLS.md) | Measured pitfalls, one section per area |
+| [`AGENTS.md`](AGENTS.md) | Rules for anyone (human or agent) changing the repository, and the reading map |
+| [`docs/utils/PLANS.md`](docs/utils/PLANS.md) | Plan lifecycle, format and closing a phase |
+| [`docs/utils/NOTION.md`](docs/utils/NOTION.md) | Notion Systems Index, Dev Blog and Work Reports rules |
 | [`docs/utils/VERSION.md`](docs/utils/VERSION.md) | Project and per-module versions |
 | [`docs/utils/COMMITS.md`](docs/utils/COMMITS.md) | Commit message format |
 | [`docs/PENDING.md`](docs/PENDING.md) | Open decisions and manual acceptances |

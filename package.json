@@ -12,9 +12,10 @@
     "check:server": "cd server && uv run ruff check && uv run ruff format --check && uv run pyright && uv run pytest",
     "check:web": "cd server && uv run etherbound-schema && cd ../web && npm run gen:types && git diff --exit-code src/net/schema.d.ts && npm test && npm run build",
     "check:versions": "node scripts/check-versions.mjs",
+    "check:docs": "node scripts/check-docs.mjs",
     "check:sizes": "node scripts/check-sizes.mjs",
-    "check": "npm run check:versions && npm run check:sizes && npm run check:server && npm run check:web && npm run check:bitcanvas && npm run check:launcher",
-    "check:fast": "node scripts/check-versions.mjs --staged && npm run check:sizes && cd server && uv run ruff check && uv run ruff format --check && cd .. && npm run check:bitcanvas",
+    "check": "npm run check:versions && npm run check:docs && npm run check:sizes && npm run check:server && npm run check:web && npm run check:bitcanvas && npm run check:launcher",
+    "check:fast": "node scripts/check-versions.mjs --staged && npm run check:docs && npm run check:sizes && cd server && uv run ruff check && uv run ruff format --check && cd .. && npm run check:bitcanvas",
     "check:visual": "cd web && npx playwright test"
   }
 }

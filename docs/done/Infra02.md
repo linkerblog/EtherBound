@@ -35,7 +35,7 @@ into shorthand, and every removed line either moves to an on-demand doc or is li
 | Pitfalls | All pitfalls move to a new living guide `docs/utils/PITFALLS.md`, one section per area [Sec. 3.2]. `CONTEXT.md` keeps an index table: area → section → paths that trigger it | F2. An agent reads only the section for the area it touches |
 | Vision split | Bodies of [Sec. 8], [Sec. 9], [Sec. 10], [Sec. 13] move to `docs/utils/MINDS.md`; [Sec. 15], [Sec. 16] to `docs/utils/ROADMAP.md`. Both keep the **same section numbers**. `VISION.md` keeps every heading with a 2–4 line summary and a "Full text:" pointer | F6 without breaking F9: an old reference still lands on the right heading |
 | Agents rules | The Notion rule moves to `docs/utils/NOTION.md`; "Closing a phase" and the plan format move to `docs/utils/PLANS.md`. `AGENTS.md` keeps a one-line pointer for each | F8 |
-| Reading map | A table at the top of `AGENTS.md` [Sec. 3.1] says who reads what. **Every agent:** `AGENTS.md`, `CONTEXT.md`. **Planner:** plus `VISION.md`, `PLANS.md`, `PENDING.md`. **Implementer:** plus the plan, the `VISION`/`MINDS`/`ROADMAP` sections it cites and the `PITFALLS` sections for the areas it touches. **Committer:** `COMMITS.md`, `VERSION.md`. **Reporter:** `NOTION.md` | The implementer no longer reads the whole vision; the plan already cites what applies |
+| Reading map | A table at the top of `AGENTS.md` ([Sec. 3.1]) says who reads what. **Every agent:** `AGENTS.md`, `CONTEXT.md`. **Planner:** plus `VISION.md`, `PLANS.md`, `PENDING.md`. **Implementer:** plus the plan, the `VISION`/`MINDS`/`ROADMAP` sections it cites and the `PITFALLS` sections for the areas it touches. **Committer:** `COMMITS.md`, `VERSION.md`. **Reporter:** `NOTION.md` | The implementer no longer reads the whole vision; the plan already cites what applies |
 | Status in docs | `CONTEXT.md` never records versions, test counts or "verified once" notes. Versions live in `VERSION.md`, and the checks decide what passes | F4. Those lines go stale every commit |
 | Budgets | Warning-only character budgets in `scripts/check-sizes.mjs`: `CLAUDE.md` 2k, `AGENTS.md` 5k, `CONTEXT.md` 24k, `VISION.md` 17k; plan docs in `docs/` over 220 lines | Same style as the source-size warning; it keeps the diet from eroding |
 | Reference check | New `scripts/check-docs.mjs` **fails** on a `` `X.md` [Sec. N] `` reference whose target file or heading does not exist | F9. Makes the split safe now and every later move |
@@ -51,7 +51,7 @@ Expected result: implementer boot ~29k chars (~7.5k tokens, −55%); planner boo
 - `PENDING.md` "Manual checks not run" (~9k chars): it is emptied when the phase closes, as `AGENTS.md` already says.
 - Blocking `docs/done/` in `.claude/settings.json`: living docs still cite `done/` sections until
   the phase closes, and a deny rule would stop agents from following those citations.
-- CI on GitHub Actions: `Infra03`, gets a line in `PENDING.md` [Sec. 3.5].
+- CI on GitHub Actions: `Infra03`, gets a line in `PENDING.md` ([Sec. 3.5]).
 
 ## 3. What changes
 
@@ -62,7 +62,11 @@ Expected result: implementer boot ~29k chars (~7.5k tokens, −55%); planner boo
   The doc-naming rules (`Dev`, `Fix`, `Infra`, `UPPER_CASE.md` guides) stay, since any agent can
   create a file. The living-guide list adds `PITFALLS.md`, `MINDS.md`, `ROADMAP.md`, `NOTION.md`, `PLANS.md`.
 - `CLAUDE.md`: the first paragraph points to the reading map ("Planner" row) instead of listing
-  three files "in full". The plan rule is unchanged.
+  three files "in full". The plan rule is unchanged; its "Closing a phase" pointer names `PLANS.md`.
+- Found during implementation: the two intro paragraphs of `AGENTS.md` become the reading map
+  ("Until then, VISION is the only reference" is stale, like F7). To meet the 5k budget, the two
+  Windows lines move to `PITFALLS.md` [Sec. 1] and the launcher-banner sentence to `VERSION.md`,
+  which the committer reads; the `docs/done/` lifecycle sentences move to `PLANS.md`.
 
 ### 3.2 `CONTEXT.md` and `docs/utils/PITFALLS.md`
 - Intro: replace the archived-docs paragraph (F3) with two lines: what the file is, and that
@@ -73,9 +77,9 @@ Expected result: implementer boot ~29k chars (~7.5k tokens, −55%); planner boo
 |---|---|---|
 | 1 | Launcher and Windows processes | `launcher/`, server start/stop, the database file |
 | 2 | World, generation and grid | `server/src/etherbound/world/`, generator versions |
-| 3 | Movement, net and client sync | `server/.../net/`, `web/src/net/`, movement code |
+| 3 | Movement, net and client sync | `server/.../net/`, `server/.../minds/`, `web/src/net/`, movement code |
 | 4 | Objects and physics | `engine/ops/`, object kinds, `grid.py`/`ChunkStore` volumes |
-| 5 | Renderer, atlas and assets | `web/src/game/`, `web/src/world/`, `src/sprites/` |
+| 5 | Renderer, atlas and assets | `web/src/game/`, `web/src/world/`, `web/src/ui/`, `src/sprites/` |
 | 6 | BitCanvas | `BitCanvas/` |
 | 7 | Tests and tooling | `scripts/`, Playwright, schema generation |
 
@@ -103,6 +107,10 @@ Expected result: implementer boot ~29k chars (~7.5k tokens, −55%); planner boo
   basename among living docs, then require a heading `## N.` or `### N.M` matching the
   number (the text after a comma, as in `[Sec. 1, Scope]`, is ignored). References into `done/`
   are skipped: they vanish at phase close. The error names the file, line and missing target.
+- Found during implementation: every numeric item of a list (`[Sec. 4, 6, 8]`) is checked;
+  double-backtick code spans and fenced blocks are examples and are skipped. Plan todo lists wrote
+  ``` `VERSION.md` [Sec. 4] ``` meaning their own section; those become
+  ``` `VERSION.md` ([Sec. 4]) ``` (here and in `Dev-023.md`), and `PLANS.md` [Sec. 2] records the convention.
 - `package.json`: `check:docs` runs it; `check` and `check:fast` run `check:docs` after `check:versions`.
 - `CONTEXT.md` "Commands" lists `check:docs`.
 
@@ -148,26 +156,26 @@ commit by `COMMITS.md` [Sec. 2] (a Z bump is expected).
 ## 7. Todo
 
 ### Decisions
-- [ ] Approve [Sec. 1]
+- [x] Approve [Sec. 1]
 
 ### Docs
-- [ ] Reading map and pointers in `AGENTS.md`; `CLAUDE.md` first paragraph [Sec. 3.1]
-- [ ] `PITFALLS.md`, pitfalls index, stale bullets, "Not yet present" [Sec. 3.2]
-- [ ] `MINDS.md`, `ROADMAP.md`, `VISION.md` summaries [Sec. 3.3]
-- [ ] `NOTION.md`, `PLANS.md`, `PENDING.md`, `README.md` [Sec. 3.5]
+- [x] Reading map and pointers in `AGENTS.md`; `CLAUDE.md` first paragraph [Sec. 3.1]
+- [x] `PITFALLS.md`, pitfalls index, stale bullets, "Not yet present" [Sec. 3.2]
+- [x] `MINDS.md`, `ROADMAP.md`, `VISION.md` summaries [Sec. 3.3]
+- [x] `NOTION.md`, `PLANS.md`, `PENDING.md`, `README.md` ([Sec. 3.5])
 
 ### Tooling
-- [ ] Doc budgets in `check-sizes.mjs` [Sec. 3.4]
-- [ ] `check-docs.mjs` and `package.json` scripts [Sec. 3.4]
+- [x] Doc budgets in `check-sizes.mjs` [Sec. 3.4]
+- [x] `check-docs.mjs` and `package.json` scripts [Sec. 3.4]
 
 ### Acceptance
-- [ ] [Sec. 6] 1–5
-- [ ] [Sec. 6] 6 (user)
+- [x] [Sec. 6] 1–5
+- [ ] [Sec. 6] 6 (user; in `PENDING.md`)
 
 ### Closing
-- [ ] `VERSION.md` [Sec. 4]; commit per `COMMITS.md`
+- [x] `VERSION.md` ([Sec. 4]); commit per `COMMITS.md`
 - [ ] Notion: Dev Blog entry (Kind `Infra`), Work Report for the date (per `NOTION.md`)
-- [ ] Move this doc to `docs/done/`
+- [x] Move this doc to `docs/done/`
 
 ---
 

@@ -32,8 +32,15 @@ Open decisions and loose ends. When one is settled, record the decision where it
       stock far from Niko is kept as numbers and becomes physical objects only when relevant
       (LOD), and the first tag list is kept short. Lands with the Phase 2 pizzeria.
 
+- [ ] **Jev runtime after Dev-025.** TypeSafe `choice` (Jev) must be reachable from the C# sim:
+      a .NET port, an HTTP endpoint, or a small sidecar process. Settle before Phase 3.
+
 ## Planned work
 
+- [ ] **Dev-025 C# sim and Godot client** (`Dev-025.md`): port to a deterministic C# simulation
+      and a Godot 4 .NET client with a 3D orthographic pixel-art camera, in seven stages proven by
+      goldens from Python. Dev-014/016/021/023/024 stay frozen and are deprecated at cut-over.
+      Approved 25/09/2026; stage 0 (look spike) done and its screenshots approved.
 - [ ] **Dev-014 AI furniture** (`Dev-014.md`): an LLM proposes furniture as a validated primitive
       spec that BitCanvas renders; lands after Dev-012. The `gamesync.js` syntax error was fixed
       independently by Fix10.

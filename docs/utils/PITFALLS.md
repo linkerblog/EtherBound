@@ -171,3 +171,17 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
   this is a screenshot settle, not a game-render change.
 - **Pytest warnings are third-party** (FastAPI/Starlette/pytest-asyncio deprecations), not project
   issues.
+
+## 8. Godot client
+
+- **`cull_disabled` flips `NORMAL` on faces seen from behind.** A quad wound the other way loses
+  the sun. The terrain shader passes the mesh normal through a varying (view space, via
+  `MODEL_NORMAL_MATRIX`) and writes it in `fragment()`, so light never depends on winding.
+- **In a custom `light()`, `LIGHT_COLOR` needs `/ PI`** (Godot 4.7). Without it the sun is π times
+  too strong; the stage-0 calibration measures tops at exactly the sheet colour with it.
+- **Coplanar faces z-fight under the ortho camera.** A slab's or the ground's edge face in the plane
+  of a wall's face shows as dark streaks; the mesher drops faces covered by a wall on that edge.
+- **Height is scaled on the render root, not in the meshes.** Meshes are built in metres
+  (`x`, `h / 2`, `y`); the root's `Y` scale √(2/3) turns 0.5 m into 16 px. Snap the camera in that
+  scaled space, and keep the SubViewport size even so tile corners land on pixel corners.
+

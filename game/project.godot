@@ -1,0 +1,28 @@
+; Engine configuration file.
+; Pinned to Godot 4.7.2-stable (.NET); see docs/Dev-025.md.
+
+config_version=5
+
+[application]
+
+config/name="EtherBound"
+run/main_scene="res://spike/Spike.tscn"
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/vsync/vsync_mode=0
+
+[dotnet]
+
+project/assembly_name="EtherBound.Game"
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
+textures/canvas_textures/default_texture_filter=0
+anti_aliasing/quality/msaa_3d=0
+lights_and_shadows/directional_shadow/size=8192
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=0

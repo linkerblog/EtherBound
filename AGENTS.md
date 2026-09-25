@@ -19,6 +19,8 @@ and the build order; several rules below look arbitrary until you read why they 
   propose; the engine validates, resolves and commits.
 - **One action API.** Player, Agents and Extras act through the same ops. No actor gets a private
   shortcut, including the player.
+- **The client never simulates.** Godot draws sim snapshots and sends commands; no game state
+  lives in nodes, and Godot physics never decides an outcome.
 - **Systems talk only through the event bus.** A new system is a new subscriber. If it needs to
   change the core, stop and write a doc first.
 - **Reactions come from knowledge.** An NPC reacts only to what it perceived or was told, never to
@@ -35,22 +37,17 @@ and the build order; several rules below look arbitrary until you read why they 
 
 ## Conventions
 
-- **Docs.** `AGENTS.md`, `CLAUDE.md` and `CONTEXT.md` are the root entry points. Every other `.md`
-  goes in `docs/`, never in the root nor in code subdirectories. Living guides use `UPPER_CASE.md`
-  in `docs/utils/` (`VISION`, `MINDS`, `ROADMAP`, `VERSION`, `COMMITS`, `STYLEGUIDE`, `PITFALLS`,
-  `NOTION`, `PLANS`); versioned work docs use `Dev-XYZ.md` (`Dev-001`, `Dev-002`, etc., according to
-  the development version), reviews use `FixNN.md`, and work that changes only tooling, the launcher,
-  tests or process docs uses `InfraNN.md`. A doc that changes any `server.*` or `web.*` module is a
-  `Dev`; one that does not is an `Infra`. Before creating any
-  `.md` file, check whether it already exists and update or reuse it instead of creating a duplicate.
+- **Docs.** `AGENTS.md`, `CLAUDE.md` and `CONTEXT.md` are the root entry points; every other `.md`
+  goes in `docs/`. Living guides use `UPPER_CASE.md` in `docs/utils/`. Work docs: `Dev-XYZ.md`
+  (`Dev-001`, `Dev-002`, etc., by development version) for any change to a game module (`sim.*`,
+  `game.*`, and `server.*`/`web.*` until `Dev-025` retires them), `FixNN.md` for reviews, and
+  `InfraNN.md` for tooling, launcher, tests or process only. Before creating any `.md`, check
+  whether it already exists and reuse it.
 - **Plans.** Lifecycle (`docs/` → `docs/done/`), format and closing a phase: `docs/utils/PLANS.md`.
 - **Vision changes go to `docs/utils/VISION.md` first.** If a decision changes, update the doc, then the code.
-- **Versions.** `docs/utils/VERSION.md` lists every module and its version. Every module starts at
-  `v0.0.0`; on every modification, bump the affected module's version by `0.0.1` and update
-  `docs/utils/VERSION.md` in the same change. A change that touches several modules bumps each of them.
-  Its overall project version must match the version assigned to the latest commit. Every commit
-  follows `docs/utils/COMMITS.md`; the overall
-  version and the commit bumps follow `docs/utils/COMMITS.md` [Sec. 2], enforced by
+- **Versions.** `docs/utils/VERSION.md` lists every module (from `v0.0.0`); a change bumps each
+  module it touches by `0.0.1` in the same change, and the overall version matches the latest
+  commit. Commits and the overall bump follow `docs/utils/COMMITS.md` [Sec. 2], enforced by
   `scripts/check-versions.mjs`.
 - **English only.** Code, comments, prompts, identifiers, docs and player-facing text are English.
   Identifiers are ASCII (no accents, no `ñ`); player-facing text is not bound by that. Never mix two
@@ -61,14 +58,15 @@ and the build order; several rules below look arbitrary until you read why they 
   comment it.
 - **Notion.** Every system update and completed task is reflected in the EtherBound Notion page;
   the rules are in `docs/utils/NOTION.md`.
-- **Schema changes ship as migrations.** Every change to the database models comes with an Alembic
-  migration. Never wipe the savegame to change the schema.
-- **Type contract.** Pydantic models are the source of truth; the TypeScript types in the web client
-  are generated from the OpenAPI schema, never written by hand.
-- **Determinism.** Randomness goes through the seeded RNG stream of its system. No bare
-  `random` calls, no wall-clock time inside the simulation. Ruff `TID251` fails a bare `random`,
-  `time.time`, `time.time_ns` or `datetime.now` outside `rng.py`, and `test_architecture.py` keeps
-  the database imports inside the engine.
+- **Schema changes ship as migrations.** Every database model change comes with a numbered
+  migration (Alembic in `server/`, the sim's runner in `sim/`). Never wipe the savegame to change
+  the schema.
+- **Type contract.** The sim's C# types are the only definition; `game/` links the sim assembly.
+  In `server/` and `web/`, until `Dev-025` ends, Pydantic → OpenAPI → generated TypeScript.
+- **Determinism.** Randomness goes through the seeded RNG stream of its system; no wall-clock time
+  inside the simulation. `sim/` bans `System.Random`, `DateTime.Now` and similar through
+  `BannedSymbols.txt`, `server/` through Ruff `TID251`; architecture tests keep database access
+  inside the engine.
 - **Before calling something done:** run `npm run check` (after `npm run setup` once per clone for
-  the git hooks). Add `npm run check:visual` when the renderer or sprite sheets changed. `Dev-001`
-  fixes the exact history; `CONTEXT.md` keeps the commands afterwards.
+  the git hooks), plus `npm run check:visual` when the renderer or art changed. Commands live in
+  `CONTEXT.md`.

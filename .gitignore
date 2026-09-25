@@ -16,3 +16,8 @@ __pycache__/
 /EtherBound.exe
 launcher/**/bin/
 launcher/**/obj/
+game/.godot/
+game/bin/
+game/obj/
+game/spike/dumps/
+game/spike/out/

@@ -31,13 +31,17 @@ out of how the world is built, and the world reacts in ways that are correct but
 
 ## 3. Fixed decisions
 
+Stack changed 25/09/2026 (`Dev-025`): crowds, physics, shaders and a long world need native
+speed and a depth buffer.
+
 | Topic | Decision |
 |---|---|
-| Backend | Python, FastAPI, WebSocket for world streaming |
-| Frontend | Phaser 3 for the world + HTML overlay for text, scenes and panels |
-| Type contract | Pydantic models → OpenAPI → generated TypeScript types |
-| Persistence | SQLite with real migrations (SQLAlchemy + Alembic). No "reset to change schema" |
-| Camera | Isometric 2:1, fixed (no rotation). A 1 m tile is a 64×32 px diamond; 0.5 m of height is 16 px. Own pixel art. Terrain sheets and furniture sprites are generated with BitCanvas (`BitCanvas/`), seeded; a furniture piece's shape may be proposed by an LLM as a validated primitive spec that BitCanvas renders [Sec. 13]; the LimeZu packs remain a reference base |
+| Players | Singleplayer only. No network layer between simulation and client |
+| Simulation | C# (.NET) library: world engine, systems, persistence. Deterministic, no engine types, on its own thread |
+| Client | Godot 4 (.NET) in the same process: draws snapshots, sends commands, never simulates. Godot UI for text, scenes and panels |
+| Type contract | The sim's C# types are the only definition; the client links the sim assembly, so nothing is generated |
+| Persistence | SQLite with numbered migrations run by the sim. No "reset to change schema" |
+| Camera | Isometric 2:1, fixed (no rotation). Real 3D geometry, orthographic camera (yaw 45°, pitch 30°) rendered to a low-res buffer and scaled by whole factors: pixel art with depth, light, shadows and ambient occlusion. A 1 m tile is a 64×32 px diamond; 0.5 m of height is 16 px. Own pixel art: BitCanvas (`BitCanvas/`) generates seeded textures and furniture shapes; a shape may be proposed by an LLM as a validated primitive spec [Sec. 13]; the LimeZu packs remain a reference base |
 | Scale | 1 tile = 1 m, chunked |
 | Terrain | Fine heightmap surface (hills, slopes) + building floors + excavable underground |
 | Clock | 1 real s = 1 game min by default, configurable. Pause, x1/x3/x10. Autopause in scenes |
@@ -68,8 +72,8 @@ out of how the world is built, and the world reacts in ways that are correct but
 - **Systems never call each other.** They subscribe to events and request changes through the
   engine; only the engine enqueues events. A new system is a new subscriber; if it needs to change
   the core, stop and rethink.
-- **Clock:** the server owns a 1 Hz logic tick (one game minute). Phaser interpolates between
-  snapshots. WASD movement uses client prediction with server correction.
+- **Clock:** the sim owns a 1 Hz logic tick (one game minute). The client interpolates between
+  snapshots; WASD is a `move` command the sim validates like any action, with no prediction.
 - **Async LLM:** the world does not wait for a model. An Agent keeps executing its current plan
   while the LLM thinks; the answer is re-validated on arrival. Calls in flight during a pause are
   applied on resume, never mid-scene.
@@ -116,8 +120,9 @@ neighbour takes the `climb` op; anything higher needs a ladder or another vertic
   carry objects in two hands and in worn slots; carried mass slows them (`Dev-012`).
 - **Physics (tile-based, not a physics engine):** bodies have mass; a hit is an impulse; the body
   travels tile by tile; on collision, impact energy against material resistance decides whether the
-  wall breaks (becomes rubble and an opening) or the body takes the damage. Phaser only animates the
-  trajectory the server computed. Decided on 23/09/2026 (`Dev-013`):
+  wall breaks (becomes rubble and an opening) or the body takes the damage. The client only
+  animates the trajectory the sim computed; Godot's physics engine is never used for game state.
+  Decided on 23/09/2026 (`Dev-013`):
   - **Resolved at action time, not per tick.** The 1 Hz clock cannot simulate seconds; a push
     computes the whole path inside one `submit` and commits one event carrying it.
   - **SI units:** kg, m/s, joules. Material `resistance` becomes the energy half a metre of the
@@ -126,9 +131,8 @@ neighbour takes the `climb` op; anything higher needs a ladder or another vertic
   - **Data-defined strikes.** A held `Tool` may supply `strike_speed_m_s`; strike energy is derived
     from that speed and the tool's mass. Bare hands use the standardized effective mass and speed
     in the physics profile. Tool capabilities stay in object data, not per-tool code.
-  - **Effort profile.** A shove transfers momentum at 2 m/s using reduced mass. A throw is capped
-    at 8 m/s and 100 J. Bare-hand strikes use 2 kg at 5 m/s. Horizontal travel loses
-    `0.05 × mass × 9.81` joules per metre; falls convert `mass × 9.81 × height` to impact energy.
+  - **Effort profile.** Shove, throw, bare-hand and friction constants are data in the physics
+    profile (values in `CONTEXT.md`, Physics).
   - **Cumulative damage.** Integrity is remaining joules. An intact object starts at its material
     resistance times its height in half-metre cells (at least one cell); a wall edge spans six
     cells. Partial wall damage is stored sparsely against its canonical north/west edge. At zero an
@@ -260,8 +264,8 @@ Tracked in `docs/PENDING.md`.
 ## TL;DR
 
 EtherBound is an endless isometric life sandbox (Zomboid + RimWorld + LLM) where Niko, the only
-Ether bearer, lives in a city of hybrids. FastAPI + Phaser, SQLite with migrations, 1 s = 1 min
-with pause. Eight primitives and one shared op API make jobs, factions, laws and consequences
+Ether bearer, lives in a city of hybrids. Singleplayer C# sim + Godot, 3D ortho pixel art, SQLite
+with migrations, 1 s = 1 min with pause. Eight primitives and one shared op API make jobs, factions, laws and consequences
 emerge instead of being scripted. Extras run on rules, Agents on LLM (strategy) + Jev (tactics),
 the storyteller proposes and the world engine alone commits. Build order: skeleton → core without
 LLM → one-block vertical slice that must produce unprogrammed behavior → minds → scale.

@@ -23,6 +23,7 @@ changes go here first, then the code.
 - [x] Tile physics: impulse, knockback, breakable walls
 - [ ] Seeded RNG streams and the decision log
 - [x] Isometric renderer with placeholder art (`Dev-008`)
+- [ ] Port to a C# sim and a Godot 3D orthographic client, same behaviour (`Dev-025`)
 
 ### Phase 2: Vertical slice
 One block: a pizzeria, an alley, a park, about 20 Extras.

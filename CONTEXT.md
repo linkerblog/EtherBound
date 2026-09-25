@@ -22,7 +22,8 @@ Design lives in `docs/utils/VISION.md`.
 | web.ui | `web/src/ui/` (`ContextMenus.tsx`, `NewGamePopover.tsx`, `DebugViews.tsx`, `HudPanels.tsx`) | React overlay in a framed viewport with `GAME`/`DEBUG`/`LLM` view tabs (`viewTabs.ts`, `Alt+1..3`): clock, speeds, pills, meters, `CARRY`, `FEED`, `ACT`, input, context/radial menus (`radialMenu.ts`), `NEW` map select; the `DEBUG` view holds the `MAP` generator form (`genForm.ts`), `LLM` is a placeholder. No debug drawer. |
 | launcher | `launcher/` | `EtherBound.exe`, the C# (.NET 10, Native AOT) dev launcher: server + web jobs, health checks, hot reload, leftover and port handling. |
 | bitcanvas | `BitCanvas/` (`pixelart.js`, `gamesync.js`, `core.js`, `terrain.js`, `sides.js`, `furnitureData.js`, `furniture.js`, `app.js`) | Standalone seeded texture and furniture generator (classic deferred scripts, HTML/JS, no build) with guarded "Send to game" sync. |
-| tooling | root config: `package.json`, `global.json`, `.gitignore`, `.env.example` | Build and check scripts, pinned .NET SDK. |
+| game.app, game.render | `game/` (`project.godot`, `EtherBound.Game.csproj`, `spike/`) | Dev-025 stage 0 look spike: Godot 4.7.2 .NET, `net10.0`. Loads a JSON world dump and draws it with the ortho camera, iso-space shader, sun, SSAO and cutaway; `--shots`, `--bench` and `--shimmer` modes. Not wired to the sim yet. |
+| tooling | root config: `package.json`, `global.json`, `.gitignore`, `.env.example`; `server/scripts/` | Build and check scripts, pinned .NET SDK, `export_world.py` (world dumps for `game/`). |
 
 ## Data model
 
@@ -200,6 +201,8 @@ npm run setup
 
 # Launcher: build once, and again after changing launcher/ (the exe is gitignored)
 npm run bitcanvas             # open the standalone sprite generator
+cd server && uv run python scripts/export_world.py   # dumps for the Godot spike
+"$GODOT_BIN" --path game -- --world test-7 [--shots|--bench|--shimmer DIR]
 npm run launcher:build        # Native AOT publish, copies EtherBound.exe to the root
 EtherBound.exe                # server (hot reload) + web; keys O R W L H Q; logs in logs\
 EtherBound.exe --no-reload    # no restart on saved server sources
@@ -249,6 +252,7 @@ the areas you touch.
 | 5 | Renderer, atlas and assets | `web/src/game/`, `web/src/world/`, `web/src/ui/`, `src/sprites/` |
 | 6 | BitCanvas | `BitCanvas/` |
 | 7 | Tests and tooling | `scripts/`, Playwright, schema generation |
+| 8 | Godot client | `game/`, shaders, camera, light |
 
 ## Not yet present
 

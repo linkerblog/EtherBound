@@ -83,6 +83,12 @@ canvas; that approval is tracked under Dev-019.
       The paused visual spec generated both baselines; GUI acceptance and user approval remain open.
       See `done/Fix13.md` [Sec. 5] acceptance 6.
 
+- [ ] **Fix14 body occlusion:** in the user's lab save at x1 and x2, walk the outside of all four
+      walls and stand at the spot in the user's screenshot. No floor more than 2 m above Niko hides
+      him, wall-walking causes no cut/uncut flashing, and the silhouette shows for steps, hills and
+      objects. Manual because it is a frame-feel check in the user's save. See `done/Fix14.md`
+      [Sec. 4] acceptance 3.
+
 - [ ] **Dev-018 basic Extras:** in the running game at seed 7, six green bodies stand near the spawn
       and, unpaused, walk and wait near their homes without overlapping the tiles they walk; `Inspect`
       on one reads `<name>. Standing.`/`Walking.`/`Waiting.`; `Push`/`Hit` name it. Its paused
@@ -182,7 +188,9 @@ open, and actor-vs-actor collision stays deferred. Dev-019 is implemented: a fra
 `GAME`/`DEBUG`/`LLM` tabs; its baseline approval and GUI/Edge checks remain open. Dev-020's walls
 are corrected by Fix13: the faces hang from their draw height and the render-only thickness is
 1/4 m with a parallelogram strip, end faces and a corner post. Fix13's baseline approval and
-x1–x4 GUI acceptance remain open. Two deferred items (input replay, events to the client) plus lost
+x1–x4 GUI acceptance remain open. Fix14 selects structure cutaways from body-height probes every
+frame with a one-tile release; its lab GUI acceptance remains open. Two deferred items (input replay,
+events to the client) plus lost
 activity progress, actor pass-through and W/A/S/D
 swallowed in text fields. Manual
 acceptances remain for

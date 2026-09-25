@@ -10,7 +10,7 @@ import { defaultZoom, loadZoom, saveZoom, stepZoom, WheelAccumulator, type ZoomL
 import { H_PX, TILE_H, TILE_W, keysToWorld, nikoDepth, screenToRay, toScreen } from "./iso";
 import { cutoffH } from "../world/cutaway";
 import { pickTile } from "../world/pick";
-import { isCovered, occludingStructures, type Structure } from "../world/occlusion";
+import { isCovered, StructureTracker } from "../world/occlusion";
 import { cutoffChunkKeys, changedChunkKeys, materialChunkKeys, structureChunkKeys, tileChunkKeys, viewerHeightChunkKeys, type ChunkBounds } from "./dirty";
 import { TERRAIN_SHEETS, TERRAIN_SIDE_SHEETS } from "./terrainSheets";
 import { OBJECT_SHEETS } from "./objectSheets";
@@ -67,7 +67,7 @@ export class MapScene extends Phaser.Scene {
   private nikoTile = "";
   private cutoff = Number.POSITIVE_INFINITY;
   private readonly dirtyChunks = new Set<string>();
-  private structures: Structure[] = [];
+  private readonly structureTracker = new StructureTracker();
   private telemetryOrigin: { x: number; y: number } | null = null;
   private telemetryElapsed = 0;
   private removeStateListener?: () => void;
@@ -189,7 +189,7 @@ export class MapScene extends Phaser.Scene {
       this.physicsAnimator.clear();
       this.clearChunkLayers();
       this.chunks.clear();
-      this.structures = [];
+      this.structureTracker.clear();
       this.nikoGhost.setVisible(false);
       this.extrasLayer.clear();
       this.hasAuthoritativePosition = false;
@@ -228,9 +228,11 @@ export class MapScene extends Phaser.Scene {
       const key = `${chunk.cx},${chunk.cy}`;
       if (this.chunkRenderer.hasLayers(key)) this.chunkRenderer.updateChunkBounds(chunk);
       else this.chunkRenderer.layersFor(chunk);
-      if (this.structures.some((structure) => this.chunkTouchesStructure(chunk.cx, chunk.cy, structure))) {
-        const [x, y] = this.nikoTile.split(",").map(Number);
-        this.refreshStructures(x, y, this.viewerH, this.cutoff);
+      if (this.structureTracker.touches(chunk.cx, chunk.cy, this.chunks.size)) {
+        const bounds = this.structureTracker.rebuild(this.chunks);
+        if (bounds.length > 0) {
+          this.markDirty(structureChunkKeys(this.dirtyChunkInfo(), this.chunks.size, bounds));
+        }
       }
       this.markDirty(changedChunkKeys(this.dirtyChunkInfo(), `${chunk.cx},${chunk.cy}`));
     });
@@ -367,16 +369,17 @@ export class MapScene extends Phaser.Scene {
   private setViewer(x: number, y: number, h: number): void {
     const tile = `${Math.floor(x)},${Math.floor(y)}`;
     const nextCutoff = cutoffH(this.chunks, x, y, h);
-    if (h === this.viewerH && tile === this.nikoTile && nextCutoff === this.cutoff) return;
     const oldH = this.viewerH;
     const oldTile = this.nikoTile;
     const oldCutoff = this.cutoff;
     this.viewerH = h;
     this.nikoTile = tile;
     this.cutoff = nextCutoff;
-    if (oldH !== h || oldTile !== tile || oldCutoff !== nextCutoff) {
-      this.refreshStructures(Math.floor(x), Math.floor(y), h, nextCutoff);
+    const structureBounds = this.structureTracker.update(this.chunks, x, y, h, nextCutoff);
+    if (structureBounds.length > 0) {
+      this.markDirty(structureChunkKeys(this.dirtyChunkInfo(), this.chunks.size, structureBounds));
     }
+    if (oldH === h && oldTile === tile && oldCutoff === nextCutoff) return;
     const chunks = this.dirtyChunkInfo();
     if (oldH !== h) this.markDirty(viewerHeightChunkKeys(chunks, oldH, h));
     if (oldCutoff !== nextCutoff) this.markDirty(cutoffChunkKeys(chunks));
@@ -387,30 +390,7 @@ export class MapScene extends Phaser.Scene {
   }
 
   private cutoffAt(x: number, y: number): number {
-    const tile = `${Math.floor(x)},${Math.floor(y)}`;
-    const structureCutoff = this.structures.find((structure) => structure.tiles.has(tile))?.cutoff ?? Infinity;
-    return Math.min(this.cutoff, structureCutoff);
-  }
-
-  private refreshStructures(x: number, y: number, h: number, cutoff: number): void {
-    const previous = this.structures;
-    const next = occludingStructures(this.chunks, x, y, h, cutoff);
-    const signature = (structures: Structure[]): string[] => structures
-      .map((structure) => `${[...structure.tiles].sort().join(";")}|${structure.cutoff}`)
-      .sort();
-    if (JSON.stringify(signature(previous)) === JSON.stringify(signature(next))) return;
-    this.structures = next;
-    const bounds = [...previous, ...next].map((structure) => structure.bounds);
-    this.markDirty(structureChunkKeys(this.dirtyChunkInfo(), this.chunks.size, bounds));
-  }
-
-  private chunkTouchesStructure(cx: number, cy: number, structure: Structure): boolean {
-    const minX = cx * this.chunks.size;
-    const minY = cy * this.chunks.size;
-    const maxX = minX + this.chunks.size;
-    const maxY = minY + this.chunks.size;
-    const bounds = structure.bounds;
-    return minX < bounds.maxX && maxX > bounds.minX && minY < bounds.maxY && maxY > bounds.minY;
+    return this.structureTracker.cutoffAt(x, y, this.cutoff);
   }
 
   private updateCulling(): void {

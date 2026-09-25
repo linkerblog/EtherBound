@@ -344,8 +344,10 @@ it skips generated `web/src/net/schema.d.ts` and warns without failing. Only
   Browser frame-time estimates remain unmeasured until the manual Fix05 acceptance is run.
 - **A face mask is anchored to its owner tile, not inferred from its first edge vertex.** Pass its
   side and owner coordinates separately so south and east faces cannot drift across a ledge.
-- **Select structure cutaways from uncut world geometry, but apply their cutoff per tile at draw and
-  pick time.** Re-probing the already cut map can make a building alternate between cut and visible.
+- **Occlusion probes follow Niko's body, not a shortened feet ray.** Trace each point with
+  `t = x + y - (viewerH + probeH)`, and select structures every frame from Niko's rendered
+  position against uncut geometry. Keep the cut for one tile beyond its last covering point and
+  apply its cutoff per tile at draw and pick time; probing the cut map can make a building flicker.
 - **Assets outside `web/` must be static imports.** Vite refuses a `new URL(…, import.meta.url)`
   request for a file outside its serving allow list, silently (Phaser just fails the load). A file
   in the module graph is let through, so the sheets in the root `src/sprites/` are imported

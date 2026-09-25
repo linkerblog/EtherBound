@@ -5,11 +5,11 @@ import { scaleColor, sideVariant } from "./terrainSprites";
 import type { TerrainAtlas } from "./terrainAtlas";
 import type { ChunkLayers } from "./chunkRenderer";
 import type { ChunkStore } from "../world/ChunkStore";
+import { isFrontWall as frontWallCutaway, MAX_WALL_H } from "../world/cutaway";
 
 type Material = components["schemas"]["MaterialResponse"];
 
-const CUT_DEPTH = 8, CUT_WIDTH = 3;
-export const MAX_WALL_H = 6;
+export { MAX_WALL_H } from "../world/cutaway";
 
 type WallPainterView = {
   readonly viewerH: number;
@@ -43,12 +43,7 @@ export class WallPainter {
 
   isFrontWall(edge: "n" | "w", x: number, y: number, base: number): boolean {
     const [nx, ny] = this.view.nikoTile.split(",").map(Number);
-    const mx = edge === "n" ? x + 0.5 : x;
-    const my = edge === "n" ? y : y + 0.5;
-    return (edge === "n" ? y > ny : x > nx) &&
-      (mx + my) - (nx + ny + 1) > 0 && (mx + my) - (nx + ny + 1) <= CUT_DEPTH &&
-      Math.abs((mx - my) - (nx - ny)) <= CUT_WIDTH &&
-      base < this.view.viewerH + 4 && base + MAX_WALL_H > this.view.viewerH;
+    return frontWallCutaway(this.chunks, edge, x, y, base, { x: nx!, y: ny! }, this.view.viewerH);
   }
 
   drawWall(

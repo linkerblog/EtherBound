@@ -348,6 +348,8 @@ it skips generated `web/src/net/schema.d.ts` and warns without failing. Only
   `t = x + y - (viewerH + probeH)`, and select structures every frame from Niko's rendered
   position against uncut geometry. Keep the cut for one tile beyond its last covering point and
   apply its cutoff per tile at draw and pick time; probing the cut map can make a building flicker.
+- **A front-wall stub needs a clear floor-plan line from Niko's tile centre.** The screen window
+  alone cuts walls behind other shown walls; doorway edges are open and window walls still block.
 - **Assets outside `web/` must be static imports.** Vite refuses a `new URL(…, import.meta.url)`
   request for a file outside its serving allow list, silently (Phaser just fails the load). A file
   in the module graph is let through, so the sheets in the root `src/sprites/` are imported

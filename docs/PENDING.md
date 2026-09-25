@@ -89,6 +89,11 @@ canvas; that approval is tracked under Dev-019.
       objects. Manual because it is a frame-feel check in the user's save. See `done/Fix14.md`
       [Sec. 4] acceptance 3.
 
+- [ ] **Fix15 front-wall stubs:** in the user's lab save at x1 and x2, walk along all four outer
+      walls, around each corner and through the west doorway. No section on the far side of a wall
+      disappears; the wall directly in front still drops to a stub, and the interior cut is unchanged.
+      Manual because this is a visual check in the user's save. See `done/Fix15.md` [Sec. 4] acceptance 4.
+
 - [ ] **Dev-018 basic Extras:** in the running game at seed 7, six green bodies stand near the spawn
       and, unpaused, walk and wait near their homes without overlapping the tiles they walk; `Inspect`
       on one reads `<name>. Standing.`/`Walking.`/`Waiting.`; `Push`/`Hit` name it. Its paused
@@ -189,7 +194,8 @@ open, and actor-vs-actor collision stays deferred. Dev-019 is implemented: a fra
 are corrected by Fix13: the faces hang from their draw height and the render-only thickness is
 1/4 m with a parallelogram strip, end faces and a corner post. Fix13's baseline approval and
 x1–x4 GUI acceptance remain open. Fix14 selects structure cutaways from body-height probes every
-frame with a one-tile release; its lab GUI acceptance remains open. Two deferred items (input replay,
+frame with a one-tile release; its lab GUI acceptance remains open. Fix15 limits front-wall stubs to
+unobstructed sightlines; its lab GUI acceptance remains open. Two deferred items (input replay,
 events to the client) plus lost
 activity progress, actor pass-through and W/A/S/D
 swallowed in text fields. Manual

@@ -257,8 +257,10 @@ only renders them.
 
 ### Radial menu (`V`)
 
-The same server entries for Niko's own tile, arranged on rings around him. The hub names the target
-and the focused option; the client never hides an op (an unavailable slot is dim, never removed).
+The same server entries for Niko's tile and his open neighbours (`radius=1`), in two levels
+(`done/Fix17.md`). Level 1 is one slot per verb on rings around him; level 2 shows that verb's targets,
+each in the screen direction of its tile. The hub names the target and the focused option; the
+client never hides an op (an unavailable slot is dim, never removed).
 
 ```css
 .radial { position: fixed; z-index: 40; width: 0; height: 0; }
@@ -271,11 +273,31 @@ and the focused option; the client never hides an op (an unavailable slot is dim
 .radial-slot.illegal { color: var(--red); }
 .radial-slot.ether { color: var(--magenta); }
 .radial-slot.violent .radial-op::before { content: "! "; color: var(--yellow); }
+.radial-slot.radial-tile { width: 132px; height: 34px; min-width: 0; max-width: none; justify-content: center; }
+.radial-hub .radial-header { display: block; width: 100%; border: 0; border-bottom: 1px solid var(--line); background: none; color: var(--cyan); font-weight: 600; }
+button.radial-header::before { content: "‹ "; color: var(--dim); }
+.radial-hub .radial-row { display: block; width: 100%; margin: 0 0 4px; padding: 3px 6px; border: 1px solid var(--line-hi); background: var(--panel-a); }
+.radial-hub .radial-row:hover, .radial-hub .radial-row.focus { background: var(--cyan); color: var(--bg); border-color: var(--cyan); }
 ```
 
-- `V` toggles; ←/↑ and →/↓ cycle, `1`–`9` focus by position, Enter/Space pick, Esc closes.
-- Eight per ring, first at the top, clockwise; further options go to a wider ring.
-- The radial is anchored on Niko and follows him while open; clicking the hub closes it.
+- `V` toggles and closes from either level. The radial is anchored on Niko and follows him while
+  open.
+- **Level 1, verbs.** One slot per `op`, in catalog order; eight per ring, first at the top,
+  clockwise, further verbs on a wider ring. A verb with one entry shows it whole (`OPEN` /
+  `CHEST`) and runs at once; one with several opens level 2. A verb is `.off` only when every
+  entry under it is. ←/↑ and →/↓ cycle, `1`–`9` focus by position, Enter/Space pick, Esc or a
+  click on the hub closes.
+- **Level 2, targets.** The hub shows the verb as `.radial-header` (click to go back), then one
+  `.radial-row` per entry on Niko's own tile. Every other entry is a fixed-size `.radial-tile`
+  slot in its tile's screen octant: up and down columns sit above and below the hub, the other
+  six on two side lanes; a tile with several entries forms a column growing away from the hub.
+  Lines reach only the first slot of each column. The label is the entry's subject, or the
+  tile's surface (`GRASS`).
+- **Level 2 keys.** ←/↑ and →/↓ cycle hub rows, then octants clockwise from up. The numpad is the
+  3×3 around Niko: `8` up, `9` up-right, `6` right, `3` down-right, `2` down, `1` down-left, `4`
+  left, `7` up-left, `5` the hub rows; the same digit again steps down that column. Enter/Space
+  pick; `Esc`/`Backspace` go back to level 1.
+- While a target (or a single-entry verb) has focus, its tile gets a 1 px cyan outline on the map.
 
 ---
 

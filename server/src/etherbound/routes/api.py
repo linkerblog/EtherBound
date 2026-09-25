@@ -3,7 +3,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field, ValidationError
 
-from etherbound.engine.actions import MenuEntry
+from etherbound.engine.actions import MenuEntry, MenuPlace
 from etherbound.engine.world import PLAYER_ID, WorldEngine
 from etherbound.world.gen.registry import DEFAULT_GENERATOR, GENERATORS, option_fields
 
@@ -137,6 +137,7 @@ class MenuResponse(BaseModel):
     z: int
     target: str
     ops: list[MenuEntry]
+    places: list[MenuPlace]
 
 
 class EventRecord(BaseModel):
@@ -340,10 +341,16 @@ def menu(
     x: float = Query(...),
     y: float = Query(...),
     z: int = Query(0),
+    radius: int = Query(0, ge=0, le=1),
     engine: WorldEngine = Depends(get_engine),  # noqa: B008
 ) -> MenuResponse:
     # The client only plays Niko, so menus are computed for him.
-    payload = engine.menu(PLAYER_ID, x, y, z)
+    payload = engine.menu(PLAYER_ID, x, y, z, radius)
     return MenuResponse(
-        x=payload.x, y=payload.y, z=payload.z, target=payload.target, ops=list(payload.entries)
+        x=payload.x,
+        y=payload.y,
+        z=payload.z,
+        target=payload.target,
+        ops=list(payload.entries),
+        places=list(payload.places),
     )

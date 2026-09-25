@@ -7,7 +7,7 @@ import { loadMaterials } from "../world/materials";
 import { loadObjectKinds } from "../world/objects";
 import type { components } from "../net/schema";
 import { defaultZoom, loadZoom, saveZoom, stepZoom, WheelAccumulator, type ZoomLevel } from "./zoom";
-import { H_PX, TILE_H, TILE_W, keysToWorld, nikoDepth, screenToRay, toScreen } from "./iso";
+import { H_PX, TILE_H, TILE_W, keysToWorld, nikoDepth, rowDepth, screenToRay, toScreen } from "./iso";
 import { cutoffH } from "../world/cutaway";
 import { pickTile } from "../world/pick";
 import { isCovered, StructureTracker } from "../world/occlusion";
@@ -55,6 +55,7 @@ export class MapScene extends Phaser.Scene {
   private objectKinds = new Map<string, ObjectKind>();
   private niko!: Phaser.GameObjects.Graphics;
   private nikoGhost!: Phaser.GameObjects.Graphics;
+  private tileMarker!: Phaser.GameObjects.Graphics;
   private prediction = new ClientPrediction(EMPTY_POSITION);
   private hasAuthoritativePosition = false;
   private viewerH = 0;
@@ -140,6 +141,7 @@ export class MapScene extends Phaser.Scene {
     this.nikoGhost.lineStyle(2, 0xffffff, 0.9);
     this.nikoGhost.strokeRoundedRect(-9, -60, 18, 58, 6);
     this.nikoGhost.setDepth(Number.MAX_SAFE_INTEGER).setVisible(false);
+    this.tileMarker = this.add.graphics().setVisible(false);
 
     this.keys = {
       up: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.W),
@@ -191,6 +193,7 @@ export class MapScene extends Phaser.Scene {
       this.chunks.clear();
       this.structureTracker.clear();
       this.nikoGhost.setVisible(false);
+      this.markTile(null);
       this.extrasLayer.clear();
       this.hasAuthoritativePosition = false;
       this.telemetryOrigin = null;
@@ -286,6 +289,26 @@ export class MapScene extends Phaser.Scene {
       screenX: (this.niko.x - camera.worldView.x) * camera.zoom + bounds.left,
       screenY: (this.niko.y - camera.worldView.y) * camera.zoom + bounds.top,
     };
+  }
+
+  /** Outlines the top of the tile the radial menu points at; null clears it. */
+  markTile(tile: { x: number; y: number; h: number } | null): void {
+    if (!this.tileMarker) return;
+    this.tileMarker.clear();
+    if (!tile) {
+      this.tileMarker.setVisible(false);
+      return;
+    }
+    const corners = [
+      toScreen(tile.x, tile.y, tile.h),
+      toScreen(tile.x + 1, tile.y, tile.h),
+      toScreen(tile.x + 1, tile.y + 1, tile.h),
+      toScreen(tile.x, tile.y + 1, tile.h),
+    ];
+    this.tileMarker.lineStyle(1, 0x57c7ff, 1);
+    this.tileMarker.strokePoints(corners.map((corner) => ({ x: corner.sx, y: corner.sy })), true);
+    // Over the tile's own row, so it shows on a raised top, and under Niko and actors on that row.
+    this.tileMarker.setDepth(rowDepth(tile.x + tile.y) + 0.5).setVisible(true);
   }
 
   /** Gates WASD and the zoom keys while another view covers the world. */

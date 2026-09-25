@@ -263,3 +263,16 @@ class MenuEntry(BaseModel):
     subject: str | None = None
     # Submitted back unchanged, so the menu never offers what submit would build differently.
     action: Action
+    # Offset from the menu's origin tile of the tile whose candidate built this entry, so the
+    # radial can place it in that tile's screen direction. Self, held and worn stay at 0, 0.
+    tile_dx: int = 0
+    tile_dy: int = 0
+
+
+class MenuPlace(BaseModel):
+    """One scanned tile of a menu: its offset from the origin, surface height and material."""
+
+    dx: int
+    dy: int
+    h: int
+    label: str

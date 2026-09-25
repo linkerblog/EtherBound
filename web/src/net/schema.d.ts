@@ -432,6 +432,30 @@ export interface components {
             subject?: string | null;
             /** Action */
             action: components["schemas"]["MoveAction"] | components["schemas"]["InspectAction"] | components["schemas"]["WaitAction"] | components["schemas"]["DigAction"] | components["schemas"]["ClimbAction"] | components["schemas"]["TakeAction"] | components["schemas"]["DropAction"] | components["schemas"]["PutAction"] | components["schemas"]["OpenAction"] | components["schemas"]["CloseAction"] | components["schemas"]["WearAction"] | components["schemas"]["RemoveAction"] | components["schemas"]["PushAction"] | components["schemas"]["PullAction"] | components["schemas"]["DragAction"] | components["schemas"]["ThrowAction"] | components["schemas"]["HitAction"] | components["schemas"]["BreakAction"];
+            /**
+             * Tile Dx
+             * @default 0
+             */
+            tile_dx: number;
+            /**
+             * Tile Dy
+             * @default 0
+             */
+            tile_dy: number;
+        };
+        /**
+         * MenuPlace
+         * @description One scanned tile of a menu: its offset from the origin, surface height and material.
+         */
+        MenuPlace: {
+            /** Dx */
+            dx: number;
+            /** Dy */
+            dy: number;
+            /** H */
+            h: number;
+            /** Label */
+            label: string;
         };
         /** MenuResponse */
         MenuResponse: {
@@ -445,6 +469,8 @@ export interface components {
             target: string;
             /** Ops */
             ops: components["schemas"]["MenuEntry"][];
+            /** Places */
+            places: components["schemas"]["MenuPlace"][];
         };
         /** MoveAction */
         MoveAction: {
@@ -1252,6 +1278,7 @@ export interface operations {
                 x: number;
                 y: number;
                 z?: number;
+                radius?: number;
             };
             header?: never;
             path?: never;

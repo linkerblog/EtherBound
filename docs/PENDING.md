@@ -103,11 +103,6 @@ canvas; that approval is tracked under Dev-019.
       baselines were superseded by Dev-019's re-shoot. See `done/Dev-018.md` [Sec. 6]
       acceptance 11–12.
 
-- [ ] **Dev-017 radial menu:** press `V` at spawn (shows `Wait`/`Inspect`) and while carrying a
-      shovel; confirm the ring stays centred on Niko while walking, hover and ←/→/digits move the
-      hub detail, Enter runs the focused op, a dimmed slot shakes the hub with its reason, `V`/`Esc`
-      close it, and `V` typed in the input line does nothing. See `docs/Dev-017.md` [Sec. 4]
-      acceptance 3–4.
 - [ ] **Fix10 BitCanvas Send to game:** in Chromium, send into a scratch `sprites` folder with a
       `grass` directory; confirm `grass_x4.png` and `grass_side_x4.png` are written and the folder
       name survives reload. See `done/Fix10.md` [Sec. 6] step 4.

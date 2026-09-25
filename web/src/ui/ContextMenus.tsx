@@ -1,10 +1,21 @@
-import { useEffect, useState, type ReactElement, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactElement, type RefObject } from "react";
 import type { ContextTarget } from "../game/MapScene";
-import type { MenuEntry } from "../net/protocol";
-import { firstAvailable, radialSlots, stepFocus } from "./radialMenu";
+import type { MenuEntry, MenuPlace } from "../net/protocol";
+import { digitFocus, firstAvailable, groupByVerb, radialSlots, stepFocus, targetName, targetSlots, type VerbGroup } from "./radialMenu";
 
 export type MenuState = { target: ContextTarget; targetLabel?: string; entries: MenuEntry[]; error?: string } | null;
-export type RadialState = { center: { x: number; y: number }; targetLabel?: string; entries: MenuEntry[]; error?: string } | null;
+export type RadialState = {
+  center: { x: number; y: number };
+  /** Niko's tile when the menu opened; entry offsets are relative to it. */
+  origin: { x: number; y: number; z: number };
+  targetLabel?: string;
+  entries: MenuEntry[];
+  places: MenuPlace[];
+  error?: string;
+} | null;
+
+/** A tile the radial points at, for the map to outline. */
+export type FocusTile = { x: number; y: number; h: number };
 
 export function ContextMenu({ state, viewportRef, onPick, onClose }: {
   state: Exclude<MenuState, null>;
@@ -57,23 +68,64 @@ export function ContextMenu({ state, viewportRef, onPick, onClose }: {
   </div>;
 }
 
-export function RadialMenu({ state, onPick, onClose }: { state: Exclude<RadialState, null>; onPick: (entry: MenuEntry) => void; onClose: () => void }): ReactElement {
-  const { entries, center } = state;
-  const slots = radialSlots(entries);
-  const [focus, setFocus] = useState(() => firstAvailable(entries));
+export function RadialMenu({ state, onPick, onClose, onFocusTile }: {
+  state: Exclude<RadialState, null>;
+  onPick: (entry: MenuEntry) => void;
+  onClose: () => void;
+  onFocusTile: (tile: FocusTile | null) => void;
+}): ReactElement {
+  const { entries, center, places, origin } = state;
+  const groups = useMemo(() => groupByVerb(entries), [entries]);
+  // Null shows the verbs; a group shows that verb's targets, placed by tile.
+  const [level, setLevel] = useState<VerbGroup | null>(null);
+  const [focus, setFocus] = useState(() => firstAvailable(groups));
   const [shake, setShake] = useState(false);
+  const [hubHalf, setHubHalf] = useState(30);
+  const hubRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { setFocus(firstAvailable(entries)); }, [entries]);
+  useEffect(() => {
+    setLevel(null);
+    setFocus(firstAvailable(groups));
+  }, [groups]);
 
-  const focused = entries[focus];
-  const extent = slots.length > 0 ? Math.max(...slots.map((slot) => slot.radius)) + 96 : 160;
+  // Hub rows make the hub taller, and the up and down columns must clear it.
+  useLayoutEffect(() => {
+    const height = hubRef.current?.offsetHeight;
+    if (height && Math.abs(height / 2 - hubHalf) > 0.5) setHubHalf(height / 2);
+  });
+
+  const verbSlots = radialSlots(groups);
+  const tiles = level ? targetSlots(level.entries, hubHalf) : [];
+  const length = level ? tiles.length : groups.length;
+  const focusedGroup = level ? undefined : groups[focus];
+  const focusedEntry = level ? tiles[focus]?.entry : focusedGroup?.entries.length === 1 ? focusedGroup.entries[0] : undefined;
+
+  const place = focusedEntry ? places.find((item) => item.dx === focusedEntry.tile_dx && item.dy === focusedEntry.tile_dy) : undefined;
+  const tileKey = place ? `${origin.x + place.dx},${origin.y + place.dy},${place.h}` : "";
+  useEffect(() => {
+    if (!tileKey) {
+      onFocusTile(null);
+      return;
+    }
+    const [x, y, h] = tileKey.split(",").map(Number);
+    onFocusTile({ x: x!, y: y!, h: h! });
+  }, [tileKey]);
+
+  function describe(entry: MenuEntry): string {
+    const name = targetName(entry, places);
+    return `${entry.label}${name ? ` ${name}` : ""}${entry.available ? "" : ` · ${entry.reason ?? "unavailable"}`}`;
+  }
+
   const detail = state.error
     ? state.error
-    : !focused
-      ? "NO ACTIONS"
-      : `${focused.label}${focused.subject ? ` ${focused.subject}` : ""}${focused.available ? "" : ` · ${focused.reason ?? "unavailable"}`}`;
+    : focusedEntry
+      ? describe(focusedEntry)
+      : focusedGroup
+        ? `${focusedGroup.label} · ${focusedGroup.entries.length} targets`
+        : "NO ACTIONS";
+  const detailOff = focusedEntry ? !focusedEntry.available : focusedGroup ? !focusedGroup.available : false;
 
-  function pick(entry: MenuEntry | undefined): void {
+  function pickEntry(entry: MenuEntry | undefined): void {
     if (!entry) return;
     if (!entry.available) {
       setShake(true);
@@ -83,70 +135,126 @@ export function RadialMenu({ state, onPick, onClose }: { state: Exclude<RadialSt
     onPick(entry);
   }
 
+  function pickGroup(group: VerbGroup | undefined): void {
+    if (!group) return;
+    // One entry needs no second step: the verb already names it.
+    if (group.entries.length === 1) {
+      pickEntry(group.entries[0]);
+      return;
+    }
+    setLevel(group);
+    setFocus(firstAvailable(targetSlots(group.entries, hubHalf).map((slot) => slot.entry)));
+  }
+
+  function back(): void {
+    if (!level) return;
+    setFocus(Math.max(0, groups.indexOf(level)));
+    setLevel(null);
+  }
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (entries.length === 0) return;
+      if (length === 0) return;
+      const claim = () => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      };
+      const typing = document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement;
       if (event.key === "ArrowRight" || event.key === "ArrowDown") {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        setFocus((current) => stepFocus(current, 1, entries.length));
+        claim();
+        setFocus((current) => stepFocus(current, 1, length));
       } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        setFocus((current) => stepFocus(current, -1, entries.length));
+        claim();
+        setFocus((current) => stepFocus(current, -1, length));
       } else if (event.key >= "1" && event.key <= "9") {
-        const index = Number(event.key) - 1;
-        if (index < entries.length) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          setFocus(index);
+        const digit = Number(event.key);
+        const next = level ? digitFocus(tiles, digit, focus) : digit - 1 < length ? digit - 1 : null;
+        if (next !== null) {
+          claim();
+          setFocus(next);
         }
       } else if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        pick(entries[focus]);
+        claim();
+        if (level) pickEntry(tiles[focus]?.entry);
+        else pickGroup(groups[focus]);
+      } else if (level && (event.key === "Escape" || (event.key === "Backspace" && !typing))) {
+        // Level 2 steps back; in level 1 Escape reaches the app, which closes the radial.
+        claim();
+        back();
       }
     };
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [entries, focus, onPick]);
+  }, [groups, level, tiles, focus, length, onPick]);
+
+  const markers = (tags: string[], available: boolean) => [
+    available ? "" : "off",
+    tags.includes("ether") ? "ether" : "",
+    tags.includes("illegal") ? "illegal" : "",
+    tags.includes("violent") ? "violent" : "",
+  ];
+  const outer = level ? tiles.filter((slot) => slot.octant !== null) : verbSlots;
+  // In level 2 a line reaches only the first slot of each column.
+  const lineEnds = level ? tiles.filter((slot) => slot.octant !== null && slot.row === 0) : verbSlots;
+  const extent = outer.length > 0 ? Math.max(...outer.map((slot) => Math.max(Math.abs(slot.x), Math.abs(slot.y)))) + 96 : 160;
 
   return <div
     className="radial"
     role="menu"
-    aria-label="Actions around Niko"
+    aria-label={level ? `${level.label} targets around Niko` : "Actions around Niko"}
     style={{ left: center.x, top: center.y }}
     onClick={(event) => { event.stopPropagation(); onClose(); }}>
     <svg className="radial-lines" width={extent * 2} height={extent * 2} viewBox={`${-extent} ${-extent} ${extent * 2} ${extent * 2}`} aria-hidden="true">
-      {slots.map((slot) => <line key={slot.index} x1={0} y1={0} x2={slot.x} y2={slot.y} />)}
+      {lineEnds.map((slot, index) => <line key={index} x1={0} y1={0} x2={slot.x} y2={slot.y} />)}
     </svg>
-    <div className={`radial-hub ${shake ? "shake" : ""}`}>
-      <div className="radial-target">{state.targetLabel ?? "ACTIONS"}</div>
-      <div className={`radial-detail ${focused?.available === false ? "off" : ""}`}>{detail}</div>
-    </div>
-    {slots.map((slot, index) => {
-      const entry = slot.entry;
-      const classes = [
-        "radial-slot",
-        index === focus ? "focus" : "",
-        entry.available ? "" : "off",
-        entry.tags.includes("ether") ? "ether" : "",
-        entry.tags.includes("illegal") ? "illegal" : "",
-        entry.tags.includes("violent") ? "violent" : "",
-      ].filter(Boolean).join(" ");
-      return <button
-        key={`${entry.op}-${slot.index}`}
+    <div ref={hubRef} className={`radial-hub ${shake ? "shake" : ""}`}>
+      {level
+        ? <button type="button" className="radial-header" aria-label={`Back from ${level.label}`} onClick={(event) => { event.stopPropagation(); back(); }}>{level.label}</button>
+        : <div className="radial-target">{state.targetLabel ?? "ACTIONS"}</div>}
+      {tiles.map((slot, index) => slot.octant !== null ? null : <button
+        key={`hub-${index}`}
         type="button"
         role="menuitem"
-        aria-disabled={!entry.available}
-        className={classes}
-        style={{ left: slot.x, top: slot.y }}
-        title={`${entry.label}${entry.subject ? ` ${entry.subject}` : ""}${entry.available ? "" : ` · ${entry.reason ?? "unavailable"}`}`}
+        aria-disabled={!slot.entry.available}
+        className={["radial-row", index === focus ? "focus" : "", ...markers(slot.entry.tags, slot.entry.available)].filter(Boolean).join(" ")}
+        title={describe(slot.entry)}
         onMouseEnter={() => setFocus(index)}
-        onClick={(event) => { event.stopPropagation(); pick(entry); }}>
-        <span className="radial-op">{entry.label}</span>
-        {entry.subject && <span className="radial-subject">{entry.subject}</span>}
-      </button>;
-    })}
+        onClick={(event) => { event.stopPropagation(); pickEntry(slot.entry); }}>
+        {targetName(slot.entry, places) ?? slot.entry.label}
+      </button>)}
+      <div className={`radial-detail ${detailOff ? "off" : ""}`}>{detail}</div>
+    </div>
+    {level
+      ? tiles.map((slot, index) => slot.octant === null ? null : <button
+        key={`tile-${index}`}
+        type="button"
+        role="menuitem"
+        aria-disabled={!slot.entry.available}
+        className={["radial-slot", "radial-tile", index === focus ? "focus" : "", ...markers(slot.entry.tags, slot.entry.available)].filter(Boolean).join(" ")}
+        style={{ left: slot.x, top: slot.y }}
+        title={describe(slot.entry)}
+        onMouseEnter={() => setFocus(index)}
+        onClick={(event) => { event.stopPropagation(); pickEntry(slot.entry); }}>
+        <span className="radial-op">{targetName(slot.entry, places) ?? slot.entry.label}</span>
+      </button>)
+      : verbSlots.map((slot, index) => {
+        const group = slot.entry;
+        const single = group.entries.length === 1 ? group.entries[0]! : null;
+        const name = single ? targetName(single, places) : null;
+        return <button
+          key={group.op}
+          type="button"
+          role="menuitem"
+          aria-disabled={!group.available}
+          aria-haspopup={single ? undefined : "menu"}
+          className={["radial-slot", index === focus ? "focus" : "", ...markers(group.tags, group.available)].filter(Boolean).join(" ")}
+          style={{ left: slot.x, top: slot.y }}
+          title={single ? describe(single) : `${group.label} · ${group.entries.length} targets`}
+          onMouseEnter={() => setFocus(index)}
+          onClick={(event) => { event.stopPropagation(); pickGroup(group); }}>
+          <span className="radial-op">{group.label}</span>
+          {name && <span className="radial-subject">{name}</span>}
+        </button>;
+      })}
   </div>;
 }

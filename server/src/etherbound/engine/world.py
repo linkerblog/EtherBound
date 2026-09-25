@@ -490,7 +490,9 @@ class WorldEngine:
             events.append(ActivityFinished(actor_id=actor.id, op=running.op, outcome="completed"))
         return events
 
-    def menu(self, actor_id: str, x: float, y: float, z: int) -> payloads.MenuPayload:
+    def menu(
+        self, actor_id: str, x: float, y: float, z: int, radius: int = 0
+    ) -> payloads.MenuPayload:
         """Generated right-click entries. A read: no lock, since submit validates again."""
         return build_menu(
             self.sessions,
@@ -502,6 +504,7 @@ class WorldEngine:
             x=x,
             y=y,
             z=z,
+            radius=radius,
         )
 
     async def set_clock(

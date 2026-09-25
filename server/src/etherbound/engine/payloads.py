@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Any
 
-from etherbound.engine.actions import ActivityState, CarriedObject, MenuEntry, Mind
+from etherbound.engine.actions import ActivityState, CarriedObject, MenuEntry, MenuPlace, Mind
 from etherbound.world.gen.registry import DEFAULT_GENERATOR
 from etherbound.world.grid import WorldGrid
 
@@ -73,6 +73,7 @@ class MenuPayload:
     z: int
     target: str
     entries: tuple[MenuEntry, ...]
+    places: tuple[MenuPlace, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

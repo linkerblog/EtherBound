@@ -202,24 +202,32 @@ export function App(): ReactElement {
     }
   }
 
-  /** Opens the radial menu on Niko's own tile: the same server-built entries, arranged on him. */
+  /** Opens the radial menu on Niko: server-built entries for his tile plus any open neighbour
+   *  (`radius=1`), grouped by verb and placed by tile around him. */
   async function openRadial(): Promise<void> {
     const anchor = sceneRef.current?.playerAnchor() ?? null;
     if (!anchor) return;
     const token = ++radialRequest.current;
     radialOpen.current = true;
     setMenu(null);
-    setRadial({ center: { x: anchor.screenX, y: anchor.screenY }, entries: [] });
-    const query = new URLSearchParams({ x: String(anchor.x), y: String(anchor.y), z: String(anchor.z) });
+    const center = { x: anchor.screenX, y: anchor.screenY };
+    const origin = { x: anchor.x, y: anchor.y, z: anchor.z };
+    setRadial({ center, origin, entries: [], places: [] });
+    const query = new URLSearchParams({
+      x: String(anchor.x),
+      y: String(anchor.y),
+      z: String(anchor.z),
+      radius: "1",
+    });
     try {
       const response = await fetch(`/api/menu?${query}`);
       if (!response.ok) throw new Error(`menu request ${response.status}`);
       const payload = await response.json() as MenuResponse;
       if (token !== radialRequest.current) return;
-      setRadial({ center: { x: anchor.screenX, y: anchor.screenY }, targetLabel: payload.target, entries: payload.ops });
+      setRadial({ center, origin, targetLabel: payload.target, entries: payload.ops, places: payload.places });
     } catch {
       if (token !== radialRequest.current) return;
-      setRadial({ center: { x: anchor.screenX, y: anchor.screenY }, entries: [], error: "SERVER MENU UNAVAILABLE" });
+      setRadial({ center, origin, entries: [], places: [], error: "SERVER MENU UNAVAILABLE" });
     }
   }
 
@@ -227,6 +235,7 @@ export function App(): ReactElement {
     radialOpen.current = false;
     radialRequest.current += 1;
     setRadial(null);
+    sceneRef.current?.markTile(null);
   }
 
   /** Only `game` takes world input: the other views cover it and must not walk Niko or open menus. */
@@ -321,6 +330,6 @@ export function App(): ReactElement {
       {view === "llm" && <LlmView />}
     </div>
     {menu && <ContextMenu state={menu} viewportRef={viewportRef} onPick={pickEntry} onClose={() => setMenu(null)} />}
-    {radial && <RadialMenu state={radial} onPick={pickEntry} onClose={closeRadial} />}
+    {radial && <RadialMenu state={radial} onPick={pickEntry} onClose={closeRadial} onFocusTile={(tile) => sceneRef.current?.markTile(tile)} />}
   </main>;
 }

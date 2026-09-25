@@ -141,9 +141,12 @@ group) and, for `lab`, its `bays`.
   at that surface's band and existing north/west wall edges as physics targets. Each handled op whose
   targets allow a candidate
   and whose `applies` holds becomes an entry with its `action`, `available`, `reason` and `subject`,
-  in catalog order then candidate order. The client renders that payload either as the right-click
-  list or as the radial menu on `V`, which centers the same entries on Niko's own tile; it never
-  adds, removes or reorders an entry.
+  in catalog order then candidate order. Each entry carries `tile_dx`/`tile_dy`, the offset from
+  the origin tile of the tile whose candidate built it (self, held and worn are `0, 0`), and the
+  payload lists `places`, one `{dx, dy, h, label}` per scanned tile. The client renders that
+  payload either as the right-click list or as the radial menu on `V`, which groups the entries by
+  op and places each verb's targets in their tile's screen direction around Niko; it never adds,
+  removes or reorders an entry within a group.
 - **Event bus.** Only `WorldEngine` stamps/enqueues events. Logged events share the state
   transaction; `clock.ticked` dispatches but is not stored. `new_game` resets the log and sequence
   to 1. A fresh world logs `world.generated`, one `actor.spawned` for Niko and each Extra, then
@@ -159,9 +162,11 @@ group) and, for `lab`, its `bays`.
   `test` world, and `paused: true` starts the clock paused so a shot does not move the Extras), `GET /api/game/state` (with `generator`, `gen_version`, `gen_options`),
   `GET /api/gen` (every generator's options as form fields plus the lab bays),
   `GET /api/materials`, `GET /api/objects` (the kind catalog), `GET /api/world/chunk?cx&cy`,
-  `GET /api/menu?x&y&z` (any `z`, computed for Niko;
-  returns a `target` line like `Asphalt · 1 m` and `ops: MenuEntry[]`; the client renders, never
-  adds),
+  `GET /api/menu?x&y&z&radius` (any `z`, computed for Niko; `radius` (0 or 1, default 0) also scans
+  the 3×3 square around the tile, each neighbour `in_close_reach` allows (a diagonal through
+  either open side), for the radial menu;
+  returns a `target` line like `Asphalt · 1 m`, `ops: MenuEntry[]` and `places: MenuPlace[]`;
+  the client renders, never adds),
   `GET /api/events?after_seq&limit&type&actor_id` (ordered event records; limit 1–500).
 - **WebSocket `/ws`.** Server → client: `snapshot` (with `world: {chunk_size, level_h, bounds}`),
   `tick`, `ack` (with `h`), `result` (for an `action`: accepted, reason, text, activity, `carried`,

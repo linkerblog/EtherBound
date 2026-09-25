@@ -3,6 +3,7 @@ import type { components } from "./schema";
 export type Direction = { x: number; y: number };
 export type MenuEntry = components["schemas"]["MenuEntry"];
 export type MenuResponse = components["schemas"]["MenuResponse"];
+export type MenuPlace = components["schemas"]["MenuPlace"];
 export type GameAction = MenuEntry["action"];
 export type PhysicsPosition = components["schemas"]["PhysicsPosition"];
 export type ActivitySnapshot = components["schemas"]["ActivitySnapshot"];

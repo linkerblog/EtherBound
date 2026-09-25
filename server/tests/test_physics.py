@@ -14,6 +14,7 @@ from etherbound.engine.actions import (
     HitAction,
     ObjectTarget,
     PushAction,
+    SelfTarget,
     ThrowAction,
 )
 from etherbound.engine.physics import (
@@ -198,6 +199,81 @@ def test_physics_actions_are_generated_from_targets(engine: WorldEngine) -> None
         entry.op == "break" and isinstance(entry.action.target, EdgeTarget)
         for entry in wall_entries
     )
+
+
+def _object_ids(entries: object) -> set[int]:
+    ids: set[int] = set()
+    for entry in entries:  # type: ignore[attr-defined]
+        target = getattr(entry.action, "target", None)
+        if isinstance(target, ObjectTarget):
+            ids.add(target.id)
+    return ids
+
+
+def test_menu_radius_reaches_open_neighbours_and_stops_at_walls(engine: WorldEngine) -> None:
+    place(engine, *PLAYER)
+    east_id = spawn_object(engine, "apple", PLAYER[0] + 1, PLAYER[1])
+    north_id = spawn_object(engine, "apple", PLAYER[0], PLAYER[1] - 1)
+
+    own_tile_only = _object_ids(engine.menu(PLAYER_ID, 123.5, 128.5, 0).entries)
+    assert east_id not in own_tile_only
+    assert north_id not in own_tile_only
+
+    reachable = _object_ids(engine.menu(PLAYER_ID, 123.5, 128.5, 0, radius=1).entries)
+    assert east_id in reachable
+    assert north_id in reachable
+
+    set_wall(engine, *PLAYER, "north", "brick")
+    blocked_by_wall = _object_ids(engine.menu(PLAYER_ID, 123.5, 128.5, 0, radius=1).entries)
+    assert east_id in blocked_by_wall
+    assert north_id not in blocked_by_wall
+
+
+def test_menu_radius_reaches_diagonal_neighbours_around_open_corners(engine: WorldEngine) -> None:
+    place(engine, *PLAYER)
+    diagonal_id = spawn_object(engine, "apple", PLAYER[0] + 1, PLAYER[1] - 1)
+
+    open_corner = _object_ids(engine.menu(PLAYER_ID, 123.5, 128.5, 0, radius=1).entries)
+    assert diagonal_id in open_corner
+
+    set_wall(engine, *PLAYER, "north", "brick")
+    still_open_via_east = _object_ids(engine.menu(PLAYER_ID, 123.5, 128.5, 0, radius=1).entries)
+    assert diagonal_id in still_open_via_east
+
+    set_wall(engine, PLAYER[0] + 1, PLAYER[1], "west", "brick")
+    fully_enclosed = _object_ids(engine.menu(PLAYER_ID, 123.5, 128.5, 0, radius=1).entries)
+    assert diagonal_id not in fully_enclosed
+
+
+def test_menu_entries_carry_their_tile_offset(engine: WorldEngine) -> None:
+    place(engine, *PLAYER)
+    east_id = spawn_object(engine, "apple", PLAYER[0] + 1, PLAYER[1])
+    tool_id = spawn_tool(engine)
+    set_wall(engine, *PLAYER, "north", "brick")
+
+    menu = engine.menu(PLAYER_ID, 123.5, 128.5, 0, radius=1)
+    east = [entry for entry in menu.entries if _object_ids([entry]) == {east_id}]
+    assert east
+    assert all((entry.tile_dx, entry.tile_dy) == (1, 0) for entry in east)
+    # "Put Shovel into Chest" is built from the chest's tile, so only ops on the tool itself count.
+    own = [
+        entry
+        for entry in menu.entries
+        if (entry.op in ("inspect", "drop") and _object_ids([entry]) == {tool_id})
+        or isinstance(entry.action.target, SelfTarget)
+    ]
+    assert own
+    assert all((entry.tile_dx, entry.tile_dy) == (0, 0) for entry in own)
+    offsets = {(place.dx, place.dy) for place in menu.places}
+    assert len(offsets) == len(menu.places)
+    assert (0, 0) in offsets and (1, 0) in offsets
+    # The wall closes the north neighbour, so it is not scanned and has no place.
+    assert (0, -1) not in offsets
+    assert {(entry.tile_dx, entry.tile_dy) for entry in menu.entries} <= offsets
+
+    exact = engine.menu(PLAYER_ID, 124.5, 128.5, 0)
+    assert all((entry.tile_dx, entry.tile_dy) == (0, 0) for entry in exact.entries)
+    assert [(place.dx, place.dy) for place in exact.places] == [(0, 0)]
 
 
 @pytest.mark.asyncio

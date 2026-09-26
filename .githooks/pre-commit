@@ -1,3 +1,3 @@
 #!/bin/sh
-# Fast checks: version bumps, lint and the BitCanvas syntax pass.
+# Fast checks: version bumps, docs, sizes and the BitCanvas syntax pass.
 npm run check:fast

@@ -55,8 +55,6 @@ public partial class WorldClient : Node
     private Vector2 _contextPosition;
     private string? _lastFault;
 
-    private static string RepoRoot => Path.GetFullPath(Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
-
     public override void _Ready()
     {
         var raw = OS.GetCmdlineUserArgs();
@@ -185,7 +183,7 @@ public partial class WorldClient : Node
         var sides = new Godot.Collections.Array<Image>();
         _topLayers = new Dictionary<int, int>();
         _sideLayers = new Dictionary<int, int>();
-        var sprites = Path.Combine(RepoRoot, "src", "sprites");
+        var sprites = Path.Combine(ProjectSettings.GlobalizePath("res://"), "assets", "sprites");
         foreach (var (key, top, side) in Sheets)
         {
             var material = _world!.Materials.Values.FirstOrDefault(item => item.Key == key);

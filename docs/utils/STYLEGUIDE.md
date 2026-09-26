@@ -1,7 +1,14 @@
 # EtherBound — UI style guide
 
-The visual system of the HTML overlay that sits on top of the Phaser canvas. Adapted from the
-LiraMind retro-terminal guide.
+The visual system of Niko's HUD. Adapted from the LiraMind retro-terminal guide; originally an
+HTML/CSS overlay over the Phaser canvas, now a Godot `Control`/`CanvasLayer` theme over the 3D
+viewport (`game/ui/`, Dev-025 cut-over 26/09/2026). The design below — palette, fonts, layout,
+menu and HUD behaviour, effects — did not change at cut-over; only the implementation medium did.
+Read the CSS/HTML/JS snippets as the precise design reference (colours, spacing, states, keyboard
+rules), not as code that runs: `game/ui/GameHud.cs`, `ActionMenuOverlay.cs` and `GeneratorPanel.cs`
+are the real implementation, in Godot `Theme` overrides and `StyleBoxFlat`. A section marked **not
+yet built** describes a target for a feature that has no Godot implementation yet (same as it had
+no web implementation before it either); its CSS still communicates the intended look precisely.
 
 **Aesthetic: Niko's HUD.** Niko is a bioengineered combat unit; the interface is his internal
 display: monospaced, near-black panels, neon accents, no rounded corners. The terminal look is
@@ -17,32 +24,21 @@ game's world and to Niko.
 
 | Layer | What | Rules |
 |---|---|---|
-| Frame | View tabs (`GAME`, `DEBUG`, `LLM`) and the dim shell label | 20 px margin around the viewport, tab row above it; no content |
-| World | Phaser canvas, isometric pixel art | No CSS effects over it. No text drawn in Phaser |
-| HUD | Clock, speeds, feed, meters, status pills, input line | Anchored to the viewport edges, never covers the centre of the screen |
-| View panel | `DEBUG` and `LLM` views | Opaque, covers the whole viewport; the world keeps running hidden behind it |
-| Panels | Character, relationships, inventory, phone | Right-side drawer, one open at a time |
-| Scene | Prose, options, free text during autopause | Bottom third; the world stays visible and dimmed behind it |
-| Menu | Right-click context menu | At the cursor, above everything |
+| Frame | View tabs (`GAME`, `DEBUG`, `LLM`) | Top-left of the window; no content |
+| World | The 3D viewport (`PixelView`'s low-res `SubViewport`, isometric pixel art) | No effects over it from the HUD. No text drawn in the 3D world |
+| HUD | Clock, speeds, feed, carry, activity, input line | Anchored to the window edges, never covers the centre of the screen |
+| View panel | `DEBUG` and `LLM` views | Their own `Control`, visible only for that tab; the world keeps rendering behind it |
+| Panels | Character, relationships, inventory, phone — **not yet built** | Right-side drawer, one open at a time |
+| Scene | Prose, options, free text during autopause — **not yet built** | Bottom third; the world stays visible and dimmed behind it |
+| Menu | Right-click list and the `V` radial menu | At the cursor / on Niko, above everything |
 
-```css
-.shell      { display: grid; grid-template-rows: 28px minmax(0, 1fr); padding: 20px; }
-.viewport   { position: relative; overflow: hidden; isolation: isolate; }
-.world      { position: absolute; inset: 0; z-index: 0; }
-.hud        { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
-.hud > *    { pointer-events: auto; }
-.view-panel { position: absolute; inset: 0; z-index: 15; background: var(--panel); }
-.drawer     { z-index: 20; }
-.scene      { z-index: 30; }
-.menu       { z-index: 40; }
-```
-
-`.world`, `.hud` and `.view-panel` live inside `.viewport`; menus stay `position: fixed` outside
-it, at page coordinates. The viewport's border and cyan corner brackets are a `::before` overlay,
-not a CSS border, so the canvas fills the whole viewport box. The HUD container lets clicks through
-to the canvas; only its children catch them. A view that is not shown is hidden with
-`visibility: hidden`, never `display: none`: the Phaser canvas uses `Scale.RESIZE` and would
-collapse to 0×0.
+In Godot, the world lives in a `SubViewport` drawn by a `TextureRect` (`PixelView`); the HUD is a
+`CanvasLayer` (`Layer = 2`, above the default `0`) so it always composites over that texture without
+being part of its pixel grid. `GameHud`'s own root `Control` holds the `GAME`/`DEBUG`/`LLM` view
+containers (only one `Visible` at a time) and the always-on panels; `ActionMenuOverlay` is a further
+child added last, so it draws on top of everything else in the same layer. There is no `display:
+none` equivalent to worry about: a Godot `Control` with `Visible = false` skips both drawing and
+input without collapsing any size the `SubViewport` depends on.
 
 ---
 
@@ -61,6 +57,11 @@ collapse to 0×0.
 - `--mono` for everything that is interface: HUD, menus, buttons, meters, labels.
 - `--prose` only for narrative text in scenes. Long prose in 13px monospace is tiring to read; the
   serif marks "this is the story" against "this is the system".
+
+**Not yet matched in Godot.** `GameHud`/`ActionMenuOverlay` currently use the engine's default
+theme font at the sizes above (10–12 px), not JetBrains Mono/IBM Plex Serif; loading those as
+Godot `FontFile` resources under `game/assets/` and setting them as the HUD `Theme`'s default fonts
+is open work, not a design change.
 
 ---
 
@@ -87,6 +88,11 @@ collapse to 0×0.
 **Magenta is Ether.** In LiraMind it was the brand accent; here it belongs to the one thing only
 Niko has. Text selection uses cyan instead.
 
+**Matched in Godot**, hex for hex, as `Color` constants in `GameHud`/`ActionMenuOverlay`
+(`TextColor`, `DimColor`, `GreenColor`, `CyanColor`, `YellowColor`, `RedColor`, and `#ff6ac1` for
+Ether feed lines); panel backgrounds and borders use the same `--panel`/`--bar`/`--line`/`--line-hi`
+values in `StyleBoxFlat`.
+
 ### Game semantics
 
 | Meaning | Colour |
@@ -105,29 +111,23 @@ lets him do it and tells him it matters.
 
 ## 4. Reset and base
 
-```css
-* { box-sizing: border-box; border-radius: 0 !important; }
-html, body { height: 100%; }
-body {
-  margin: 0; background: var(--bg); color: var(--text);
-  font: 13px/1.55 var(--mono); overflow: hidden;
-}
-::selection { background: var(--cyan); color: var(--bg); }
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: var(--panel); }
-::-webkit-scrollbar-thumb { background: var(--line-hi); }
+No CSS reset applies in Godot; every `StyleBoxFlat` in `game/ui/` sets its own square corners
+(`CornerRadius* = 0`) directly, matching "no rounded corners" above. `Terrain.gdshader` and
+`PixelView`'s nearest-filtered `SubViewport` are the equivalent of `image-rendering: pixelated`.
 
-canvas { image-rendering: pixelated; }
-```
-
-Pixel art: the camera zooms in integer steps only (x1 to x4; wheel and `+`/`-`/`0`), never
-fractional, so tiles stay crisp.
+Pixel art: the camera zooms in integer steps only (x1 to x4; `1`/`2`/`4` keys today, still no
+fractional step), so tiles stay crisp.
 
 ---
 
 ## 5. HUD panels
 
 HUD panels are translucent so the world reads through them.
+
+**Matched in Godot:** `GameHud.CreatePanel` builds this exact panel (90% alpha `--panel`, `--line`
+border, a `▍ TITLE` heading row in `--dim` on a `--bar` strip) for `CLOCK`, `FEED`, `CARRY`, `ACT`,
+`DEBUG` and `LLM`; `Layout()` anchors them to the window edges on every resize instead of a fixed
+1240×652 frame, since the Godot window is resizable.
 
 ```css
 .hud-panel {
@@ -194,6 +194,10 @@ its count or `—`. Its last row is `LOAD 12.4 kg`, shown in `--dim` up to the f
 .mini.active { color: var(--green); border-color: var(--green); }
 ```
 
+**Matched in Godot** (`GameHud.UpdateFrame`/`BuildGamePanels`): `DAY 1 · 04:05` in bold green,
+turning yellow (not blinking yet) while paused; `II`/`RESUME`, `x1`/`x3`/`x10` and `NEW` mini
+buttons. The `.scene` suffix has no equivalent yet (no scene system).
+
 ---
 
 ## 7. Buttons
@@ -224,12 +228,21 @@ button:disabled { opacity: .35; cursor: not-allowed; }
 .mini:hover { background: var(--line-hi); color: var(--text); }
 ```
 
+**Partly matched in Godot:** `ButtonStyle` in `game/ui/` sets the same border/hover-invert colours
+per state (normal, hover, disabled), but the `[ bracket ]` pseudo-decoration around the label text
+is not reproduced — a Godot `Button`'s text is drawn as given, so the brackets would need to be
+part of the label string itself. `danger`/`ether` tinting is applied ad hoc (e.g. illegal/Ether
+context-menu rows) rather than as a named button variant.
+
 ---
 
 ## 8. Context menu (right-click)
 
-The menu is built from the ops the server returns. The client never adds or removes ops; it
-only renders them.
+The menu is built from the ops the sim returns (`WorldEngine.Menu`, over the host channel). The
+client never adds or removes ops; it only renders them. **Matched in Godot:**
+`ActionMenuOverlay.ShowContext`/`ShowRadial` reproduce the panel border, the dim `TARGET` line,
+per-row `illegal`/`ether` tinting and a disabled row's tooltip reason; arrow keys, number keys,
+Enter/Space and Esc all work as below. The bracket-button `[ ]` note from [Sec. 7] applies here too.
 
 ```css
 .menu {
@@ -319,11 +332,17 @@ input::placeholder { color: var(--dim); }
 .input:focus-within { border-color: var(--green); box-shadow: inset 0 0 12px rgba(90,247,142,.08); }
 ```
 
-While the input has focus, WASD types instead of moving.
+While the input has focus, WASD types instead of moving. **Matched in Godot:** `GameHud`'s
+`LineEdit` uses the same green `>` prompt and `"say or try anything"` placeholder;
+`WorldClient.SendMovement` checks `_gameHud.CanMoveWorld` (false while the input has focus) before
+reading WASD, so typing never moves Niko.
 
 ---
 
-## 10. Scene (autopause)
+## 10. Scene (autopause) — not yet built
+
+No Godot implementation: this needs the LLM/narrative layer (`docs/PENDING.md`), which never
+existed in the web client either.
 
 ```css
 .scene {
@@ -393,11 +412,15 @@ truth. `.act`, `.warn` and `.fail` report Niko's own actions: a start with its l
 refusal with its reason, a failure with its reason. An interruption the player caused shows
 nothing. The words carry the meaning (`CAN'T`, `FAILED`), never only the colour.
 
+**Matched in Godot:** `GameHud.PushFeed(text, category)` colours `warn`/`fail`/`act`/`seen`/`ether`
+exactly as above and caps the feed at 8 rows; `.rumor` has no source yet (no rumor system), and the
+`glitch-in`/fade-to-`.old` entrance/exit animation [Sec. 15] is not built.
+
 ---
 
-## 12. Meters
+## 12. Meters — not yet built
 
-ASCII bars for needs, health and Ether strain.
+ASCII bars for needs, health and Ether strain; no Godot implementation until needs/health exist.
 
 ```css
 .meter { display: grid; grid-template-columns: 70px 1fr; gap: 6px; font-size: 11px; }
@@ -421,7 +444,9 @@ above the free 10 kg, the same warning colour as a `.bar.warn`.
 
 ---
 
-## 13. Status pills
+## 13. Status pills — not yet built
+
+No `wanted`/faction system yet, so nothing produces a pill in Godot either.
 
 ```css
 .pill {
@@ -439,14 +464,14 @@ above the free 10 kg, the same warning colour as a `.bar.warn`.
 
 ## 14. Drawer and tabs
 
-**View tabs.** Folder tabs in the top-left of the frame, left edge on the viewport's left edge,
-in the order `GAME`, `DEBUG`, `LLM`; the app always starts on `GAME`. The active tab is one pixel
-taller than the row so it covers the viewport's top border and reads as open into it; inactive
-tabs sit on the frame. Each view owns the whole viewport: `GAME` is the world and its HUD, `DEBUG`
-holds the map generator form (section strip, `MAP` only for now, content column capped at 480 px),
-`LLM` is a placeholder until the first in-game model. Leaving `GAME` closes the menus and the `NEW`
-popover, blurs the input line and disables the world's keyboard; switching views never pauses or
-changes the clock.
+**View tabs.** Folder tabs in the top-left, in the order `GAME`, `DEBUG`, `LLM`; the app always
+starts on `GAME`. Each view owns the whole window: `GAME` is the world and its HUD, `DEBUG` holds
+the map generator form (`MAP` only for now), `LLM` is a placeholder until the first in-game model.
+Leaving `GAME` closes the menus and the `NEW` popover, releases the input line's focus and disables
+the world's keyboard; switching views never pauses or changes the clock. **Matched in Godot:**
+`GameHud.SwitchView`/`UpdateTabStyles` do exactly this (cyan active tab, dim inactive), though the
+"active tab is one pixel taller" overlap trick is CSS-specific and not reproduced — Godot just
+recolours the tab buttons.
 
 ```css
 .view-tab { height: 24px; border: 1px solid var(--line); border-bottom: none; background: var(--bar); color: var(--dim); }
@@ -457,8 +482,8 @@ button.view-tab::before, button.view-tab::after { content: none; }
 Tab-style buttons need the `button.` prefix on their `::before`/`::after` reset, or the global
 `button:not(.mini)::before` brackets win on specificity.
 
-**Drawer.** The debug drawer is gone (replaced by the `DEBUG` view); the drawer stays the pattern
-for Niko's panels ([Sec. 1] "Panels").
+**Drawer — not yet built.** The debug drawer is gone (replaced by the `DEBUG` view); the drawer
+stays the pattern for Niko's panels ([Sec. 1] "Panels"), none of which exist yet in either stack.
 
 ```css
 .drawer {
@@ -483,9 +508,11 @@ Relationship rows show each axis as a short meter [Sec. 12], not a single number
 
 ---
 
-## 15. Diegetic effects
+## 15. Diegetic effects — not yet built
 
-The CRT and glitch effects from LiraMind are kept, but they are **events, not decoration**.
+The CRT and glitch effects from LiraMind are kept, but they are **events, not decoration**. No
+Godot implementation yet (would be a shader/`AnimationPlayer` pass over the HUD `CanvasLayer`, and
+requires Ether/damage/overwhelm state that doesn't exist yet either).
 
 | Effect | When |
 |---|---|
@@ -575,20 +602,23 @@ const hit = (el) => retrigger(el, "rgb-hit", 450);
 }
 ```
 
-- Desktop first; minimum supported viewport 1280×720. No phone layout.
+- Desktop first; minimum supported window 1280×720. No phone layout.
 - Every HUD action has a keyboard path (hotkeys for speeds, options, menu navigation).
-- View tabs: `Alt+1`/`Alt+2`/`Alt+3` select `GAME`/`DEBUG`/`LLM` from anywhere (matched on the
-  physical digit key); ←/→ move between tabs when one is focused (roving `tabindex`, selection
-  follows focus); `Esc` in `DEBUG` or `LLM` returns to `GAME`. `Enter` and `V` only act on `GAME`.
+- View tabs: `Alt+1`/`Alt+2`/`Alt+3` select `GAME`/`DEBUG`/`LLM` from anywhere, matched on the
+  physical digit key (`GameHud._UnhandledInput`, matched in Godot). `Esc` returning `DEBUG`/`LLM`
+  to `GAME` and ←/→ roving focus between tabs are not built; `Enter` and `V` already only act on
+  `GAME` (`CanMoveWorld`/the `_gameHud.ActiveView` guard).
 - Colour is never the only signal: illegal ops, rumors and Ether also carry a marker or style.
 
 ---
 
-## 17. Confirmations
+## 17. Confirmations — not yet built
 
 Destructive actions open a confirmation popover anchored to the control that opened it, never
 centred over the world. Use a `danger` confirm button and a `CANCEL` button. Open with focus inside;
-Enter confirms and Esc cancels. Do not add a global hotkey for a destructive action.
+Enter confirms and Esc cancels. Do not add a global hotkey for a destructive action. No Godot
+implementation yet: nothing in the client currently needs one (`NEW` overwrites nothing; a save
+opens in place).
 
 ---
 
@@ -596,6 +626,9 @@ Enter confirms and Esc cancels. Do not add a global hotkey for a destructive act
 
 The overlay is Niko's HUD: LiraMind's retro-terminal palette and components, translucent panels
 anchored to the edges over pixel art that stays untouched. Monospace for interface, IBM Plex Serif
-for prose. Magenta means Ether and nothing else. Menus come from the server, the feed shows what
-Niko knows (seen vs rumor), destructive actions use anchored confirmations, and glitch/CRT effects
-fire only when something happens to Niko.
+for prose. Magenta means Ether and nothing else. Menus come from the sim, the feed shows what Niko
+knows (seen vs rumor), destructive actions use anchored confirmations, and glitch/CRT effects fire
+only when something happens to Niko. Since the Dev-025 cut-over the implementation is a Godot
+`CanvasLayer`/`Control` theme (`game/ui/`), not CSS; the palette, HUD panels, context/radial menu,
+input line, feed and view tabs are matched, while fonts, meters, pills, the drawer, scenes,
+diegetic effects and confirmations remain open work, same as before the port.

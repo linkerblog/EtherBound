@@ -40,9 +40,8 @@ and the build order; several rules below look arbitrary until you read why they 
 - **Docs.** `AGENTS.md`, `CLAUDE.md` and `CONTEXT.md` are the root entry points; every other `.md`
   goes in `docs/`. Living guides use `UPPER_CASE.md` in `docs/utils/`. Work docs: `Dev-XYZ.md`
   (`Dev-001`, `Dev-002`, etc., by development version) for any change to a game module (`sim.*`,
-  `game.*`, and `server.*`/`web.*` until `Dev-025` retires them), `FixNN.md` for reviews, and
-  `InfraNN.md` for tooling, launcher, tests or process only. Before creating any `.md`, check
-  whether it already exists and reuse it.
+  `game.*`), `FixNN.md` for reviews, and `InfraNN.md` for tooling, tests or process only. Before
+  creating any `.md`, check whether it already exists and reuse it.
 - **Plans.** Lifecycle (`docs/` → `docs/done/`), format and closing a phase: `docs/utils/PLANS.md`.
 - **Vision changes go to `docs/utils/VISION.md` first.** If a decision changes, update the doc, then the code.
 - **Versions.** `docs/utils/VERSION.md` lists every module (from `v0.0.0`); a change bumps each
@@ -59,14 +58,11 @@ and the build order; several rules below look arbitrary until you read why they 
 - **Notion.** Every system update and completed task is reflected in the EtherBound Notion page;
   the rules are in `docs/utils/NOTION.md`.
 - **Schema changes ship as migrations.** Every database model change comes with a numbered
-  migration (Alembic in `server/`, the sim's runner in `sim/`). Never wipe the savegame to change
-  the schema.
-- **Type contract.** The sim's C# types are the only definition; `game/` links the sim assembly.
-  In `server/` and `web/`, until `Dev-025` ends, Pydantic → OpenAPI → generated TypeScript.
+  migration, run by the sim's runner in `sim/`. Never wipe the savegame to change the schema.
+- **Type contract.** The sim's C# types are the only definition; `game/` links the sim assembly
+  directly, so there is no schema export or generated client type step.
 - **Determinism.** Randomness goes through the seeded RNG stream of its system; no wall-clock time
   inside the simulation. `sim/` bans `System.Random`, `DateTime.Now` and similar through
-  `BannedSymbols.txt`, `server/` through Ruff `TID251`; architecture tests keep database access
-  inside the engine.
+  `BannedSymbols.txt`; architecture tests keep database access inside the engine.
 - **Before calling something done:** run `npm run check` (after `npm run setup` once per clone for
-  the git hooks), plus `npm run check:visual` when the renderer or art changed. Commands live in
-  `CONTEXT.md`.
+  the git hooks). Commands live in `CONTEXT.md`.

@@ -34,7 +34,7 @@ The first line is the bare version, not bold, so `git log --oneline` reads `100f
   - **Z (Fix):** bug fixes, small tweaks, refactors, docs, config.
 - If no previous version exists, use `v0.0.1`.
 - **The new version is written to `docs/utils/VERSION.md`** ("Overall project version") in the
-  same commit. The launcher banner reads it from there, so the two must never differ.
+  same commit; it is the single source of truth for the project version.
 - Module versions are separate: every module touched by the commit is bumped by `0.0.1` in the
   same `VERSION.md` (`AGENTS.md`, "Versions").
 
@@ -57,8 +57,8 @@ once, in bold, with a blank line before it.
 
 - One change per bullet, starting with `- `.
 - Scope in square brackets, then an imperative verb (Add, Fix, Update, Remove...):
-  `- [server.engine] Fix stack merge on drop`.
-- **Scopes are module names from `docs/utils/VERSION.md`** (`server.engine`, `web.game`,
+  `- [sim.engine] Fix stack merge on drop`.
+- **Scopes are module names from `docs/utils/VERSION.md`** (`sim.engine`, `game.render`,
   `bitcanvas`, `tooling`...), plus `docs` and `tests` for files outside every module.
 - Use `inline code` for file names, functions, variables and commands.
 - At most ~72 characters per bullet.
@@ -92,9 +92,9 @@ once, in bold, with a blank line before it.
 v0.8.0
 
 **[Feature]**
-- [server.engine] Add `take`, `drop`, `put`, `open`, `close` handlers
-- [server.db] Add `object` table and migration `0005_object`
-- [web.game] Render objects on tiles with one facing
+- [sim.engine] Add `take`, `drop`, `put`, `open`, `close` handlers
+- [sim.db] Add `object` table and migration `0005_object`
+- [game.render] Render objects on tiles with one facing
 
 **[Bugfix]**
 - [bitcanvas] Remove the `folderName` redeclaration in `gamesync.js`

@@ -4,7 +4,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SCAN_ROOTS = ["server/src", "web/src", "BitCanvas", "launcher/src", "sim", "game"];
+const SCAN_ROOTS = ["BitCanvas", "sim", "game"];
 // Build output and the Godot cache hold generated sources nobody edits.
 const SKIP_DIRS = new Set(["bin", "obj", ".godot"]);
 const SOURCE = /\.(?:py|ts|tsx|js|cs)$/;
@@ -37,7 +37,6 @@ function scan(directory) {
     }
     if (!entry.isFile() || !SOURCE.test(entry.name)) continue;
     const name = relative(ROOT, path).replaceAll("\\", "/");
-    if (name === "web/src/net/schema.d.ts") continue;
     const count = lineCount(readFileSync(path, "utf8"));
     if (count > LIMIT) oversized.push({ name, count });
   }

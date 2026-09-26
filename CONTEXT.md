@@ -5,31 +5,36 @@ Design lives in `docs/utils/VISION.md`.
 
 ## Modules
 
+Ported from a Python/FastAPI server and a Phaser/React web client to a deterministic C# simulation
+and a Godot 4 client (`docs/done/Dev-025.md`, cut-over 26/09/2026); the earlier stack is archived at
+`legacy-python-web-stack.zip`, and every rule below carried over unchanged, proven by goldens
+exported from the old server before cut-over. The measured reason: 1,000 Extras averaged
+5,645 ms/tick in Python versus 64.864 ms/tick in the release C# sim (`EtherBound.Bench`), ~87×
+faster, at clock speed 10.
+
 | Module | Path | Responsibility |
 |---|---|---|
-| server.app | `server/src/etherbound/app.py`, `config.py`, `routes/api.py` | FastAPI app, lifespan (migrations, world, clock, schema export) and the REST routes. |
-| server.clock | `server/src/etherbound/clock.py` | 1 Hz logic clock: speeds x1/x3/x10, pause, autopause locks. |
-| server.engine | `server/src/etherbound/engine/` (`payloads.py`, `world_setup.py`, `menu.py`, `ops/edges.py`, `ops/damage.py`, `ops/travel.py`) | The only state writer: `WorldEngine` orchestration, action/target models, generated menus, every handler, deterministic SI physics and trajectory resolution. |
-| server.events | `server/src/etherbound/events/` | Typed committed events, FIFO async subscriber bus and transactional sequence persistence. |
-| server.minds | `server/src/etherbound/minds/` | Decision sources that propose through the action API; today `ExtrasBrain`, the deterministic routine of an Extra. |
-| server.world | `server/src/etherbound/world/` | Material registry, validated object kinds, chunk/grid geometry, A*, the generator registry and seeded generation (`test` and `lab`). |
-| server.net | `server/src/etherbound/net/` | WS hub, timed inputs, per-connection chunk tracking and the combined OpenAPI + WS schema export. |
-| server.db | `server/src/etherbound/db/`, `server/alembic/` | SQLAlchemy models, engine/session factory and Alembic upgrades. |
-| server.rng | `server/src/etherbound/rng.py` | `RNGStreams.stream(system)` — one seeded stream per system. |
-| web.world | `web/src/world/` | Chunk store, server-parity standing/wall rules, cutaway, ray, occlusion, picking and material tables. |
-| web.game | `web/src/game/` (`MapScene.ts`, `terrainAtlas.ts`, `chunkRenderer.ts`, `wallPainter.ts`, `extras.ts`, `physics.ts`) | `MapScene` owns input, camera and streaming; ordered chunk/wall batches and actor/physics animation remain server-authoritative. |
-| web.net | `web/src/net/` | WS client, movement prediction/reconciliation, generated `schema.d.ts` and action-result trajectory listeners. |
-| web.ui | `web/src/ui/` (`ContextMenus.tsx`, `NewGamePopover.tsx`, `DebugViews.tsx`, `HudPanels.tsx`) | Framed React overlay; `GAME`/`DEBUG`/`LLM` tabs, clock, `CARRY`/`FEED`/`ACT`, input, context/radial menus and `NEW`/`MAP` generator forms. |
-| launcher | `launcher/` | `EtherBound.exe`, the C# (.NET 10, Native AOT) dev launcher: server + web jobs, health checks, hot reload, leftover and port handling. |
-| bitcanvas | `BitCanvas/` (`pixelart.js`, `gamesync.js`, `core.js`, `terrain.js`, `sides.js`, `furnitureData.js`, `furniture.js`, `app.js`) | Standalone seeded texture and furniture generator (classic deferred scripts, HTML/JS, no build) with guarded "Send to game" sync. |
-| sim | `EtherBound.sln`, `sim/EtherBound.Sim/`, `sim/EtherBound.Host/`, `sim/EtherBound.Sim.Tests/`, `sim/EtherBound.Bench/` | Dev-025 stage 3: deterministic C# sim (MT19937, grid/A*, 18 ops, menus, SQLite, `ExtrasBrain`) plus `SimulationHost` single-writer thread, bounded command queue and detached revisioned frames. 166 xUnit/golden tests pass; 1,000 Extras average 64.864 ms/tick at x10 (p95 108.090). |
-| game.app, game.render | `game/` (`app/`, `project.godot`, `EtherBound.Game.csproj`, `spike/`) | Godot 4.7.2 .NET main scene draws host frames, exposed chunk/`z` meshes and actor capsules; WASD sends queued actions, with camera, zoom and clock HUD. Vulkan captures at x1/x2/x4 and headless import pass. |
-| tooling | root config: `package.json`, `global.json`, `.gitignore`, `.env.example`; `server/scripts/` | Build and check scripts, pinned .NET SDK, `export_world.py` (world dumps for `game/`). |
+| sim.rng | `sim/EtherBound.Sim/Rng/` | `PyRandom`, a bit-exact port of CPython's MT19937; `RngStream`/`RNGStreams` — one seeded stream per system. |
+| sim.world | `sim/EtherBound.Sim/World/` | Material registry, validated object kinds, chunk/grid geometry, A*, the generator registry and seeded generation (`test` and `lab`). |
+| sim.events | `sim/EtherBound.Sim/Events/`, `sim/EtherBound.Sim/Core/` | Typed committed events, FIFO subscriber bus, transactional sequence persistence, and core primitives (`Ids`, `GameAction`, target types). |
+| sim.db | `sim/EtherBound.Sim/Db/` | `Microsoft.Data.Sqlite` schema, load/save and the migration runner. |
+| sim.engine | `sim/EtherBound.Sim/Engine/`, `sim/EtherBound.Sim/Clock/` | The only state writer: `WorldEngine` orchestration, action/target types, generated menus, every handler, deterministic SI physics, trajectory resolution, `Pick` (ray casting for the client) and `SimClock`. |
+| sim.minds | `sim/EtherBound.Sim/Minds/` | Decision sources that propose through the action API; today `ExtrasBrain`, the deterministic routine of an Extra. |
+| sim.host | `sim/EtherBound.Host/` | `SimulationHost`: the sim's single writer thread, a bounded command channel (move, clock, actions, menu/pick queries, new game) and detached, revisioned `WorldFrame`s the client reads without a lock. |
+| game.app | `game/app/`, `game/project.godot`, `game/EtherBound.Game.csproj` | `WorldClient`: Godot entry point, environment/light setup, chunk/actor sync from host frames, WASD input, the `--shots` GPU-capture script. |
+| game.render | `game/spike/` | `PixelView` (low-res `SubViewport`, orthographic camera, art-pixel snapping), `ChunkMesher` (exposed terrain/structure faces, `Terrain.gdshader`, furniture voxel meshes), `Cutaway` (occlusion-ray clip height), `FurnitureLibrary`, `WorldDump` (render-only projection). |
+| game.ui | `game/ui/` | `GameHud` (`GAME`/`DEBUG`/`LLM` tabs, `CLOCK`/`FEED`/`CARRY`/`ACT` panels, input line, `NEW` popover), `ActionMenuOverlay` (right-click list, `V` radial menu), `GeneratorPanel` (`NEW`/`MAP` forms from `GeneratorSpec`), `TrajectoryAnimator`. |
+| bitcanvas | `BitCanvas/` (`pixelart.js`, `gamesync.js`, `core.js`, `terrain.js`, `sides.js`, `furnitureData.js`, `furniture.js`, `app.js`) | Standalone seeded texture and furniture generator (classic deferred scripts, HTML/JS, no build); furniture exports to `game/assets/furniture/` via `scripts/export-furniture.mjs`, and "Send to game" targets `game/assets/sprites/`. |
+| tooling | root config: `package.json`, `global.json`, `.gitignore`; `scripts/` | Build and check scripts, pinned .NET SDK, `export-furniture.mjs`. |
 
 ## Data model
 
-SQLite at `data/etherbound.db` (gitignored). Migrations `0001_initial`, `0002_world`, `0003_event`,
-`0004_dig_activity`, `0005_object`, `0006_physics`, `0007_generator` and `0008_extra`:
+SQLite at `data/etherbound.db` (gitignored), opened by `sim/EtherBound.Sim/Db/` through
+`Microsoft.Data.Sqlite`; the engine keeps authoritative state in memory and commits a session's
+changes in one transaction. Migrations `0001_initial`, `0002_world`, `0003_event`,
+`0004_dig_activity`, `0005_object`, `0006_physics`, `0007_generator` and `0008_extra` are unchanged
+from the retired Python server (`legacy-python-web-stack.zip`); the sim records its own
+`schema_version` and leaves the save's old `alembic_version` column alone:
 
 | Table | Columns |
 |---|---|
@@ -53,53 +58,53 @@ h=18, roof at h=24 and a pond with a park pit. It also lays out objects in a fix
 (124, 126, h=2), a backpack (125, 126, h=2), a closed chest (124, 127, h=2) holding apple ×3 and
 bottle ×2, a table (137, 133, h=12) with a bottle on its top, two chairs, a shelf with apple ×2, a
 barrel (all on the building's ground floor), two chests stacked at (126, 127) (the upper resting
-on the lower's top at h=3), and a sledgehammer at (126, 126). `new_game` wipes actors, objects, chunks and levels
-and regenerates from the seed; `ensure_world` fills an existing Phase 0 save without a wipe, keeping
-held and worn objects with their contents and deleting the uncarried ones before re-laying the v5
-layout. On load, a saved actor within
+on the lower's top at h=3), and a sledgehammer at (126, 126). `NewGame` wipes actors, objects,
+chunks and levels and regenerates from the seed; `EnsureWorld` fills an existing save without a
+wipe, keeping held and worn objects with their contents and deleting the uncarried ones before
+re-laying the v5 layout. On load, a saved actor within
 0.5 m of a standing surface in its tile is snapped to that surface's exact `h` (no event);
 further off, it is relocated to spawn (`actor.spawned`, `relocated`).
 
-**Extras.** Each world also carries six Extras. `world/population.py` places them from the
-`population` RNG stream (names from `world/names.toml`, and walkable standing ground tiles within
-15 m of the spawn, reachable by `find_path`, at least 2 m apart); `populate(grid, registry, spawn,
-seed) -> tuple[GeneratedActor, ...]` is a pure grid pass that touches no database. The engine writes
-each Extra as an `actor` row `extra-NNN` with `kind = "extra"`, its `name`, its position and
-`mind = {anchor, goal: null}` where the anchor is its start tile; it logs `actor.spawned` per Extra.
-`new_game` creates Niko and the Extras; `ensure_world` settles every existing actor (same snap or
-`relocated` rule) and, only when the save has no Extras, seeds them, so a pre-`0008_extra` save
-gains them on first open and a second open emits nothing. `population` is deliberately not part of
-`GeneratedWorld`: population is actors, not terrain, and never changes the test world's bytes.
+**Extras.** Each world also carries six Extras. `World/Population.cs` places them from the
+`population` RNG stream (names from `Data/names.toml`, and walkable standing ground tiles within
+15 m of the spawn, reachable by `Nav.FindPath`, at least 2 m apart); population is a pure grid pass
+that touches no database. The engine writes each Extra as an `actor` row `extra-NNN` with
+`kind = "extra"`, its `name`, its position and `mind = {anchor, goal: null}` where the anchor is
+its start tile; it logs `actor.spawned` per Extra. `NewGame` creates Niko and the Extras;
+`EnsureWorld` settles every existing actor (same snap or `relocated` rule) and, only when the save
+has no Extras, seeds them, so a pre-`0008_extra` save gains them on first open and a second open
+emits nothing. Population is deliberately not part of `GeneratedWorld`: population is actors, not
+terrain, and never changes the test world's bytes.
 
-**Generators.** `world/gen/registry.py` holds `GENERATORS`: `test` (version 5, the existing test
-world, unchanged) and `lab` (version 1, `world/gen/lab.py`). A `GeneratorSpec` carries `key`,
-`name`, `version`, a Pydantic options model, `generate(seed, options, registry) -> GeneratedWorld`
-and a pure, cheap `spawn(seed, options)`. `GeneratedWorld` (in `world/gen/types.py`) holds the
-chunks, levels, objects, spawn, version and generator key; `generate_test_world` keeps its byte
-output. `new_game` validates the options, stores `generator` and the full options dump, generates
-through the spec and logs `world.generated` with both. `ensure_world` resolves the save's generator
-(an unknown key falls back to `test` with a warning) and regenerates when `gen_version` is below the
-spec version; `_spawn_point` calls `spec.spawn` instead of the generator running again on load. The
-`lab` map is a 4×4-chunk (128 m) flat fixture with asphalt paths and nine 36×36 bays — steps,
-materials, water, structure, feature, objects, dig, walls and open — around central bay `feature`,
-where a feature (today only `relief`, noise hills) is stamped through a `GenCanvas`
-(`world/gen/canvas.py`); the default spawn is the path north of the feature bay. `GET /api/gen`
-describes each generator as data: `fields` (path, label, kind, default, min, max, step, choices,
-group) and, for `lab`, its `bays`.
+**Generators.** `World/Generators.cs` holds the registry: `test` (version 5, `World/TestWorld.cs`,
+unchanged) and `lab` (version 1, `World/Lab.cs`). A `GeneratorSpec` carries `key`, `name`,
+`version`, an options record, `Generate(seed, options, registry) -> GeneratedWorld` and a pure,
+cheap `Spawn(seed, options)`. `GeneratedWorld.cs` holds the chunks, levels, objects, spawn, version
+and generator key; the test world generator keeps its byte output. `NewGame` validates the options,
+stores `generator` and the full options dump, generates through the spec and logs `world.generated`
+with both. `EnsureWorld` resolves the save's generator (an unknown key falls back to `test` with a
+warning) and regenerates when `gen_version` is below the spec version; the spec's own `Spawn` runs
+instead of the generator running again on load. The `lab` map is a 4×4-chunk (128 m) flat fixture
+with asphalt paths and nine 36×36 bays — steps, materials, water, structure, feature, objects, dig,
+walls and open — around central bay `feature`, where a feature (today only `relief`, noise hills)
+is stamped through a `GenCanvas` (`World/GenCanvas.cs`); the default spawn is the path north of
+the feature bay. Every published `WorldFrame` carries `Generators` (`HostGenerator`,
+`HostOptionField`: path, label, kind, default, min, max, step, choices, group) and, for `lab`, its
+`HostGeneratorBay`s; the Godot `MAP`/`NEW` forms (`GeneratorPanel`) build themselves from this data.
 
 ## Contracts
 
-- **Action API.** `WorldEngine.submit(actor_id, action, delta_seconds)` is the single mutation entry
+- **Action API.** `WorldEngine.Submit(actorId, action, deltaSeconds)` is the single mutation entry
   point: pause check → a zero-length `move` returns accepted and does nothing → handler
-  `validate` (a rejection changes nothing and emits nothing) → a running activity is cleared with
+  `Validate` (a rejection changes nothing and emits nothing) → a running activity is cleared with
   `activity.finished` (`interrupted`) → an instant op resolves (events and an optional `text`), a
   durative one stores an activity and emits `activity.started` → transactional commit and event
-  enqueue → FIFO dispatch outside the engine lock. Actions are a union discriminated by `op`;
+  enqueue → FIFO dispatch on the sim thread. Actions are a union discriminated by `op`;
   targets are `self`, `tile {x, y, h}`, `object {id}`, `actor {id}` or
   `edge {x, y, z, direction}`; `put` carries a second `into` target.
-- **Ops.** `engine/ops.toml` is the vocabulary (key, label, group, target kinds, tags); a handler
-  (`applies`, `builds`, `subject`, `validate`, `duration`, `resolve`, `complete`) gives an op
-  behaviour, and `register` refuses a key missing from the catalog. One target can `builds` several
+- **Ops.** `Data/ops.toml` is the vocabulary (key, label, group, target kinds, tags); a handler
+  (`Applies`, `Builds`, `Subject`, `Validate`, `Duration`, `Resolve`, `Complete`) gives an op
+  behaviour, and registration refuses a key missing from the catalog. One target can `Builds` several
   actions and `subject` names what an entry acts on. Handled: `move` (never in menus), `inspect`
   (instant, 30 m, tile, object or actor text, no event), `wait` (15 min), `dig` (ground surface only,
   `ceil(30 × dig_cost / tool)` min per 0.5 m with the best held `tool.dig` or 0.25 bare-handed,
@@ -121,22 +126,23 @@ group) and, for `lab`, its `bays`.
   cells and partial damage persists in
   `wall_integrity`. Zero integrity turns objects into data-defined rubble (spilling container
   contents) or opens wall edges. Falls resolve in the same action; bodies over a 3 m fall emit
-  potential energy as `impact`. Physics never mutates health. The client animates server paths only.
+  potential energy as `impact`. Physics never mutates health. The client only animates the sim's
+  trajectory (`TrajectoryAnimator`); it never resolves physics itself.
 - **Activities.** One per actor, stored on the actor, advanced only by clock ticks. In
-  `advance_time`, actors whose `ends_minute` has come are completed in id order before
+  `AdvanceTime`, actors whose `ends_minute` has come are completed in id order before
   `clock.ticked`: the action is re-validated, and either `complete` applies its events then
   `activity.finished` (`completed`), or `activity.finished` (`failed`, reason). A paused clock
   freezes them; progress is lost on interruption.
-- **Minds.** `WorldEngine.set_goal(actor_id, goal, reason)` is the only writer of `mind.goal`: it
+- **Minds.** `WorldEngine.SetGoal(actorId, goal, reason)` is the only writer of `mind.goal`: it
   refuses the player, an unknown actor and a goal tile without a standing surface, sets the goal
   (or clears it) and commits `actor.goal_set` (`reason` chosen/arrived/stuck/unreachable) in the same
-  transaction as the actor row. `ExtrasBrain`, subscribed to `clock.ticked` before the WS hub, walks
-  each idle Extra toward its goal with `submit(move, delta_seconds)` at 4 m/s per real second
-  (`time_scale / speed` per tick, at most six move submits) and otherwise picks a `wander` goal
-  within 12 m of its anchor (60 % of idle ticks) or waits; it re-derives its path from state, so a
-  restart replays it. A stalled step recomputes once, then `set_goal(None, "stuck")`. The brain only
-  proposes; the engine validates and writes every step.
-- **Menus.** `WorldEngine.menu(actor_id, x, y, z)` is a read (no lock): candidates are the tile's
+  transaction as the actor row. `ExtrasBrain`, subscribed to `clock.ticked` before the host publishes
+  its frame, walks each idle Extra toward its goal with `Submit(move, deltaSeconds)` at 4 m/s per
+  real second (`timeScale / speed` per tick, at most six move submits) and otherwise picks a
+  `wander` goal within 12 m of its anchor (60 % of idle ticks) or waits; it re-derives its path from
+  state, so a restart replays it. A stalled step recomputes once, then `SetGoal(null, "stuck")`. The
+  brain only proposes; the engine validates and writes every step.
+- **Menus.** `WorldEngine.Menu(actorId, x, y, z)` is a read (no lock): candidates are the tile's
   standing surface for `z`, `self` and the objects lying on it at that surface's band, plus the
   contents of its open or lidless containers; on the actor's own tile, also every held and worn
   object and the contents of worn open containers; it also offers actors standing on the clicked tile
@@ -150,39 +156,28 @@ group) and, for `lab`, its `bays`.
   op and places each verb's targets in their tile's screen direction around Niko; it never adds,
   removes or reorders an entry within a group.
 - **Event bus.** Only `WorldEngine` stamps/enqueues events. Logged events share the state
-  transaction; `clock.ticked` dispatches but is not stored. `new_game` resets the log and sequence
+  transaction; `clock.ticked` dispatches but is not stored. `NewGame` resets the log and sequence
   to 1. A fresh world logs `world.generated`, one `actor.spawned` for Niko and each Extra, then
   `clock.changed`; opening an existing save emits nothing, except the Extra spawns when it had none.
-  `drain()` called while another task is draining returns immediately; the
-  active task dispatches the caller's events in `seq` order, possibly after the caller has returned.
-  Nothing guarantees subscribers have run when `submit`, `set_clock` or `new_game` returns.
-  Handlers run in subscription order; reentrant events append to the active FIFO drain. Handler
-  failures are logged and isolated; a cascade is capped at 10,000 events. `seq` is unique among
-  stored events; a transient event's `seq` may be reused after a restart, so never key state on it.
-- **REST.** `GET /api/health`, `POST /api/game/new {seed, generator?, options?, paused?}` (an unknown
-  generator or invalid options returns 422 and leaves the world untouched; `{seed}` alone gives the
-  `test` world, and `paused: true` starts the clock paused so a shot does not move the Extras), `GET /api/game/state` (with `generator`, `gen_version`, `gen_options`),
-  `GET /api/gen` (every generator's options as form fields plus the lab bays),
-  `GET /api/materials`, `GET /api/objects` (the kind catalog), `GET /api/world/chunk?cx&cy`,
-  `GET /api/menu?x&y&z&radius` (any `z`, computed for Niko; `radius` (0 or 1, default 0) also scans
-  the 3×3 square around the tile, each neighbour `in_close_reach` allows (a diagonal through
-  either open side), for the radial menu;
-  returns a `target` line like `Asphalt · 1 m`, `ops: MenuEntry[]` and `places: MenuPlace[]`;
-  the client renders, never adds),
-  `GET /api/events?after_seq&limit&type&actor_id` (ordered event records; limit 1–500).
-- **WebSocket `/ws`.** Server → client: `snapshot` (with `world: {chunk_size, level_h, bounds}`),
-  `tick`, `ack` (with `h`), `result` (for an `action`: accepted, reason, text, activity, `carried`,
-  `load_kg`, trajectory),
-  `activity` (one of Niko's activities finished: op, outcome, reason), `chunk` (full chunk payload
-  with `levels[]` and `objects[]`), `error`. Snapshot and tick actors carry `name`, `activity`,
-  `carried` and `load_kg`.
-  Client → server: `input` (dx, dy, sequence, dt), `action` (sequence, action), `clock` (paused,
-  speed). A `chunk.changed` event (not logged) re-sends the chunk only to connections that
-  already hold an older revision. On connect the hub sends
-  the snapshot plus every chunk within radius 2 the connection has not seen; movement carries `dt`;
-  crossing a chunk
-  boundary pushes only the new ones (per-connection revision map). Movement is 20 Hz, independent
-  of the 1 Hz clock; pause rejects movement with `accepted=false, reason="paused"`.
+  A drain call made while another is already draining returns immediately; the active one dispatches
+  the caller's events in `seq` order, possibly after the caller has returned. Nothing guarantees
+  subscribers have run when `Submit`, `SetClock` or `NewGame` returns. Handlers run in subscription
+  order; reentrant events append to the active FIFO drain. Handler failures are logged and isolated;
+  a cascade is capped at 10,000 events. `seq` is unique among stored events; a transient event's
+  `seq` may be reused after a restart, so never key state on it.
+- **The host contract (`sim/EtherBound.Host/`).** There is no REST or WebSocket: `SimulationHost`
+  owns the sim on one dedicated thread; Godot enqueues commands on a bounded channel (`Move`,
+  `Clock`, `NewGame`, `SubmitAction`, `MenuQuery`/`MenuRay`/`RadialMenu`, `PickRay`) and reads an
+  immutable, atomically-published `WorldFrame` — sequence, clock, every actor, every chunk near the
+  player (radius 2, revisioned so an unchanged chunk is not resent), the material/object-kind
+  catalog and the generator list — with no lock. Responses to request-carrying commands (actions,
+  menus, picks, new game, errors) arrive on a separate unbounded channel, matched to the client's
+  own request id (`HostResponse.RequestId`); `HostActivityNotice` for a finished player activity has
+  no request id and is pushed as it happens. `WorldEngine.Pick(ray)` (sim-space ray cast: tiles,
+  wall edges, actor bodies, object volumes) backs both picking and the menu-at-ray query, so the
+  Godot camera's cursor ray always agrees with the sim's own geometry. Movement is stepped at
+  `MoveHz` (20, unchanged from the old 20 Hz WS input), independent of the 1 Hz clock; there is no
+  client-side prediction, since there is no network latency to hide.
 - **Standing rule (shared).** Step at most 0.5 m (`Δh ≤ 1`), keep the three half-metre cells
   `h+1..h+3` clear (a slab at `h+4` touches but does not intersect a 2 m body), no wall on the shared
   edge, and at least 0.3 m body-centre clearance from blocked edges. A solid object's cells count as
@@ -191,8 +186,8 @@ group) and, for `lab`, its `bays`.
   height-consistent L routes. Navigation adds same-column `LEVEL_CLIMBABLE` links; normal player
   movement still uses the shared action API. Speed: ×0.6 up, ×0.85 down, divided by `walk_cost` and
   multiplied by the carried `load_multiplier`.
-- **Types.** `combined_schema()` merges OpenAPI with the WS message models and writes
-  `server/schema.json`; `web/src/net/schema.d.ts` is generated from it and committed.
+- **Types.** The sim's C# types are the only definition; `game/` links the sim assembly directly, so
+  there is no schema export or generated client type step.
 
 ## Commands
 
@@ -200,50 +195,32 @@ group) and, for `lab`, its `bays`.
 # One-time per clone: enable the versioned git hooks
 npm run setup
 
-# Launcher: build once, and again after changing launcher/ (the exe is gitignored)
-npm run bitcanvas             # open the standalone sprite generator
-cd server && uv run python scripts/export_world.py   # dumps for the Godot spike
-cd server && uv run python scripts/export_goldens.py # sim/EtherBound.Sim.Tests/Goldens
-"$GODOT_BIN" --path game -- --world test-7 [--shots|--bench|--shimmer DIR]
-npm run launcher:build        # Native AOT publish, copies EtherBound.exe to the root
-EtherBound.exe                # server (hot reload) + web; keys O R W L H Q; logs in logs\
-EtherBound.exe --no-reload    # no restart on saved server sources
-EtherBound.exe --cleanup      # kill this checkout's leftovers; refuses while a launcher runs
-dotnet run --project launcher/src    # while working on the launcher itself
-
-# Schema and types
-cd server && uv run etherbound-schema      # writes server/schema.json
-cd web && npm run gen:types                # server/schema.json -> src/net/schema.d.ts
+npm run bitcanvas                      # open the standalone texture/furniture generator
+npm run export:furniture               # BitCanvas/furnitureData.js -> game/assets/furniture/*.json
+dotnet build EtherBound.sln            # sim, host, tests, bench, game
+dotnet run --project sim/EtherBound.Bench -c Release   # 1,000/5,000/10,000-Extra tick benchmark
+"$GODOT_BIN" --path game -- [--seed N] [--generator test|lab] [--database PATH] [--shots DIR]
 
 # Checks (COMMITS.md; hooks run check:fast on commit, check-versions on the message, check on push)
-npm run check                   # versions, docs, sizes, server, web, bitcanvas, launcher, goldens, furniture, sim, game
+npm run check                   # versions, docs, sizes, bitcanvas, furniture, sim, game
 npm run check:sim               # dotnet test sim/EtherBound.Sim.Tests
 npm run check:game              # dotnet build game; headless Godot import when GODOT_BIN is set
-npm run check:goldens           # re-export the goldens; fails if Python drifted
-npm run export:furniture        # BitCanvas/furnitureData.js -> game/assets/furniture/*.json
 npm run check:furniture         # re-export furniture; fails if BitCanvas drifted
-npm run check:fast              # versions (staged), docs, sizes, ruff, bitcanvas
+npm run check:fast              # versions (staged), docs, sizes, bitcanvas
 npm run check:docs              # fails on a broken `X.md` [Sec. N] reference
 npm run check:sizes             # warning-only scan: sources over 600 lines, doc budgets
-npm run check:visual            # Playwright spawn baselines + shell layout (free ports, msedge)
 ```
 
-`server/schema.json` must be regenerated before `gen:types`; it is not committed. `check:web`
-runs the schema export, the `schema.d.ts` diff, the web tests and the production build.
-`check:visual` is not part of `check`: it needs free ports 8000 and 5173 (stop the launcher first)
-and a GPU-less renderer run. Its specs run on one worker because each resets the shared server with
-its own seed. Without a
-console (an agent, output redirected) `EtherBound.exe` prints plain lines and takes no keys; end
-its process to stop it, and its job takes the services with it. The logs are
-`logs\launcher.log`, `server.log` and `web.log`, with the previous run kept as `*.prev.log`.
+`GODOT_BIN` points at the Godot 4.7.2 (.NET/mono) editor executable; `--seed`/`--generator` default
+to `7`/`test`, and `--database` defaults to the user data dir (so a plain run keeps using the same
+save). `check:game`'s headless import only runs when `GODOT_BIN` is set; otherwise it just builds.
 
-`check:sizes` scans source files under `server/src`, `web/src`, `BitCanvas` and `launcher/src`;
-it skips generated `web/src/net/schema.d.ts` and warns without failing. It also warns when a boot
-doc exceeds its character budget (`CLAUDE.md` 2k, `AGENTS.md` 5k, `CONTEXT.md` 24k, `VISION.md`
-17k) or a plan in `docs/` exceeds 220 lines. `check:docs` scans the living docs (root, `docs/`,
-`docs/utils/`) and fails on a file-qualified section reference whose file or numbered heading does
-not exist; references into `docs/done/` and ones quoted as inline code are skipped. Only
-`server/src/etherbound/engine/ops/handling.py` and `BitCanvas/pixelart.js` currently exceed 600 lines.
+`check:sizes` scans source files under `BitCanvas`, `sim` and `game`, and warns without failing.
+It also warns when a boot doc exceeds its character budget (`CLAUDE.md` 2k, `AGENTS.md` 5k,
+`CONTEXT.md` 24k, `VISION.md` 17k) or a plan in `docs/` exceeds 220 lines. `check:docs` scans the
+living docs (root, `docs/`, `docs/utils/`) and fails on a file-qualified section reference whose
+file or numbered heading does not exist; references into `docs/done/` and ones quoted as inline
+code are skipped. Only `BitCanvas/pixelart.js` currently exceeds 600 lines.
 
 ## Pitfalls index
 
@@ -252,13 +229,13 @@ the areas you touch.
 
 | Sec. | Area | Read when touching |
 |---|---|---|
-| 1 | Launcher and Windows processes | `launcher/`, server start/stop, the database file |
-| 2 | World, generation and grid | `server/src/etherbound/world/`, generator versions, Extras population |
-| 3 | Movement, net and client sync | `server/.../net/`, `server/.../minds/`, `web/src/net/`, movement code |
-| 4 | Objects and physics | `engine/ops/`, object kinds, `grid.py`/`ChunkStore` volumes |
-| 5 | Renderer, atlas and assets | `web/src/game/`, `web/src/world/`, `web/src/ui/`, `src/sprites/` |
-| 6 | BitCanvas | `BitCanvas/` |
-| 7 | Tests and tooling | `scripts/`, Playwright, schema generation |
+| 1 | Godot process and the database file | `GODOT_BIN`, running the client, the database file |
+| 2 | World, generation and grid | `sim/EtherBound.Sim/World/`, generator versions, Extras population |
+| 3 | Movement and the host channel | `sim/EtherBound.Host/`, `sim/EtherBound.Sim/Minds/`, movement/picking code |
+| 4 | Objects and physics | `sim/EtherBound.Sim/Engine/`, object kinds, grid volumes |
+| 5 | Renderer, shaders and furniture meshes | `game/spike/`, `game/assets/`, shaders |
+| 6 | BitCanvas | `BitCanvas/`, `scripts/export-furniture.mjs` |
+| 7 | Tests and tooling | `scripts/`, `dotnet test`, export-and-diff checks |
 | 8 | Godot client | `game/`, shaders, camera, light |
 
 ## Not yet present
@@ -268,7 +245,6 @@ The other six primitives as data models, handlers for the 40 catalog ops that ha
 `drink`, `treat`, `fill`, `build`, `repair`, `ignite`, `extinguish`, `cook`, `craft`, `grab`,
 `shoot`, the social, communication and trade ops, and `work`), modifiers, rolls,
 witnesses/knowledge, water simulation, Agent brains and their needs, traits and utility (the
-deterministic Extras exist), LLM, Jev, item degradation, content beyond the eleven object kinds of
-`world/objects.toml`, and the city generator. Vector placeholders remain for materials not mapped
-in `web/src/game/terrainSprites.ts`, and placeholder prisms remain for object kinds with no
-BitCanvas sprite sheet.
+deterministic Extras exist), LLM, Jev (its C# runtime is an open question, `docs/PENDING.md`), item
+degradation, content beyond the eleven object kinds of `Data/objects.toml`, and the city generator.
+The plain object box remains for kinds with no BitCanvas furniture piece (tools, food, `rubble`).

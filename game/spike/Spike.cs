@@ -159,23 +159,19 @@ public partial class Spike : Node
             },
         };
 
-        var mesher = new ChunkMesher(_world, topLayers, sideLayers);
+        var mesher = new ChunkMesher(_world, topLayers, sideLayers, _terrainMat, _structureMat, _glassMat);
         foreach (var (cx, cy) in _world.Chunks.Keys)
         {
-            var meshes = mesher.Build(cx, cy);
-            Add(meshes.Terrain, _terrainMat);
-            Add(meshes.Structure, _structureMat);
-            Add(meshes.Glass, _glassMat);
+            foreach (var meshes in mesher.Build(cx, cy).Values) Add(meshes.Mesh);
         }
     }
 
-    private void Add(ArrayMesh? mesh, Material material)
+    private void Add(ArrayMesh? mesh)
     {
         if (mesh is null) return;
         _root.AddChild(new MeshInstance3D
         {
             Mesh = mesh,
-            MaterialOverride = material,
             CastShadow = GeometryInstance3D.ShadowCastingSetting.DoubleSided,
         });
     }

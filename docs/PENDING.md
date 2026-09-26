@@ -40,10 +40,10 @@ Open decisions and loose ends. When one is settled, record the decision where it
 - [ ] **Dev-025 C# sim and Godot client** (`Dev-025.md`): port to a deterministic C# simulation
       and a Godot 4 .NET client with a 3D orthographic pixel-art camera, in seven stages proven by
       goldens from Python. Dev-014/016/021/023/024 stay frozen and are deprecated at cut-over.
-      Approved 25/09/2026; stages 0-2 are done. The 26/09/2026 perf pass brings the Release
-      `EtherBound.Bench` result for 1,000 Extras at x10 to 64.864 ms average per tick across 100
-      measured ticks, below the 100 ms average gate. Stage 3 can now wire the sim into Godot and put
-      the crowds VISION [Sec. 3] wants onto the screen.
+      Approved 25/09/2026; stages 0-3 are done. The 26/09/2026 Release benchmark passes the
+      1,000-Extra x10 gate at 64.864 ms average over 100 measured ticks. Stage 3 now has a dedicated
+      sim writer, detached/revisioned frames, a Godot world renderer, queued WASD and clock controls;
+      GPU captures at x1/x2/x4 and the Godot headless import passed. Stage 4 interaction/UI is next.
 - [ ] **Dev-014 AI furniture** (`Dev-014.md`): an LLM proposes furniture as a validated primitive
       spec that BitCanvas renders; lands after Dev-012. The `gamesync.js` syntax error was fixed
       independently by Fix10.

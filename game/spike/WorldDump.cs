@@ -1,13 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
+using EtherBound.Host;
 
 namespace EtherBound.Game.Spike;
 
 /// <summary>
-/// A world exported by <c>server/scripts/export_world.py</c>, decoded from the stored
-/// little-endian blobs. Stage 0 only: the sim's own grid replaces it in stage 3.
+/// A render-only projection. JSON loading remains for the Stage-0 spike; the app builds its view from
+/// detached simulation frames and never treats this data as world state.
 /// </summary>
 public sealed class WorldDump
 {
@@ -101,6 +103,51 @@ public sealed class WorldDump
             dump.Objects.Add(new WorldObject(o.GetProperty("kind").GetString()!, o.GetProperty("x").GetInt32(),
                 o.GetProperty("y").GetInt32(), o.GetProperty("h").GetInt32(),
                 parent.ValueKind == JsonValueKind.Null ? null : parent.GetInt32()));
+        }
+        return dump;
+    }
+
+    /// <summary>Copies immutable host data into the renderer's query-friendly view model.</summary>
+    public static WorldDump FromFrame(WorldFrame frame)
+    {
+        var player = frame.Actors.First(actor => actor.Id == EtherBound.Sim.Core.Ids.Player);
+        var dump = new WorldDump
+        {
+            Generator = frame.Generator,
+            Spawn = ((float)player.X, (float)player.Y, player.H),
+        };
+        foreach (var material in frame.Materials)
+            dump.Materials[material.Id] = new Material(material.Id, material.Key, material.Color, material.Liquid);
+        foreach (var kind in frame.ObjectKinds)
+            dump.Kinds[kind.Key] = new Kind(kind.Material, kind.Height, kind.Solid, kind.Surface);
+        foreach (var chunk in frame.Chunks)
+        {
+            dump.Chunks[(chunk.Cx, chunk.Cy)] = new Chunk
+            {
+                GroundH = chunk.GroundH.ToArray(),
+                SurfaceMat = chunk.SurfaceMat.ToArray(),
+                Dug = chunk.Dug.ToArray(),
+            };
+            dump.MinCx = Math.Min(dump.MinCx, chunk.Cx);
+            dump.MinCy = Math.Min(dump.MinCy, chunk.Cy);
+            dump.MaxCx = Math.Max(dump.MaxCx, chunk.Cx);
+            dump.MaxCy = Math.Max(dump.MaxCy, chunk.Cy);
+            foreach (var level in chunk.Levels)
+            {
+                if (!dump.Levels.TryGetValue((chunk.Cx, chunk.Cy), out var levels))
+                    dump.Levels[(chunk.Cx, chunk.Cy)] = levels = new List<Level>();
+                levels.Add(new Level
+                {
+                    Z = level.Z,
+                    FloorH = level.FloorH.ToArray(),
+                    FloorMat = level.FloorMat.ToArray(),
+                    WallN = level.WallN.ToArray(),
+                    WallW = level.WallW.ToArray(),
+                    EdgeFlags = level.EdgeFlags.ToArray(),
+                    Flags = level.Flags.ToArray(),
+                });
+            }
+            dump.Objects.AddRange(chunk.Objects.Select(o => new WorldObject(o.Kind, o.X, o.Y, o.H, null)));
         }
         return dump;
     }

@@ -21,12 +21,19 @@ public sealed class ChunkMesher
     private readonly WorldDump _world;
     private readonly Dictionary<int, int> _topLayers;
     private readonly Dictionary<int, int> _sideLayers;
+    private readonly ShaderMaterial _terrainMaterial;
+    private readonly ShaderMaterial _structureMaterial;
+    private readonly ShaderMaterial _glassMaterial;
 
-    public ChunkMesher(WorldDump world, Dictionary<int, int> topLayers, Dictionary<int, int> sideLayers)
+    public ChunkMesher(WorldDump world, Dictionary<int, int> topLayers, Dictionary<int, int> sideLayers,
+        ShaderMaterial terrainMaterial, ShaderMaterial structureMaterial, ShaderMaterial glassMaterial)
     {
         _world = world;
         _topLayers = topLayers;
         _sideLayers = sideLayers;
+        _terrainMaterial = terrainMaterial;
+        _structureMaterial = structureMaterial;
+        _glassMaterial = glassMaterial;
     }
 
     public sealed class Builder
@@ -52,9 +59,9 @@ public sealed class ChunkMesher
             Indices.AddRange(new[] { start, start + 1, start + 2, start, start + 2, start + 3 });
         }
 
-        public ArrayMesh? Build()
+        public void AddSurface(ArrayMesh mesh, Material material)
         {
-            if (Verts.Count == 0) return null;
+            if (Verts.Count == 0) return;
             var arrays = new Godot.Collections.Array();
             arrays.Resize((int)Mesh.ArrayType.Max);
             arrays[(int)Mesh.ArrayType.Vertex] = Verts.ToArray();
@@ -63,13 +70,20 @@ public sealed class ChunkMesher
             arrays[(int)Mesh.ArrayType.TexUV] = Uv.ToArray();
             arrays[(int)Mesh.ArrayType.TexUV2] = Uv2.ToArray();
             arrays[(int)Mesh.ArrayType.Index] = Indices.ToArray();
-            var mesh = new ArrayMesh();
+            var surface = mesh.GetSurfaceCount();
             mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
-            return mesh;
+            mesh.SurfaceSetMaterial(surface, material);
         }
     }
 
-    public sealed record ChunkMeshes(ArrayMesh? Terrain, ArrayMesh? Structure, ArrayMesh? Glass);
+    private sealed class BandBuilder
+    {
+        public readonly Builder Terrain = new();
+        public readonly Builder Structure = new();
+        public readonly Builder Glass = new();
+    }
+
+    public sealed record ChunkMeshes(ArrayMesh? Mesh);
 
     private static float M(int halfMetres) => halfMetres * 0.5f;
 
@@ -79,33 +93,48 @@ public sealed class ChunkMesher
     private int TopLayer(int id) => _topLayers.GetValueOrDefault(id, -1);
     private int SideLayer(int id) => _sideLayers.GetValueOrDefault(id, -1);
 
-    public ChunkMeshes Build(int cx, int cy)
+    public SortedDictionary<int, ChunkMeshes> Build(int cx, int cy)
     {
-        var terrain = new Builder();
-        var structure = new Builder();
-        var glass = new Builder();
+        var bands = new SortedDictionary<int, BandBuilder>();
+        BandBuilder Band(int z)
+        {
+            if (!bands.TryGetValue(z, out var band)) bands[z] = band = new BandBuilder();
+            return band;
+        }
+
         for (var ly = 0; ly < WorldDump.ChunkSize; ly++)
         {
             for (var lx = 0; lx < WorldDump.ChunkSize; lx++)
             {
                 var x = cx * WorldDump.ChunkSize + lx;
                 var y = cy * WorldDump.ChunkSize + ly;
-                Ground(terrain, x, y);
+                if (_world.SolidTopH(x, y) is { } ground)
+                    Ground(Band(WorldDump.FloorDiv(ground, WorldDump.LevelH)).Terrain, x, y);
                 foreach (var (level, index) in _world.LevelsAt(x, y))
                 {
                     // A slab resting on the solid ground is ground for the cutaway: clipping it would
                     // open a hole through the excavated column.
                     var rests = level.FloorH[index] != WorldDump.NoFloor && level.FloorH[index] <= _world.SolidTopH(x, y);
-                    Level(rests ? terrain : structure, structure, glass, x, y, level, index);
+                    var band = Band(level.Z);
+                    Level(rests ? band.Terrain : band.Structure, band.Structure, band.Glass, x, y, level, index);
                 }
             }
         }
         foreach (var o in _world.Objects)
         {
             if (o.Parent is not null || WorldDump.FloorDiv(o.X, 32) != cx || WorldDump.FloorDiv(o.Y, 32) != cy) continue;
-            ObjectBox(terrain, o);
+            ObjectBox(Band(WorldDump.FloorDiv(o.H, WorldDump.LevelH)).Terrain, o);
         }
-        return new ChunkMeshes(terrain.Build(), structure.Build(), glass.Build());
+        var result = new SortedDictionary<int, ChunkMeshes>();
+        foreach (var (z, band) in bands)
+        {
+            var mesh = new ArrayMesh();
+            band.Terrain.AddSurface(mesh, _terrainMaterial);
+            band.Structure.AddSurface(mesh, _structureMaterial);
+            band.Glass.AddSurface(mesh, _glassMaterial);
+            result[z] = new ChunkMeshes(mesh.GetSurfaceCount() == 0 ? null : mesh);
+        }
+        return result;
     }
 
     private void Ground(Builder b, int x, int y)

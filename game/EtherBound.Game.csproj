@@ -6,4 +6,7 @@
     <RootNamespace>EtherBound.Game</RootNamespace>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\sim\EtherBound.Host\EtherBound.Host.csproj" />
+  </ItemGroup>
 </Project>

@@ -6,7 +6,7 @@ config_version=5
 [application]
 
 config/name="EtherBound"
-run/main_scene="res://spike/Spike.tscn"
+run/main_scene="res://app/Main.tscn"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 
 [display]

@@ -27,11 +27,14 @@ public sealed class ExtrasBrain : ISystem
     {
         public required GoalSpot Goal { get; init; }
         public required List<Spot> Path { get; init; }
+        public required long GridRevision { get; init; }
         public int Index { get; set; }
     }
 
     private readonly IEnginePort _engine;
     private readonly Dictionary<string, Plan> _plans = new(StringComparer.Ordinal);
+    private readonly Nav.SearchWorkspace _pathSearch = new();
+    private WorldGrid? _grid;
     private readonly HashSet<string> _retried = new(StringComparer.Ordinal);
 
     /// <param name="timeScale">Real seconds per game minute; the brain walks 4 m per real second, like Niko.</param>
@@ -48,7 +51,12 @@ public sealed class ExtrasBrain : ISystem
 
     public void OnTick()
     {
-        var state = _engine.GetState();
+        var state = _engine.GetTickState();
+        if (!ReferenceEquals(_grid, _engine.Grid))
+        {
+            _plans.Clear();
+            _grid = _engine.Grid;
+        }
         if (state.Paused) return;
         var tickSeconds = TimeScale / state.Speed;
         foreach (var actor in state.Actors)
@@ -105,17 +113,19 @@ public sealed class ExtrasBrain : ISystem
     private void Routine(ActorState actor, WorldState state, Mind mind)
     {
         var rng = new RngStreams(state.Seed).Stream($"extras:{actor.Id}:{state.GameMinute}");
-        if (rng.Random() < WanderChance && ChooseWander(actor, mind, rng) is { } goal)
+        if (rng.Random() < WanderChance && ChooseWander(actor, mind, rng) is { } plan)
         {
-            _engine.SetGoal(actor.Id, goal, "chosen");
+            _plans[actor.Id] = plan;
+            _engine.SetGoal(actor.Id, plan.Goal, "chosen");
             return;
         }
         _engine.Submit(actor.Id, GameAction.Wait());
     }
 
-    private GoalSpot? ChooseWander(ActorState actor, Mind mind, PyRandom rng)
+    private Plan? ChooseWander(ActorState actor, Mind mind, PyRandom rng)
     {
         var start = new Spot(PyMath.Floor(actor.X), PyMath.Floor(actor.Y), actor.H);
+        var grid = _engine.Grid;
         for (var i = 0; i < WanderTries; i++)
         {
             var dx = rng.RandInt(-WanderRadiusM, WanderRadiusM);
@@ -126,22 +136,26 @@ public sealed class ExtrasBrain : ISystem
             var surfaces = _engine.Grid.StandingSurfaces(x, y);
             if (surfaces.Count == 0) continue;
             var surface = surfaces.OrderBy(s => Math.Abs(s.H - mind.Anchor.H)).ThenBy(s => s.H).First();
-            if (Nav.FindPath(_engine.Grid, start, new Spot(x, y, surface.H), MaxExpansions) is not null) return new GoalSpot(x, y, surface.H);
+            var goal = new GoalSpot(x, y, surface.H);
+            if (Nav.FindPath(grid, start, new Spot(x, y, surface.H), MaxExpansions, _pathSearch) is { } path)
+                return new Plan { Goal = goal, Path = path, GridRevision = grid.NavigationRevision };
         }
         return null;
     }
 
     private Plan? PlanFor(ActorState actor, GoalSpot goal)
     {
-        if (_plans.TryGetValue(actor.Id, out var plan) && plan.Goal == goal && Locate(plan, actor)) return plan;
+        var grid = _engine.Grid;
+        if (_plans.TryGetValue(actor.Id, out var plan) && plan.Goal == goal && plan.GridRevision == grid.NavigationRevision && Locate(plan, actor)) return plan;
         return Recompute(actor.Id, actor.X, actor.Y, actor.H, goal) ? _plans[actor.Id] : null;
     }
 
     private bool Recompute(string actorId, double x, double y, int h, GoalSpot goal)
     {
-        var path = Nav.FindPath(_engine.Grid, new Spot(PyMath.Floor(x), PyMath.Floor(y), h), new Spot(goal.X, goal.Y, goal.H), MaxExpansions);
+        var grid = _engine.Grid;
+        var path = Nav.FindPath(grid, new Spot(PyMath.Floor(x), PyMath.Floor(y), h), new Spot(goal.X, goal.Y, goal.H), MaxExpansions, _pathSearch);
         if (path is null) return false;
-        _plans[actorId] = new Plan { Goal = goal, Path = path };
+        _plans[actorId] = new Plan { Goal = goal, Path = path, GridRevision = grid.NavigationRevision };
         return true;
     }
 

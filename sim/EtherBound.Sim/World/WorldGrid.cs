@@ -22,6 +22,8 @@ public sealed class WorldGrid
     private readonly Dictionary<(int, int, int), ChunkLevel> _levels = new();
     private readonly Dictionary<(int, int), List<ChunkLevel>> _levelsByChunk = new();
     private readonly Dictionary<(int, int), TileObject[]> _objectChunks = new();
+    private readonly Dictionary<(int, int), IReadOnlyList<StandingSurface>> _standingCache = new();
+    private readonly Dictionary<(int, int, int, int, int?), bool> _stepCache = new();
     private readonly Func<int, int, (Chunk Chunk, IEnumerable<ChunkLevel> Levels)?>? _chunkLoader;
     private readonly HashSet<(int, int)> _missingChunks = new();
 
@@ -38,14 +40,23 @@ public sealed class WorldGrid
 
     public MaterialRegistry Registry { get; set; }
     public ObjectCatalog Catalog { get; }
+    public long NavigationRevision { get; private set; }
 
     public IReadOnlyDictionary<(int, int), Chunk> Chunks => _chunks;
     public IReadOnlyDictionary<(int, int, int), ChunkLevel> Levels => _levels;
+
+    private void InvalidateNavigation()
+    {
+        NavigationRevision++;
+        _standingCache.Clear();
+        _stepCache.Clear();
+    }
 
     public void AddChunk(Chunk chunk)
     {
         _chunks[(chunk.Cx, chunk.Cy)] = chunk;
         _missingChunks.Remove((chunk.Cx, chunk.Cy));
+        InvalidateNavigation();
     }
 
     public void AddLevel(ChunkLevel level)
@@ -55,6 +66,7 @@ public sealed class WorldGrid
         var at = list.FindIndex(l => l.Z == level.Z);
         if (at >= 0) list[at] = level;
         else list.Add(level);
+        InvalidateNavigation();
     }
 
     public Chunk? Chunk(int cx, int cy)
@@ -87,6 +99,7 @@ public sealed class WorldGrid
         var loaded = objects.ToArray();
         if (loaded.Length > 0) _objectChunks[(cx, cy)] = loaded;
         else _objectChunks.Remove((cx, cy));
+        InvalidateNavigation();
     }
 
     public IReadOnlyList<TileObject> ObjectsAt(int x, int y)
@@ -219,7 +232,8 @@ public sealed class WorldGrid
 
     public IReadOnlyList<StandingSurface> StandingSurfaces(int x, int y)
     {
-        if (Cell(x, y) is not { } cell) return Array.Empty<StandingSurface>();
+        if (_standingCache.TryGetValue((x, y), out var cached)) return cached;
+        if (Cell(x, y) is not { } cell) return _standingCache[(x, y)] = Array.Empty<StandingSurface>();
         var (chunk, index) = cell;
         var result = new List<StandingSurface>();
         int ground = chunk.GroundH[index];
@@ -242,7 +256,7 @@ public sealed class WorldGrid
             if (material is not null && material.Walkable && Headroom(x, y, top))
                 result.Add(new StandingSurface(top, material.Id, PyMath.FloorDiv(top, 6)));
         }
-        return Dedupe(result);
+        return _standingCache[(x, y)] = Dedupe(result);
     }
 
     // `{surface.h: surface}` keeps the last surface per height; then sorted by height.
@@ -250,7 +264,7 @@ public sealed class WorldGrid
     {
         var byH = new Dictionary<int, StandingSurface>();
         foreach (var surface in surfaces) byH[surface.H] = surface;
-        return byH.Values.OrderBy(s => s.H).ToList();
+        return Array.AsReadOnly(byH.Values.OrderBy(s => s.H).ToArray());
     }
 
     /// <summary>Where an object can be placed: standable surfaces without headroom, plus surface tops.</summary>
@@ -348,6 +362,13 @@ public sealed class WorldGrid
 
     public bool CanStep(int x1, int y1, int x2, int y2, int? h = null)
     {
+        var key = (x1, y1, x2, y2, h);
+        if (_stepCache.TryGetValue(key, out var cached)) return cached;
+        return _stepCache[key] = CanStepCore(x1, y1, x2, y2, h);
+    }
+
+    private bool CanStepCore(int x1, int y1, int x2, int y2, int? h)
+    {
         int dx = x2 - x1, dy = y2 - y1;
         if (Math.Max(Math.Abs(dx), Math.Abs(dy)) > 1) return false;
         if (dx == 0 && dy == 0)
@@ -361,18 +382,25 @@ public sealed class WorldGrid
         {
             // A diagonal is legal only when both L-shaped detours around the corner are open at
             // consistent per-leg heights, and the move gains at most 0.5 m.
-            var first = StepPairs(x1, y1, x2, y1, h);
-            var firstTargets = first.Select(p => p.Item2).ToHashSet();
-            var second = StepPairs(x2, y1, x2, y2);
-            var third = StepPairs(x1, y1, x1, y2, h);
-            var thirdTargets = third.Select(p => p.Item2).ToHashSet();
-            var fourth = StepPairs(x1, y2, x2, y2);
-            var starts = StandingSurfaces(x1, y1).Where(s => h is null || s.H == h).ToList();
+            var starts = StandingSurfaces(x1, y1);
+            var firstMiddle = StandingSurfaces(x2, y1);
+            var secondMiddle = StandingSurfaces(x1, y2);
             var ends = StandingSurfaces(x2, y2);
-            return starts.Any(start => ends.Any(end =>
-                Math.Abs(end.H - start.H) <= 1
-                && firstTargets.Any(m => first.Contains((start.H, m)) && second.Contains((m, end.H)))
-                && thirdTargets.Any(m => third.Contains((start.H, m)) && fourth.Contains((m, end.H)))));
+            foreach (var start in starts)
+            {
+                if (h is not null && start.H != h) continue;
+                foreach (var end in ends)
+                {
+                    if (Math.Abs(end.H - start.H) > 1) continue;
+                    foreach (var middle in firstMiddle)
+                        if (Math.Abs(middle.H - start.H) <= 1 && !WallBetween(x1, y1, x2, y1, start.H) &&
+                            Math.Abs(end.H - middle.H) <= 1 && !WallBetween(x2, y1, x2, y2, middle.H)) return true;
+                    foreach (var middle in secondMiddle)
+                        if (Math.Abs(middle.H - start.H) <= 1 && !WallBetween(x1, y1, x1, y2, start.H) &&
+                            Math.Abs(end.H - middle.H) <= 1 && !WallBetween(x1, y2, x2, y2, middle.H)) return true;
+                }
+            }
+            return false;
         }
         return StepPairs(x1, y1, x2, y2, h).Count > 0;
     }

@@ -1,6 +1,6 @@
 # Versions
 
-Overall project version: `v2.5.0`
+Overall project version: `v2.5.1`
 
 Every module and its current version. Modules start at `v0.0.0`; each modification bumps its
 version by `0.0.1`, and the bump ships in the same change. The overall project version tracks the
@@ -26,12 +26,12 @@ whenever the overall version changes.
 | launcher | `launcher/` | v0.0.4 |
 | bitcanvas | `BitCanvas/` | v0.0.6 |
 | sim.rng | `sim/EtherBound.Sim/Rng/` | v0.0.1 |
-| sim.world | `sim/EtherBound.Sim/World/` | v0.0.1 |
-| sim.events | `sim/EtherBound.Sim/Events/`, `sim/EtherBound.Sim/Core/` | v0.0.1 |
-| sim.db | `sim/EtherBound.Sim/Db/` | v0.0.1 |
-| sim.engine | `sim/EtherBound.Sim/Engine/`, `sim/EtherBound.Sim/Clock/` | v0.0.1 |
-| sim.minds | `sim/EtherBound.Sim/Minds/` | v0.0.1 |
+| sim.world | `sim/EtherBound.Sim/World/` | v0.0.2 |
+| sim.events | `sim/EtherBound.Sim/Events/`, `sim/EtherBound.Sim/Core/` | v0.0.2 |
+| sim.db | `sim/EtherBound.Sim/Db/` | v0.0.2 |
+| sim.engine | `sim/EtherBound.Sim/Engine/`, `sim/EtherBound.Sim/Clock/` | v0.0.2 |
+| sim.minds | `sim/EtherBound.Sim/Minds/` | v0.0.2 |
 | sim.host | `sim/EtherBound.Host/` | v0.0.1 |
 | game.app | `game/project.godot`, `game/EtherBound.Game.csproj` | v0.0.1 |
 | game.render | `game/spike/` | v0.0.1 |
-| tooling | `.gitattributes`, `.githooks/`, `scripts/`, `server/scripts/`, `EtherBound.sln`, `sim/Directory.Build.props`, `sim/EtherBound.Sim/EtherBound.Sim.csproj`, `sim/EtherBound.Sim/BannedSymbols.txt`, `sim/EtherBound.Bench/`, `package.json`, `global.json`, `.gitignore`, `.env.example`, `server/pyproject.toml`, `server/uv.lock`, `web/package.json`, `web/package-lock.json`, `web/vite.config.ts`, `web/playwright.config.ts` | v0.0.16 |
+| tooling | `.gitattributes`, `.githooks/`, `scripts/`, `server/scripts/`, `EtherBound.sln`, `sim/Directory.Build.props`, `sim/EtherBound.Sim/EtherBound.Sim.csproj`, `sim/EtherBound.Sim/BannedSymbols.txt`, `sim/EtherBound.Bench/`, `package.json`, `global.json`, `.gitignore`, `.env.example`, `server/pyproject.toml`, `server/uv.lock`, `web/package.json`, `web/package-lock.json`, `web/vite.config.ts`, `web/playwright.config.ts` | v0.0.17 |

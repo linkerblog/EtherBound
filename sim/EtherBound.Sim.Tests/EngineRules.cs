@@ -1,5 +1,6 @@
 using EtherBound.Sim.Core;
 using EtherBound.Sim.Engine;
+using EtherBound.Sim.Events;
 using EtherBound.Sim.World;
 using EtherBound.Sim.World.Gen;
 using Microsoft.Data.Sqlite;
@@ -53,6 +54,28 @@ public sealed class EngineRules : IDisposable
         Assert.True(result.Accepted);
         Assert.True(result.X > 0.5);
         Assert.True(result.H >= 0);
+    }
+
+    [Fact]
+    public void Tick_snapshot_is_reused_until_an_engine_write_invalidates_it()
+    {
+        using var engine = Fresh();
+        WorldState? beforeAction = null;
+        WorldState? afterAction = null;
+        engine.Bus.Subscribe("clock.ticked", _ =>
+        {
+            beforeAction = engine.GetTickState();
+            engine.Submit(Ids.Player, GameAction.Wait());
+            afterAction = engine.GetTickState();
+        }, "test.snapshot", Phase.Minds);
+
+        var beforeTick = engine.GetState();
+        var returned = engine.AdvanceTime();
+
+        Assert.Same(returned, beforeAction);
+        Assert.NotSame(beforeTick, returned);
+        Assert.NotSame(beforeAction, afterAction);
+        Assert.NotSame(returned, engine.GetState());
     }
 
     [Fact]

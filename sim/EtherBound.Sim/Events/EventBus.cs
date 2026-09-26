@@ -28,7 +28,11 @@ public sealed class EventBus
     public const int MaxCascade = 10_000;
 
     private readonly List<(string Type, Action<SimEvent> Handler, string Name, Phase Phase, int Order)> _handlers = new();
+    private (string Type, Action<SimEvent> Handler, string Name, Phase Phase, int Order)[] _handlerSnapshot =
+        Array.Empty<(string Type, Action<SimEvent> Handler, string Name, Phase Phase, int Order)>();
     private readonly Queue<SimEvent> _queue = new();
+    private int _handlerVersion;
+    private int _snapshotVersion = -1;
     private bool _draining;
 
     /// <summary>Handler failures, in order; the bus logs and carries on, as the Python bus does.</summary>
@@ -38,6 +42,7 @@ public sealed class EventBus
     {
         _handlers.Add((eventType, handler, name, phase, _handlers.Count));
         _handlers.Sort((a, b) => a.Phase != b.Phase ? a.Phase.CompareTo(b.Phase) : a.Order.CompareTo(b.Order));
+        _handlerVersion++;
     }
 
     public void Enqueue(IEnumerable<SimEvent> events)
@@ -61,7 +66,12 @@ public sealed class EventBus
                 }
                 var e = _queue.Dequeue();
                 dispatched++;
-                foreach (var (type, handler, name, _, _) in _handlers.ToList())
+                if (_snapshotVersion != _handlerVersion)
+                {
+                    _handlerSnapshot = _handlers.ToArray();
+                    _snapshotVersion = _handlerVersion;
+                }
+                foreach (var (type, handler, name, _, _) in _handlerSnapshot)
                 {
                     if (type != e.Type && type != "*") continue;
                     try

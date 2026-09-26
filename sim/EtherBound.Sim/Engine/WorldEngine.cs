@@ -15,6 +15,8 @@ public interface IEnginePort
 
     WorldState GetState();
 
+    WorldState GetTickState() => GetState();
+
     ActionResult Submit(string actorId, GameAction action, double deltaSeconds = 1.0 / 20);
 
     void SetGoal(string actorId, GoalSpot? goal, string reason);
@@ -34,6 +36,9 @@ public sealed class WorldEngine : IEnginePort, IDisposable
     private readonly Database _db;
     private int _nextSeq = 1;
     private Dictionary<string, double> _loadCache = new(StringComparer.Ordinal);
+    private Dictionary<string, IReadOnlyList<CarriedObject>> _carriedCache = new(StringComparer.Ordinal);
+    private bool _dispatchingTick;
+    private WorldState? _tickSnapshot;
 
     private readonly string _materialsToml;
 
@@ -61,8 +66,18 @@ public sealed class WorldEngine : IEnginePort, IDisposable
 
     public double LoadKg(string actorId) => _loadCache.GetValueOrDefault(actorId, 0.0);
 
-    private void RefreshLoad(Session session) =>
+    private void RefreshLoad(Session session)
+    {
         _loadCache = session.Actors().ToDictionary(a => a.Id, a => ObjectHelpers.ActorLoadKg(session, Catalog, a.Id), StringComparer.Ordinal);
+        var carried = new Dictionary<string, List<CarriedObject>>(StringComparer.Ordinal);
+        foreach (var obj in session.Objects())
+        {
+            if (obj.ActorId is not { } actorId) continue;
+            if (!carried.TryGetValue(actorId, out var items)) carried[actorId] = items = new List<CarriedObject>();
+            items.Add(new CarriedObject(obj.Id, obj.Kind, Catalog.Get(obj.Kind)?.Name ?? obj.Kind, obj.Quantity, obj.Slot ?? ""));
+        }
+        _carriedCache = carried.ToDictionary(p => p.Key, p => (IReadOnlyList<CarriedObject>)p.Value.AsReadOnly(), StringComparer.Ordinal);
+    }
 
     private void LoadObjectIndex(Session session)
     {
@@ -86,6 +101,7 @@ public sealed class WorldEngine : IEnginePort, IDisposable
     {
         var next = StampAndStore(session, world, events, firstSeq);
         session.Commit();
+        _tickSnapshot = null;
         _nextSeq = next;
         Bus.Enqueue(events);
     }
@@ -167,14 +183,13 @@ public sealed class WorldEngine : IEnginePort, IDisposable
         return state;
     }
 
-    private List<CarriedObject> Carried(Session session, string actorId) =>
-        session.Objects().Where(o => o.ActorId == actorId)
-            .Select(o => new CarriedObject(o.Id, o.Kind, Catalog.Get(o.Kind)?.Name ?? o.Kind, o.Quantity, o.Slot ?? "")).ToList();
+    private IReadOnlyList<CarriedObject> Carried(string actorId) =>
+        _carriedCache.GetValueOrDefault(actorId) ?? Array.Empty<CarriedObject>();
 
     // One result builder (Dev-023 F6): every answer carries the actor's position and load.
     private ActionResult Result(Session session, ActorRow actor, GameAction action, bool accepted, string? reason = null,
         string? text = null, ActivityState? activity = null, IReadOnlyList<PhysicsPosition>? trajectory = null) =>
-        new(accepted, actor.Id, action, actor.X, actor.Y, actor.Z, actor.H, reason, text, activity, Carried(session, actor.Id),
+        new(accepted, actor.Id, action, actor.X, actor.Y, actor.Z, actor.H, reason, text, activity, Carried(actor.Id),
             LoadKg(actor.Id), trajectory ?? Array.Empty<PhysicsPosition>());
 
     public ActionResult Submit(string actorId, GameAction action, double deltaSeconds = 1.0 / 20)
@@ -241,19 +256,31 @@ public sealed class WorldEngine : IEnginePort, IDisposable
 
     public WorldState AdvanceTime()
     {
-        var session = NewSession();
-        var world = session.World;
-        if (!world.Paused)
+        _db.BeginWriteBatch();
+        _dispatchingTick = true;
+        try
         {
-            world.GameMinute += 1;
-            // Completions come before clock.ticked, in actor-id order: replay needs it.
-            var events = CompleteActivities(session, world);
-            events.Add(SimEvent.ClockTicked());
-            Publish(session, world, events);
+            var session = NewSession();
+            var world = session.World;
+            if (!world.Paused)
+            {
+                world.GameMinute += 1;
+                // Completions come before clock.ticked, in actor-id order: replay needs it.
+                var events = CompleteActivities(session, world);
+                events.Add(SimEvent.ClockTicked());
+                Publish(session, world, events);
+            }
+            var state = GetState();
+            _tickSnapshot = state;
+            Bus.Drain();
+            return state;
         }
-        var state = GetState();
-        Bus.Drain();
-        return state;
+        finally
+        {
+            _tickSnapshot = null;
+            _dispatchingTick = false;
+            _db.EndWriteBatch();
+        }
     }
 
     private List<SimEvent> CompleteActivities(Session session, WorldMetaRow world)
@@ -306,10 +333,12 @@ public sealed class WorldEngine : IEnginePort, IDisposable
         var session = NewSession();
         var world = session.World;
         var actors = session.Actors().Select(a => new ActorState(a.Id, a.Kind, a.X, a.Y, a.Z, a.H, ActivityState.From(a.Activity),
-            Carried(session, a.Id), LoadKg(a.Id), a.Name, a.Mind is { } m ? Mind.Parse(m) : null)).ToList();
+            Carried(a.Id), LoadKg(a.Id), a.Name, a.Mind is { } m ? Mind.Parse(m) : null)).ToList();
         return new WorldState(world.Seed, world.GameMinute, world.Speed, world.Paused, actors, world.GenVersion, world.Generator,
             (JsonObject)world.GenOptions.DeepClone());
     }
+
+    public WorldState GetTickState() => _dispatchingTick ? _tickSnapshot ??= GetState() : GetState();
 
     public (int GameMinute, int Speed, bool Paused) ClockState()
     {

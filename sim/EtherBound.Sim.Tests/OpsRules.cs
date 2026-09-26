@@ -72,6 +72,27 @@ public sealed class OpsRules : IDisposable
         Menu.Build(engine.OpenSession(), engine.Grid, engine.Registry, engine.LoadKg(Ids.Player), Ids.Player, x + 0.5, y + 0.5, z).Entries
             .ToDictionary(e => e.Op, e => (e.Available, e.Reason));
 
+    [Fact]
+    public void Carried_payload_cache_refreshes_after_drop_and_take()
+    {
+        using var engine = NewEngine();
+        var session = engine.OpenSession();
+        var bottle = session.AddObject(new ObjectRow { Kind = "bottle", Loc = "tile" });
+        ObjectHelpers.SetHeld(bottle, Ids.Player, "right");
+        session.Commit();
+        engine.Reindex();
+
+        Assert.Single(engine.GetState().Actors.Single(a => a.Id == Ids.Player).Carried);
+        var dropped = engine.Submit(Ids.Player, GameAction.On("drop", new ObjectTarget(bottle.Id)));
+        Assert.True(dropped.Accepted, dropped.Reason);
+        Assert.Empty(dropped.Carried);
+        Assert.Empty(engine.GetState().Actors.Single(a => a.Id == Ids.Player).Carried);
+
+        var taken = engine.Submit(Ids.Player, GameAction.On("take", new ObjectTarget(bottle.Id)));
+        Assert.True(taken.Accepted, taken.Reason);
+        Assert.Single(taken.Carried);
+    }
+
     private static void Ticks(WorldEngine engine, int count)
     {
         for (var i = 0; i < count; i++) engine.AdvanceTime();

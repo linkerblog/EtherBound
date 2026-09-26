@@ -9,10 +9,13 @@ using EtherBound.Sim.World;
 using EtherBound.Sim.World.Gen;
 
 const int WarmupTicks = 5;
-const int MeasuredTicks = 15;
+const int MeasuredTicks = 100;
 int[] populations = { 1_000, 5_000, 10_000 };
+bool runBrain = !args.Contains("--without-brain", StringComparer.Ordinal);
+bool traceTicks = args.Contains("--trace", StringComparer.Ordinal);
 
 Console.WriteLine($"EtherBound.Bench — {Environment.ProcessorCount} logical cores, .NET {Environment.Version}");
+Console.WriteLine(runBrain ? "  ExtrasBrain enabled" : "  ExtrasBrain disabled");
 Console.WriteLine($"{"Extras",8} {"tick avg ms",12} {"tick p95 ms",12} {"move avg ms",12}");
 
 foreach (var count in populations)
@@ -20,23 +23,35 @@ foreach (var count in populations)
     using var engine = new WorldEngine();
     engine.NewGame(7, "lab");
     SeedExtras(engine, count);
-    new ExtrasBrain(engine).Attach(engine.Bus);
+    if (runBrain) new ExtrasBrain(engine).Attach(engine.Bus);
     engine.SetClock(speed: 10);
 
     for (var i = 0; i < WarmupTicks; i++) engine.AdvanceTime();
 
     var tickTimes = new List<double>(MeasuredTicks);
+    var diagnostics = new List<(int Tick, double Ms, int Gen0, int Gen1, int Gen2, long Bytes)>();
     var watch = new Stopwatch();
     for (var i = 0; i < MeasuredTicks; i++)
     {
+        var gen0 = GC.CollectionCount(0);
+        var gen1 = GC.CollectionCount(1);
+        var gen2 = GC.CollectionCount(2);
+        var allocated = traceTicks ? GC.GetAllocatedBytesForCurrentThread() : 0;
         watch.Restart();
         engine.AdvanceTime();
         watch.Stop();
         tickTimes.Add(watch.Elapsed.TotalMilliseconds);
+        if (traceTicks)
+            diagnostics.Add((i + 1, watch.Elapsed.TotalMilliseconds, GC.CollectionCount(0) - gen0,
+                GC.CollectionCount(1) - gen1, GC.CollectionCount(2) - gen2, GC.GetAllocatedBytesForCurrentThread() - allocated));
     }
     tickTimes.Sort();
     var avg = tickTimes.Average();
-    var p95 = tickTimes[(int)(tickTimes.Count * 0.95)];
+    var p95 = tickTimes[(int)Math.Ceiling(tickTimes.Count * 0.95) - 1];
+
+    if (traceTicks)
+        foreach (var tick in diagnostics.OrderByDescending(t => t.Ms).Take(10))
+            Console.WriteLine($"  tick {tick.Tick,3}: {tick.Ms,8:F3} ms; GC {tick.Gen0}/{tick.Gen1}/{tick.Gen2}; {tick.Bytes,10} bytes");
 
     var moveWatch = Stopwatch.StartNew();
     var result = engine.Submit(Ids.Player, GameAction.Move(1, 0), 0.05);

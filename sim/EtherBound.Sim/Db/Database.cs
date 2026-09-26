@@ -19,6 +19,8 @@ public sealed class Database : IDisposable
     public const string SimSchema = "sim-0008";
 
     private readonly SqliteConnection _connection;
+    private SqliteTransaction? _writeBatch;
+    private long _savepointId;
 
     public Database(string path)
     {
@@ -34,8 +36,28 @@ public sealed class Database : IDisposable
     {
         var command = _connection.CreateCommand();
         command.CommandText = sql;
-        command.Transaction = transaction;
+        command.Transaction = transaction ?? _writeBatch;
         return command;
+    }
+
+    internal void BeginWriteBatch()
+    {
+        if (_writeBatch is not null) throw new InvalidOperationException("a write batch is already active");
+        _writeBatch = _connection.BeginTransaction();
+    }
+
+    internal void EndWriteBatch()
+    {
+        var batch = _writeBatch ?? throw new InvalidOperationException("no write batch is active");
+        _writeBatch = null;
+        try
+        {
+            batch.Commit();
+        }
+        finally
+        {
+            batch.Dispose();
+        }
     }
 
     private bool TableExists(string name)
@@ -207,7 +229,31 @@ public sealed class Database : IDisposable
 
     public void Write(Changes changes)
     {
-        using var t = _connection.BeginTransaction();
+        if (_writeBatch is { } batch)
+        {
+            var savepoint = $"eb_write_{++_savepointId}";
+            Exec(batch, $"SAVEPOINT {savepoint}");
+            try
+            {
+                WriteChanges(batch, changes);
+                Exec(batch, $"RELEASE SAVEPOINT {savepoint}");
+            }
+            catch
+            {
+                Exec(batch, $"ROLLBACK TO SAVEPOINT {savepoint}");
+                Exec(batch, $"RELEASE SAVEPOINT {savepoint}");
+                throw;
+            }
+            return;
+        }
+
+        using var transaction = _connection.BeginTransaction();
+        WriteChanges(transaction, changes);
+        transaction.Commit();
+    }
+
+    private void WriteChanges(SqliteTransaction t, Changes changes)
+    {
         if (changes.Wipe)
         {
             Exec(t, "DELETE FROM wall_integrity");
@@ -254,7 +300,6 @@ public sealed class Database : IDisposable
         foreach (var e in changes.Events)
             Exec(t, "INSERT INTO event (seq, game_minute, type, actor_id, data) VALUES ($seq, $minute, $type, $actor, $data)",
                 ("$seq", e.Seq), ("$minute", e.GameMinute), ("$type", e.Type), ("$actor", e.ActorId), ("$data", e.Data.ToJsonString()));
-        t.Commit();
     }
 
     private void WriteActor(SqliteTransaction t, ActorRow a) =>

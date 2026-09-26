@@ -23,6 +23,47 @@ public class GridRules
     }
 
     [Fact]
+    public void Navigation_revision_tracks_world_geometry_and_objects()
+    {
+        var grid = new WorldGrid(registry: Registry);
+        grid.AddChunk(Chunk.Flat(0, 0, 0, Id("grass")));
+        var afterChunk = grid.NavigationRevision;
+        grid.AddLevel(Level(0, 0));
+        var afterLevel = grid.NavigationRevision;
+        grid.SetChunkObjects(0, 0, new[] { new TileObject(1, "bottle", 1, 1, 0, 1) });
+
+        Assert.Equal(1, afterChunk);
+        Assert.Equal(afterChunk + 1, afterLevel);
+        Assert.Equal(afterLevel + 1, grid.NavigationRevision);
+    }
+
+    [Fact]
+    public void Cached_standing_surfaces_refresh_after_a_chunk_edit()
+    {
+        var grid = new WorldGrid(new[] { Chunk.Flat(0, 0, 0, Id("grass")) }, registry: Registry);
+        Assert.Equal(0, Assert.Single(grid.StandingSurfaces(1, 1)).H);
+
+        grid.AddChunk(Chunk.Flat(0, 0, 1, Id("grass")));
+
+        Assert.Equal(1, Assert.Single(grid.StandingSurfaces(1, 1)).H);
+    }
+
+    [Fact]
+    public void Path_search_workspace_reuses_storage_without_reusing_old_results()
+    {
+        var workspace = new Nav.SearchWorkspace();
+        var water = Mats("water_deep");
+        water[0] = (ushort)Id("grass");
+        water[2] = (ushort)Id("grass");
+        var separated = new WorldGrid(new[] { new Chunk(0, 0, Heights(), water) }, registry: Registry);
+        Assert.Null(Nav.FindPath(separated, new Spot(0, 0, 0), new Spot(2, 0, 0), workspace: workspace));
+
+        var grid = new WorldGrid(new[] { Chunk.Flat(0, 0, 0, Id("grass")) }, registry: Registry);
+        var path = Nav.FindPath(grid, new Spot(0, 0, 0), new Spot(3, 0, 0), workspace: workspace);
+        Assert.Equal(new[] { new Spot(0, 0, 0), new Spot(1, 0, 0), new Spot(2, 0, 0), new Spot(3, 0, 0) }, path);
+    }
+
+    [Fact]
     public void Blobs_round_trip()
     {
         var values = Enumerable.Range(0, ChunkConst.CellCount).Select(i => (short)(i - 512)).ToArray();
@@ -56,13 +97,16 @@ public class GridRules
     public void A_wall_blocks_and_a_doorway_opens()
     {
         var grid = new WorldGrid(new[] { Chunk.Flat(0, 0, 0, Id("grass")) }, registry: Registry);
+        Assert.True(grid.CanStep(0, 0, 1, 0));
         var level = Level(0, 0, l => l.WallW[1] = (ushort)Id("brick"));
         grid.AddLevel(level);
         Assert.True(grid.WallBetween(0, 0, 1, 0, 0));
+        Assert.False(grid.CanStep(0, 0, 1, 0));
         var flags = new byte[ChunkConst.CellCount];
         flags[1] = ChunkConst.EdgeWDoorway;
         grid.AddLevel(level.With(edgeFlags: flags));
         Assert.False(grid.WallBetween(0, 0, 1, 0, 0));
+        Assert.True(grid.CanStep(0, 0, 1, 0));
     }
 
     [Fact]

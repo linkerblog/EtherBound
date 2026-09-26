@@ -41,6 +41,23 @@ public class EventBusDispatch
     }
 
     [Fact]
+    public void A_subscription_added_during_drain_starts_on_the_next_event()
+    {
+        var bus = new EventBus();
+        var calls = new List<string>();
+        bus.Subscribe("clock.changed", _ =>
+        {
+            calls.Add("first");
+            bus.Subscribe("clock.ticked", _ => calls.Add("late"), "late");
+        }, "first");
+        bus.Enqueue(new[] { SimEvent.ClockChanged(3, false), SimEvent.ClockTicked() });
+
+        bus.Drain();
+
+        Assert.Equal(new[] { "first", "late" }, calls);
+    }
+
+    [Fact]
     public void Phases_order_systems_regardless_of_subscription_order()
     {
         var bus = new EventBus();

@@ -5,7 +5,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using EtherBound.Host;
 using EtherBound.Game.Spike;
+using EtherBound.Game.Ui;
 using EtherBound.Sim.Core;
+using EtherBound.Sim.Engine;
 using Godot;
 
 namespace EtherBound.Game.App;
@@ -32,11 +34,12 @@ public partial class WorldClient : Node
     private Node3D _root = null!;
     private WorldDump? _world;
     private WorldFrame? _frame;
+    private TrajectoryAnimator _trajectoryAnimator = null!;
     private ShaderMaterial _terrainMat = null!, _structureMat = null!, _glassMat = null!;
     private Godot.Environment _env = null!;
     private DirectionalLight3D _sun = null!;
-    private Label _hud = null!;
-    private Button _pauseButton = null!;
+    private GameHud _gameHud = null!;
+    private ActionMenuOverlay _actionMenu = null!;
     private Dictionary<int, int> _topLayers = new();
     private Dictionary<int, int> _sideLayers = new();
     private long _lastSequence;
@@ -45,6 +48,12 @@ public partial class WorldClient : Node
     private bool _scripted;
     private bool _shotsStarted;
     private int _texMode;
+    private int _requestId;
+    private int _pendingContextRequest;
+    private int _pendingRadialRequest;
+    private int _pendingNewGameRequest;
+    private Vector2 _contextPosition;
+    private string? _lastFault;
 
     private static string RepoRoot => Path.GetFullPath(Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
 
@@ -58,6 +67,8 @@ public partial class WorldClient : Node
         AddChild(_view);
         _root = new Node3D { Scale = new Vector3(1, PixelView.VerticalScale, 1) };
         _view.Viewport.AddChild(_root);
+        _trajectoryAnimator = new TrajectoryAnimator();
+        _root.AddChild(_trajectoryAnimator);
         BuildEnvironment();
         BuildHud();
 
@@ -101,46 +112,52 @@ public partial class WorldClient : Node
 
     private void BuildHud()
     {
-        _hud = new Label { Text = "Starting simulation...", Position = new Vector2(8, 8) };
-        _hud.AddThemeColorOverride("font_color", Colors.White);
-        _hud.AddThemeColorOverride("font_outline_color", Colors.Black);
-        _hud.AddThemeConstantOverride("outline_size", 4);
-
-        var controls = new HBoxContainer { Position = new Vector2(8, 36) };
-        foreach (var speed in new[] { 1, 3, 10 })
+        _gameHud = new GameHud();
+        _gameHud.SpeedRequested += speed => _host?.TrySetClock(speed: speed);
+        _gameHud.PauseRequested += paused => _host?.TrySetClock(paused: paused);
+        _gameHud.NewGameRequested += request =>
         {
-            var button = new Button { Text = $"x{speed}" };
-            button.Pressed += () => _host?.TrySetClock(speed: speed);
-            controls.AddChild(button);
-        }
-        _pauseButton = new Button { Text = "Pause" };
-        _pauseButton.Pressed += () =>
-        {
-            if (_frame is { } frame) _host?.TrySetClock(paused: !frame.Paused);
+            var requestId = ++_requestId;
+            _pendingNewGameRequest = requestId;
+            if (_host?.TryNewGame(requestId, request.Seed, request.Generator, request.OptionsJson, request.Paused) != true)
+                _gameHud.PushFeed("SIM BUSY", "warn");
         };
-        controls.AddChild(_pauseButton);
-
-        var layer = new CanvasLayer { Layer = 2 };
-        layer.AddChild(_hud);
-        layer.AddChild(controls);
-        AddChild(layer);
+        _gameHud.FreeTextSubmitted += text => _gameHud.PushFeed($"> {text}", "info");
+        _gameHud.ViewChanged += _ =>
+        {
+            _actionMenu.Close();
+            _moveAccumulator = 0;
+        };
+        _actionMenu = _gameHud.ActionMenus;
+        _actionMenu.ActionSelected += action =>
+        {
+            var requestId = ++_requestId;
+            if (_host?.TrySubmitAction(requestId, action) != true) _gameHud.PushFeed("SIM BUSY", "warn");
+        };
+        AddChild(_gameHud);
     }
 
     public override void _Process(double delta)
     {
         if (_host?.LatestFrame is { } latest && latest.Sequence != _lastSequence) ApplyFrame(latest);
-        if (_host?.Fault is { } fault) _hud.Text = $"Simulation stopped: {fault.Message}";
+        DrainHostResponses();
+        if (_host?.Fault is { } fault && _lastFault != fault.Message)
+        {
+            _lastFault = fault.Message;
+            _gameHud.PushFeed($"SIMULATION STOPPED · {fault.Message}", "fail");
+        }
 
         foreach (var (id, actor) in _actors)
             if (_actorTargets.TryGetValue(id, out var target)) actor.Position = actor.Position.MoveToward(target, (float)delta * 12f);
+        _trajectoryAnimator.Advance(delta);
         FollowPlayer();
         SendMovement(delta);
-        UpdateHud();
     }
 
     private void ApplyFrame(WorldFrame frame)
     {
         _frame = frame;
+        _gameHud.UpdateFrame(frame);
         UpdateActors(frame);
         var current = frame.Chunks.ToDictionary(chunk => (chunk.Cx, chunk.Cy));
         var dirty = current.Count != _renderedChunks.Count || current.Any(pair =>
@@ -244,7 +261,7 @@ public partial class WorldClient : Node
         }
         foreach (var actor in frame.Actors)
         {
-            var feet = new Vector3((float)actor.X + 0.5f, actor.H * 0.5f, (float)actor.Y + 0.5f);
+            var feet = new Vector3((float)actor.X, actor.H * 0.5f, (float)actor.Y);
             var target = feet + new Vector3(0, 0.85f, 0);
             if (!_actors.TryGetValue(actor.Id, out var node))
             {
@@ -277,7 +294,7 @@ public partial class WorldClient : Node
 
     private void SendMovement(double delta)
     {
-        if (_scripted || _frame is null || _host is null) return;
+        if (_scripted || _frame is null || _host is null || !_gameHud.CanMoveWorld) return;
         var kx = (Input.IsKeyPressed(Key.D) ? 1 : 0) - (Input.IsKeyPressed(Key.A) ? 1 : 0);
         var ky = (Input.IsKeyPressed(Key.S) ? 1 : 0) - (Input.IsKeyPressed(Key.W) ? 1 : 0);
         var direction = new Vector2(kx + ky, ky - kx);
@@ -312,19 +329,74 @@ public partial class WorldClient : Node
         _glassMat.SetShaderParameter("clip_h", clipH);
     }
 
-    private void UpdateHud()
+    private void DrainHostResponses()
     {
-        if (_frame is not { } frame) return;
-        var player = frame.Actors.First(actor => actor.Id == Ids.Player);
-        _hud.Text = $"{frame.Generator}  ({player.X:0.0}, {player.Y:0.0}, h={player.H})  " +
-            $"{frame.GameMinute / 60:00}:{frame.GameMinute % 60:00}  x{frame.Speed}  " +
-            $"{(frame.Paused ? "paused" : "running")}  {Engine.GetFramesPerSecond()} fps";
-        _pauseButton.Text = frame.Paused ? "Resume" : "Pause";
+        if (_host is null) return;
+        while (_host.TryReadResponse(out var response))
+        {
+            switch (response)
+            {
+                case HostMenuResponse menu when menu.RequestId == _pendingContextRequest:
+                    _pendingContextRequest = 0;
+                    if (menu.Menu is not null) _actionMenu.ShowContext(menu.Menu, _contextPosition);
+                    else _gameHud.PushFeed("NOTHING HERE", "warn");
+                    break;
+                case HostMenuResponse radial when radial.RequestId == _pendingRadialRequest:
+                    _pendingRadialRequest = 0;
+                    if (radial.Menu is not null) _actionMenu.ShowRadial(radial.Menu, PlayerScreenPosition());
+                    break;
+                case HostActionResponse action:
+                    if (!action.Result.Trajectory.IsDefaultOrEmpty) _trajectoryAnimator.Play(action.Result.Trajectory);
+                    _gameHud.PushFeed(action.Result.Text ?? (action.Result.Accepted
+                        ? action.Result.Action.Op.ToUpperInvariant()
+                        : $"CAN'T {action.Result.Action.Op.ToUpperInvariant()} · {action.Result.Reason}"),
+                        action.Result.Accepted ? "act" : "warn");
+                    break;
+                case HostActivityNotice notice:
+                    _gameHud.PushFeed(notice.Outcome == "completed" ? $"{notice.Op.ToUpperInvariant()} DONE" :
+                        $"{notice.Op.ToUpperInvariant()} {notice.Outcome.ToUpperInvariant()} {notice.Reason}",
+                        notice.Outcome == "completed" ? "act" : "fail");
+                    break;
+                case HostNewGameResponse game when game.RequestId == _pendingNewGameRequest:
+                    _pendingNewGameRequest = 0;
+                    _gameHud.CloseNewGame();
+                    _gameHud.ShowGeneratorError("");
+                    _gameHud.PushFeed($"NEW WORLD · {game.Generator.ToUpperInvariant()} · SEED {game.Seed}", "seen");
+                    break;
+                case HostErrorResponse error:
+                    if (error.RequestId == _pendingNewGameRequest)
+                    {
+                        _pendingNewGameRequest = 0;
+                        _gameHud.ShowGeneratorError(error.Message);
+                    }
+                    _gameHud.PushFeed(error.Message.ToUpperInvariant(), "fail");
+                    break;
+            }
+        }
+    }
+
+    private Vector2 PlayerScreenPosition()
+    {
+        if (!_actors.TryGetValue(Ids.Player, out var player)) return GetViewport().GetVisibleRect().Size * 0.5f;
+        return _view.ScreenFromWorld(_root.ToGlobal(player.Position));
     }
 
     public override void _UnhandledInput(InputEvent e)
     {
+        if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Right } mouse)
+        {
+            if (_gameHud.ActiveView != "GAME" || _gameHud.InputHasFocus || _gameHud.NewGameVisible) return;
+            _actionMenu.Close();
+            var (origin, direction) = _view.RayFromScreen(mouse.Position);
+            var ray = new WorldRay(origin.X, origin.Z, origin.Y, direction.X, direction.Z, direction.Y);
+            _pendingContextRequest = ++_requestId;
+            _contextPosition = mouse.Position;
+            if (_host?.TryRequestMenuAtRay(_pendingContextRequest, ray) != true) _gameHud.PushFeed("SIM BUSY", "warn");
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         if (e is not InputEventKey { Pressed: true, Echo: false } key) return;
+        if (_gameHud.ActiveView != "GAME" || _gameHud.InputHasFocus) return;
         switch (key.Keycode)
         {
             case Key.Key1: _view.SetScale(1); break;
@@ -334,6 +406,15 @@ public partial class WorldClient : Node
             case Key.C: _cutaway = !_cutaway; break;
             case Key.O: _env.SsaoEnabled = !_env.SsaoEnabled; break;
             case Key.H: _sun.ShadowEnabled = !_sun.ShadowEnabled; break;
+            case Key.V:
+                if (_actionMenu.Visible) _actionMenu.Close();
+                else
+                {
+                    _pendingRadialRequest = ++_requestId;
+                    if (_host?.TryRequestRadialMenu(_pendingRadialRequest) != true) _gameHud.PushFeed("SIM BUSY", "warn");
+                }
+                GetViewport().SetInputAsHandled();
+                break;
         }
     }
 
@@ -354,7 +435,43 @@ public partial class WorldClient : Node
             await Frames(8);
             GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, $"spawn-x{scale}.png"));
         }
+
+        _pendingRadialRequest = ++_requestId;
+        _host?.TryRequestRadialMenu(_pendingRadialRequest);
+        if (!await WaitUntil(() => _actionMenu.Visible, 300)) GD.PrintErr("shots: radial menu did not open in time");
+        await Frames(2);
+        GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "radial-menu.png"));
+        _actionMenu.Close();
+
+        if (_frame is { } frame)
+        {
+            var player = frame.Actors.First(actor => actor.Id == Ids.Player);
+            var ray = new WorldRay(player.X, player.Y, player.H * 0.5 + 3, 0, 0, -1);
+            _contextPosition = GetViewport().GetVisibleRect().Size * 0.55f;
+            _pendingContextRequest = ++_requestId;
+            _host?.TryRequestMenuAtRay(_pendingContextRequest, ray);
+            if (!await WaitUntil(() => _actionMenu.Visible, 300)) GD.PrintErr("shots: context menu did not open in time");
+            await Frames(2);
+            GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "context-menu.png"));
+            _actionMenu.Close();
+        }
+        _gameHud.ShowNewGame();
+        await Frames(4);
+        GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "new-game.png"));
+        _gameHud.CloseNewGame();
+        _gameHud.SwitchView("DEBUG");
+        await Frames(4);
+        GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "debug-map.png"));
+        _gameHud.SwitchView("LLM");
+        await Frames(4);
+        GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "llm-placeholder.png"));
         GetTree().Quit();
+    }
+
+    private async Task<bool> WaitUntil(Func<bool> condition, int maxFrames)
+    {
+        for (var i = 0; i < maxFrames && !condition(); i++) await Frames(1);
+        return condition();
     }
 
     private async Task Frames(int count)

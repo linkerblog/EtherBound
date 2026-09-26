@@ -328,6 +328,120 @@ public sealed class WorldEngine : IEnginePort, IDisposable
     public MenuPayload Menu(string actorId, double x, double y, int z, int radius = 0) =>
         Engine.Menu.Build(NewSession(), Grid, Registry, LoadKg(actorId), actorId, x, y, z, radius);
 
+    public WorldPickHit? Pick(WorldRay ray, double maxDistance = 96)
+    {
+        if (!double.IsFinite(ray.X) || !double.IsFinite(ray.Y) || !double.IsFinite(ray.Height) ||
+            !double.IsFinite(ray.Dx) || !double.IsFinite(ray.Dy) || !double.IsFinite(ray.DHeight))
+            throw new ArgumentException("pick ray values must be finite", nameof(ray));
+        if (!double.IsFinite(maxDistance) || maxDistance is <= 0 or > 256) throw new ArgumentOutOfRangeException(nameof(maxDistance));
+        var length = Math.Sqrt(ray.Dx * ray.Dx + ray.Dy * ray.Dy + ray.DHeight * ray.DHeight);
+        if (!double.IsFinite(length) || length < 1e-9) throw new ArgumentException("pick ray direction must be non-zero", nameof(ray));
+        var dx = ray.Dx / length;
+        var dy = ray.Dy / length;
+        var dh = ray.DHeight / length;
+        var actorBuckets = NewSession().Actors().OrderBy(a => a.Id, StringComparer.Ordinal)
+            .GroupBy(a => (a.TileX, a.TileY)).ToDictionary(g => g.Key, g => g.ToArray());
+        var surfaceCache = new Dictionary<(int X, int Y), List<(int H, Target Target)>>();
+
+        List<(int H, Target Target)> Surfaces(int x, int y)
+        {
+            if (surfaceCache.TryGetValue((x, y), out var cached)) return cached;
+            var byHeight = new Dictionary<int, Target>();
+            if (Grid.GroundAt(x, y) is { } ground && !Grid.IsVoid(x, y, ground.GroundH))
+                byHeight[ground.GroundH] = new TileTarget(x, y, ground.GroundH);
+            var (cx, cy, lx, ly) = WorldGrid.ChunkCoords(x, y);
+            var index = Chunk.Index(lx, ly);
+            foreach (var level in Grid.Levels.Values.Where(l => l.Cx == cx && l.Cy == cy))
+                if (level.FloorH[index] != ChunkConst.NoFloor)
+                    byHeight[level.FloorH[index]] = new TileTarget(x, y, level.FloorH[index]);
+            foreach (var obj in Grid.ObjectsAt(x, y))
+                if (Grid.KindOf(obj) is { Surface: true } kind)
+                    byHeight[obj.H + kind.Height] = new ObjectTarget(obj.Id);
+            cached = byHeight.Select(p => (p.Key, p.Value)).OrderByDescending(p => p.Key)
+                .Select(p => (p.Key, p.Value)).ToList();
+            surfaceCache[(x, y)] = cached;
+            return cached;
+        }
+
+        var previousX = PyMath.Floor(ray.X);
+        var previousY = PyMath.Floor(ray.Y);
+        var previousHeight = ray.Height;
+        var previousLoaded = Grid.GroundAt(previousX, previousY) is not null;
+        const double step = 0.05;
+        for (double distance = 0; distance <= maxDistance; distance += step)
+        {
+            var px = ray.X + dx * distance;
+            var py = ray.Y + dy * distance;
+            var height = ray.Height + dh * distance;
+            var x = PyMath.Floor(px);
+            var y = PyMath.Floor(py);
+            var halfHeight = PyMath.Floor(height * 2);
+            if (Grid.GroundAt(x, y) is null)
+            {
+                previousX = x;
+                previousY = y;
+                previousHeight = height;
+                previousLoaded = false;
+                continue;
+            }
+
+            if (previousLoaded && (x, y) != (previousX, previousY) && Math.Abs(x - previousX) + Math.Abs(y - previousY) == 1 &&
+                Grid.WallBetween(previousX, previousY, x, y, halfHeight))
+            {
+                var verticalEdge = x != previousX;
+                var forward = verticalEdge ? x > previousX : y > previousY;
+                var direction = verticalEdge ? "west" : "north";
+                var (edgeX, edgeY) = forward ? (x, y) : (previousX, previousY);
+                var target = new EdgeTarget(edgeX, edgeY, PyMath.FloorDiv(halfHeight, ChunkConst.LevelH), direction);
+                return new WorldPickHit(target, edgeX, edgeY, halfHeight, px, py, height);
+            }
+
+            if (actorBuckets.TryGetValue((x, y), out var actors))
+                foreach (var actor in actors)
+                {
+                    var ax = actor.X;
+                    var ay = actor.Y;
+                    var dxActor = px - ax;
+                    var dyActor = py - ay;
+                    var baseHeight = actor.H * 0.5;
+                    if (dxActor * dxActor + dyActor * dyActor <= 0.3 * 0.3 && height >= baseHeight && height <= baseHeight + 1.7)
+                    {
+                        var target = new ActorTarget(actor.Id);
+                        return new WorldPickHit(target, x, y, actor.H, px, py, height);
+                    }
+                }
+
+            foreach (var obj in Grid.ObjectsAt(x, y))
+                if (Grid.KindOf(obj) is { Solid: true } kind && obj.H < halfHeight && halfHeight <= obj.H + kind.Height)
+                {
+                    var target = new ObjectTarget(obj.Id);
+                    return new WorldPickHit(target, x, y, obj.H, px, py, height);
+                }
+
+            if (dh < 0 && height <= previousHeight)
+                foreach (var surface in Surfaces(x, y))
+                {
+                    var surfaceHeight = surface.H * 0.5;
+                    if (previousHeight >= surfaceHeight && height <= surfaceHeight)
+                        return new WorldPickHit(surface.Target, x, y, surface.H, px, py, surfaceHeight);
+                }
+
+            if (Grid.SolidAt(x, y, halfHeight))
+            {
+                var surface = Surfaces(x, y).FirstOrDefault(s => s.H >= halfHeight);
+                var target = surface.Target ?? new TileTarget(x, y, halfHeight);
+                var targetH = surface.Target is null ? halfHeight : surface.H;
+                return new WorldPickHit(target, x, y, targetH, px, py, height);
+            }
+
+            previousX = x;
+            previousY = y;
+            previousHeight = height;
+            previousLoaded = true;
+        }
+        return null;
+    }
+
     public WorldState GetState()
     {
         var session = NewSession();

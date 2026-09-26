@@ -56,6 +56,12 @@ public sealed record MenuPayload(double X, double Y, int Z, string Target, IRead
         ("places", new JsonArray(Places.Select(p => (JsonNode)p.ToJson()).ToArray())));
 }
 
+/// <summary>A camera ray expressed in sim metres; vertical height is independent of the x/y grid.</summary>
+public readonly record struct WorldRay(double X, double Y, double Height, double Dx, double Dy, double DHeight);
+
+/// <summary>The first sim surface or volume touched by a ray.</summary>
+public sealed record WorldPickHit(Target Target, int TileX, int TileY, int TileH, double HitX, double HitY, double HitHeight);
+
 public sealed record ObjectPayload(int Id, string Kind, int X, int Y, int H, int Quantity, bool? Open);
 
 /// <summary>What the client draws for one chunk; arrays are the grid's own, never mutated.</summary>

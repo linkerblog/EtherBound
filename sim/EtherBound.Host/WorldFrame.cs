@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using EtherBound.Sim.Core;
 using EtherBound.Sim.Engine;
 using EtherBound.Sim.World;
 
@@ -8,8 +9,20 @@ public sealed record HostMaterial(int Id, string Key, string Name, string Color,
 
 public sealed record HostObjectKind(string Key, string Name, string Material, int Height, bool Solid, bool Surface);
 
+public sealed record HostOptionField(string Path, string Label, string Kind, string? DefaultJson, double? Minimum,
+    double? Maximum, double? Step, ImmutableArray<string> Choices, string? Group);
+
+public sealed record HostGeneratorBay(string Key, int X, int Y, int Width, int Height);
+
+public sealed record HostGenerator(string Key, string Name, int Version, ImmutableArray<HostOptionField> Fields,
+    ImmutableArray<HostGeneratorBay> Bays);
+
+public sealed record HostCarriedObject(int Id, string Kind, string Name, int Quantity, string Slot);
+
+public sealed record HostActivity(string Op, int StartedMinute, int EndsMinute);
+
 public sealed record HostActor(string Id, string Kind, string? Name, double X, double Y, int Z, int H,
-    string? Activity, double LoadKg);
+    HostActivity? Activity, ImmutableArray<HostCarriedObject> Carried, double LoadKg);
 
 public sealed record HostObject(int Id, string Kind, int X, int Y, int H, int Quantity, bool? Open);
 
@@ -40,5 +53,6 @@ public sealed record HostChunk(int Cx, int Cy, int Revision, ImmutableArray<shor
 
 /// <summary>A detached render/input snapshot. It contains no sim-owned arrays or mutable JSON nodes.</summary>
 public sealed record WorldFrame(long Sequence, long Seed, int GameMinute, int Speed, bool Paused,
-    string Generator, int GenVersion, ImmutableArray<HostActor> Actors, ImmutableArray<HostMaterial> Materials,
-    ImmutableArray<HostObjectKind> ObjectKinds, ImmutableArray<HostChunk> Chunks);
+    string Generator, int GenVersion, string GenOptionsJson, ImmutableArray<HostGenerator> Generators,
+    ImmutableArray<HostActor> Actors, ImmutableArray<HostMaterial> Materials, ImmutableArray<HostObjectKind> ObjectKinds,
+    ImmutableArray<HostChunk> Chunks);

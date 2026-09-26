@@ -88,6 +88,15 @@ public sealed partial class PixelView : Node
         _display.Position = (new Vector2(-Margin - Remainder.X, -Margin + Remainder.Y) * Scale).Round();
     }
 
+    public (Vector3 Origin, Vector3 Direction) RayFromScreen(Vector2 screenPosition)
+    {
+        var viewportPosition = (screenPosition - _display.GlobalPosition) / Scale;
+        return (Camera.ProjectRayOrigin(viewportPosition), Camera.ProjectRayNormal(viewportPosition));
+    }
+
+    public Vector2 ScreenFromWorld(Vector3 worldPosition) =>
+        _display.GlobalPosition + Camera.UnprojectPosition(worldPosition) * Scale;
+
     /// <summary>Art-pixel size of the low-res buffer, for screenshots at x1.</summary>
     public Image CaptureLowRes() => Viewport.GetTexture().GetImage();
 }

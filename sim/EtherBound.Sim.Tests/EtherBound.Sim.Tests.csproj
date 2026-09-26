@@ -12,6 +12,8 @@
   <ItemGroup>
     <!-- Exported by server/scripts/export_goldens.py; the C# sim must reproduce them. -->
     <None Include="Goldens\**" CopyToOutputDirectory="PreserveNewest" />
+    <!-- A save written by the Python server, for SaveCompatibility (export_save_fixture.py). -->
+    <None Include="Fixtures\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,0 +1,4286 @@
+{
+ "events": [
+  {
+   "actor_id": null,
+   "data": {
+    "gen_version": 5,
+    "generator": "test",
+    "options": {},
+    "seed": 0
+   },
+   "game_minute": 0,
+   "seq": 1,
+   "type": "world.generated"
+  },
+  {
+   "actor_id": "niko",
+   "data": {
+    "kind": "player",
+    "name": null,
+    "reason": "created",
+    "tile": {
+     "h": 2,
+     "x": 121,
+     "y": 128
+    }
+   },
+   "game_minute": 0,
+   "seq": 2,
+   "type": "actor.spawned"
+  },
+  {
+   "actor_id": "extra-001",
+   "data": {
+    "kind": "extra",
+    "name": "Lena Ueda",
+    "reason": "created",
+    "tile": {
+     "h": 3,
+     "x": 116,
+     "y": 115
+    }
+   },
+   "game_minute": 0,
+   "seq": 3,
+   "type": "actor.spawned"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "kind": "extra",
+    "name": "Elsa Wagner",
+    "reason": "created",
+    "tile": {
+     "h": 3,
+     "x": 115,
+     "y": 127
+    }
+   },
+   "game_minute": 0,
+   "seq": 4,
+   "type": "actor.spawned"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "kind": "extra",
+    "name": "Quinn Silva",
+    "reason": "created",
+    "tile": {
+     "h": 1,
+     "x": 129,
+     "y": 126
+    }
+   },
+   "game_minute": 0,
+   "seq": 5,
+   "type": "actor.spawned"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "kind": "extra",
+    "name": "Gil Mensah",
+    "reason": "created",
+    "tile": {
+     "h": 0,
+     "x": 132,
+     "y": 132
+    }
+   },
+   "game_minute": 0,
+   "seq": 6,
+   "type": "actor.spawned"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "kind": "extra",
+    "name": "Priya Gallo",
+    "reason": "created",
+    "tile": {
+     "h": 4,
+     "x": 111,
+     "y": 136
+    }
+   },
+   "game_minute": 0,
+   "seq": 7,
+   "type": "actor.spawned"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "kind": "extra",
+    "name": "Alma Ortiz",
+    "reason": "created",
+    "tile": {
+     "h": 3,
+     "x": 109,
+     "y": 119
+    }
+   },
+   "game_minute": 0,
+   "seq": 8,
+   "type": "actor.spawned"
+  },
+  {
+   "actor_id": null,
+   "data": {
+    "paused": false,
+    "speed": 1
+   },
+   "game_minute": 0,
+   "seq": 9,
+   "type": "clock.changed"
+  },
+  {
+   "actor_id": "niko",
+   "data": {
+    "ends_minute": 24,
+    "op": "dig",
+    "target": {
+     "h": 2,
+     "kind": "tile",
+     "x": 124,
+     "y": 128
+    }
+   },
+   "game_minute": 0,
+   "seq": 10,
+   "type": "activity.started"
+  },
+  {
+   "actor_id": "extra-001",
+   "data": {
+    "ends_minute": 16,
+    "op": "wait",
+    "target": {
+     "kind": "self"
+    }
+   },
+   "game_minute": 1,
+   "seq": 12,
+   "type": "activity.started"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "goal": {
+     "h": 5,
+     "kind": "wander",
+     "x": 104,
+     "y": 131
+    },
+    "reason": "chosen"
+   },
+   "game_minute": 1,
+   "seq": 13,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "goal": {
+     "h": 1,
+     "kind": "wander",
+     "x": 131,
+     "y": 126
+    },
+    "reason": "chosen"
+   },
+   "game_minute": 1,
+   "seq": 14,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "ends_minute": 16,
+    "op": "wait",
+    "target": {
+     "kind": "self"
+    }
+   },
+   "game_minute": 1,
+   "seq": 15,
+   "type": "activity.started"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "goal": {
+     "h": 4,
+     "kind": "wander",
+     "x": 113,
+     "y": 127
+    },
+    "reason": "chosen"
+   },
+   "game_minute": 1,
+   "seq": 16,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "goal": {
+     "h": 3,
+     "kind": "wander",
+     "x": 117,
+     "y": 126
+    },
+    "reason": "chosen"
+   },
+   "game_minute": 1,
+   "seq": 17,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 115,
+     "y": 127
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 114,
+     "y": 127
+    }
+   },
+   "game_minute": 2,
+   "seq": 19,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 114,
+     "y": 127
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 113,
+     "y": 127
+    }
+   },
+   "game_minute": 2,
+   "seq": 20,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 113,
+     "y": 127
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 112,
+     "y": 127
+    }
+   },
+   "game_minute": 2,
+   "seq": 21,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 112,
+     "y": 127
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 128
+    }
+   },
+   "game_minute": 2,
+   "seq": 22,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 128
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 110,
+     "y": 129
+    }
+   },
+   "game_minute": 2,
+   "seq": 23,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 110,
+     "y": 129
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 109,
+     "y": 130
+    }
+   },
+   "game_minute": 2,
+   "seq": 24,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "from_tile": {
+     "h": 1,
+     "x": 129,
+     "y": 126
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 1,
+     "x": 130,
+     "y": 126
+    }
+   },
+   "game_minute": 2,
+   "seq": 25,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "from_tile": {
+     "h": 1,
+     "x": 130,
+     "y": 126
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 1,
+     "x": 131,
+     "y": 126
+    }
+   },
+   "game_minute": 2,
+   "seq": 26,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 136
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 135
+    }
+   },
+   "game_minute": 2,
+   "seq": 27,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 135
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 134
+    }
+   },
+   "game_minute": 2,
+   "seq": 28,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 134
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 133
+    }
+   },
+   "game_minute": 2,
+   "seq": 29,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 133
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 132
+    }
+   },
+   "game_minute": 2,
+   "seq": 30,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 132
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 131
+    }
+   },
+   "game_minute": 2,
+   "seq": 31,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 131
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 112,
+     "y": 130
+    }
+   },
+   "game_minute": 2,
+   "seq": 32,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 109,
+     "y": 119
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 110,
+     "y": 120
+    }
+   },
+   "game_minute": 2,
+   "seq": 33,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 110,
+     "y": 120
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 111,
+     "y": 121
+    }
+   },
+   "game_minute": 2,
+   "seq": 34,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 111,
+     "y": 121
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 112,
+     "y": 122
+    }
+   },
+   "game_minute": 2,
+   "seq": 35,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 112,
+     "y": 122
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 113,
+     "y": 123
+    }
+   },
+   "game_minute": 2,
+   "seq": 36,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 113,
+     "y": 123
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 114,
+     "y": 124
+    }
+   },
+   "game_minute": 2,
+   "seq": 37,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 114,
+     "y": 124
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 115,
+     "y": 125
+    }
+   },
+   "game_minute": 2,
+   "seq": 38,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 109,
+     "y": 130
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 108,
+     "y": 130
+    }
+   },
+   "game_minute": 3,
+   "seq": 40,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 108,
+     "y": 130
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 107,
+     "y": 130
+    }
+   },
+   "game_minute": 3,
+   "seq": 41,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 107,
+     "y": 130
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 106,
+     "y": 130
+    }
+   },
+   "game_minute": 3,
+   "seq": 42,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 106,
+     "y": 130
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 105,
+     "y": 130
+    }
+   },
+   "game_minute": 3,
+   "seq": 43,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 105,
+     "y": 130
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 5,
+     "x": 104,
+     "y": 131
+    }
+   },
+   "game_minute": 3,
+   "seq": 44,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "goal": null,
+    "reason": "arrived"
+   },
+   "game_minute": 3,
+   "seq": 45,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "ends_minute": 18,
+    "op": "wait",
+    "target": {
+     "kind": "self"
+    }
+   },
+   "game_minute": 3,
+   "seq": 46,
+   "type": "activity.started"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 112,
+     "y": 130
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 112,
+     "y": 129
+    }
+   },
+   "game_minute": 3,
+   "seq": 47,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 112,
+     "y": 129
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 113,
+     "y": 128
+    }
+   },
+   "game_minute": 3,
+   "seq": 48,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 113,
+     "y": 128
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 113,
+     "y": 127
+    }
+   },
+   "game_minute": 3,
+   "seq": 49,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 115,
+     "y": 125
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 116,
+     "y": 125
+    }
+   },
+   "game_minute": 3,
+   "seq": 50,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 116,
+     "y": 125
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 117,
+     "y": 126
+    }
+   },
+   "game_minute": 3,
+   "seq": 51,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "goal": null,
+    "reason": "arrived"
+   },
+   "game_minute": 4,
+   "seq": 53,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "ends_minute": 19,
+    "op": "wait",
+    "target": {
+     "kind": "self"
+    }
+   },
+   "game_minute": 4,
+   "seq": 54,
+   "type": "activity.started"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "goal": null,
+    "reason": "arrived"
+   },
+   "game_minute": 4,
+   "seq": 55,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "ends_minute": 19,
+    "op": "wait",
+    "target": {
+     "kind": "self"
+    }
+   },
+   "game_minute": 4,
+   "seq": 56,
+   "type": "activity.started"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "goal": null,
+    "reason": "arrived"
+   },
+   "game_minute": 4,
+   "seq": 57,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "ends_minute": 19,
+    "op": "wait",
+    "target": {
+     "kind": "self"
+    }
+   },
+   "game_minute": 4,
+   "seq": 58,
+   "type": "activity.started"
+  },
+  {
+   "actor_id": "extra-001",
+   "data": {
+    "op": "wait",
+    "outcome": "completed",
+    "reason": null
+   },
+   "game_minute": 16,
+   "seq": 70,
+   "type": "activity.finished"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "op": "wait",
+    "outcome": "completed",
+    "reason": null
+   },
+   "game_minute": 16,
+   "seq": 71,
+   "type": "activity.finished"
+  },
+  {
+   "actor_id": "extra-001",
+   "data": {
+    "goal": {
+     "h": 2,
+     "kind": "wander",
+     "x": 120,
+     "y": 110
+    },
+    "reason": "chosen"
+   },
+   "game_minute": 16,
+   "seq": 73,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "goal": {
+     "h": -1,
+     "kind": "wander",
+     "x": 137,
+     "y": 129
+    },
+    "reason": "chosen"
+   },
+   "game_minute": 16,
+   "seq": 74,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-001",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 116,
+     "y": 115
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 117,
+     "y": 114
+    }
+   },
+   "game_minute": 17,
+   "seq": 76,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-001",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 117,
+     "y": 114
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 118,
+     "y": 113
+    }
+   },
+   "game_minute": 17,
+   "seq": 77,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-001",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 118,
+     "y": 113
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 2,
+     "x": 118,
+     "y": 112
+    }
+   },
+   "game_minute": 17,
+   "seq": 78,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-001",
+   "data": {
+    "from_tile": {
+     "h": 2,
+     "x": 118,
+     "y": 112
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 2,
+     "x": 119,
+     "y": 111
+    }
+   },
+   "game_minute": 17,
+   "seq": 79,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-001",
+   "data": {
+    "from_tile": {
+     "h": 2,
+     "x": 119,
+     "y": 111
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 2,
+     "x": 120,
+     "y": 110
+    }
+   },
+   "game_minute": 17,
+   "seq": 80,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "from_tile": {
+     "h": 0,
+     "x": 132,
+     "y": 132
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 0,
+     "x": 133,
+     "y": 131
+    }
+   },
+   "game_minute": 17,
+   "seq": 81,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "from_tile": {
+     "h": 0,
+     "x": 133,
+     "y": 131
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 0,
+     "x": 134,
+     "y": 131
+    }
+   },
+   "game_minute": 17,
+   "seq": 82,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "from_tile": {
+     "h": 0,
+     "x": 134,
+     "y": 131
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 0,
+     "x": 135,
+     "y": 130
+    }
+   },
+   "game_minute": 17,
+   "seq": 83,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "from_tile": {
+     "h": 0,
+     "x": 135,
+     "y": 130
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 0,
+     "x": 136,
+     "y": 129
+    }
+   },
+   "game_minute": 17,
+   "seq": 84,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "from_tile": {
+     "h": 0,
+     "x": 136,
+     "y": 129
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": -1,
+     "x": 137,
+     "y": 129
+    }
+   },
+   "game_minute": 17,
+   "seq": 85,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "op": "wait",
+    "outcome": "completed",
+    "reason": null
+   },
+   "game_minute": 18,
+   "seq": 86,
+   "type": "activity.finished"
+  },
+  {
+   "actor_id": "extra-001",
+   "data": {
+    "goal": null,
+    "reason": "arrived"
+   },
+   "game_minute": 18,
+   "seq": 88,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-001",
+   "data": {
+    "ends_minute": 33,
+    "op": "wait",
+    "target": {
+     "kind": "self"
+    }
+   },
+   "game_minute": 18,
+   "seq": 89,
+   "type": "activity.started"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "goal": {
+     "h": 0,
+     "kind": "wander",
+     "x": 136,
+     "y": 125
+    },
+    "reason": "chosen"
+   },
+   "game_minute": 18,
+   "seq": 90,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "goal": null,
+    "reason": "arrived"
+   },
+   "game_minute": 18,
+   "seq": 91,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "ends_minute": 33,
+    "op": "wait",
+    "target": {
+     "kind": "self"
+    }
+   },
+   "game_minute": 18,
+   "seq": 92,
+   "type": "activity.started"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "op": "wait",
+    "outcome": "completed",
+    "reason": null
+   },
+   "game_minute": 19,
+   "seq": 93,
+   "type": "activity.finished"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "op": "wait",
+    "outcome": "completed",
+    "reason": null
+   },
+   "game_minute": 19,
+   "seq": 94,
+   "type": "activity.finished"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "op": "wait",
+    "outcome": "completed",
+    "reason": null
+   },
+   "game_minute": 19,
+   "seq": 95,
+   "type": "activity.finished"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "ends_minute": 34,
+    "op": "wait",
+    "target": {
+     "kind": "self"
+    }
+   },
+   "game_minute": 19,
+   "seq": 97,
+   "type": "activity.started"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "from_tile": {
+     "h": 1,
+     "x": 131,
+     "y": 126
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 0,
+     "x": 132,
+     "y": 126
+    }
+   },
+   "game_minute": 19,
+   "seq": 98,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "from_tile": {
+     "h": 0,
+     "x": 132,
+     "y": 126
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 0,
+     "x": 133,
+     "y": 126
+    }
+   },
+   "game_minute": 19,
+   "seq": 99,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "from_tile": {
+     "h": 0,
+     "x": 133,
+     "y": 126
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 0,
+     "x": 134,
+     "y": 126
+    }
+   },
+   "game_minute": 19,
+   "seq": 100,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "from_tile": {
+     "h": 0,
+     "x": 134,
+     "y": 126
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 0,
+     "x": 135,
+     "y": 125
+    }
+   },
+   "game_minute": 19,
+   "seq": 101,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "from_tile": {
+     "h": 0,
+     "x": 135,
+     "y": 125
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 0,
+     "x": 136,
+     "y": 125
+    }
+   },
+   "game_minute": 19,
+   "seq": 102,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "goal": {
+     "h": 4,
+     "kind": "wander",
+     "x": 111,
+     "y": 135
+    },
+    "reason": "chosen"
+   },
+   "game_minute": 19,
+   "seq": 103,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "ends_minute": 34,
+    "op": "wait",
+    "target": {
+     "kind": "self"
+    }
+   },
+   "game_minute": 19,
+   "seq": 104,
+   "type": "activity.started"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "goal": null,
+    "reason": "arrived"
+   },
+   "game_minute": 20,
+   "seq": 106,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "ends_minute": 35,
+    "op": "wait",
+    "target": {
+     "kind": "self"
+    }
+   },
+   "game_minute": 20,
+   "seq": 107,
+   "type": "activity.started"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 113,
+     "y": 127
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 113,
+     "y": 128
+    }
+   },
+   "game_minute": 20,
+   "seq": 108,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 113,
+     "y": 128
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 113,
+     "y": 129
+    }
+   },
+   "game_minute": 20,
+   "seq": 109,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 113,
+     "y": 129
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 113,
+     "y": 130
+    }
+   },
+   "game_minute": 20,
+   "seq": 110,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 113,
+     "y": 130
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 113,
+     "y": 131
+    }
+   },
+   "game_minute": 20,
+   "seq": 111,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 113,
+     "y": 131
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 112,
+     "y": 132
+    }
+   },
+   "game_minute": 20,
+   "seq": 112,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 112,
+     "y": 132
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 112,
+     "y": 133
+    }
+   },
+   "game_minute": 20,
+   "seq": 113,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 112,
+     "y": 133
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 134
+    }
+   },
+   "game_minute": 21,
+   "seq": 115,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 134
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 135
+    }
+   },
+   "game_minute": 21,
+   "seq": 116,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "goal": null,
+    "reason": "arrived"
+   },
+   "game_minute": 22,
+   "seq": 118,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "ends_minute": 37,
+    "op": "wait",
+    "target": {
+     "kind": "self"
+    }
+   },
+   "game_minute": 22,
+   "seq": 119,
+   "type": "activity.started"
+  },
+  {
+   "actor_id": "niko",
+   "data": {
+    "dug": 1,
+    "exposed": "topsoil",
+    "removed": "topsoil",
+    "tile": {
+     "h": 1,
+     "x": 124,
+     "y": 128
+    }
+   },
+   "game_minute": 24,
+   "seq": 121,
+   "type": "terrain.dug"
+  },
+  {
+   "actor_id": "niko",
+   "data": {
+    "op": "dig",
+    "outcome": "completed",
+    "reason": null
+   },
+   "game_minute": 24,
+   "seq": 123,
+   "type": "activity.finished"
+  },
+  {
+   "actor_id": "extra-001",
+   "data": {
+    "op": "wait",
+    "outcome": "completed",
+    "reason": null
+   },
+   "game_minute": 33,
+   "seq": 133,
+   "type": "activity.finished"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "op": "wait",
+    "outcome": "completed",
+    "reason": null
+   },
+   "game_minute": 33,
+   "seq": 134,
+   "type": "activity.finished"
+  },
+  {
+   "actor_id": "extra-001",
+   "data": {
+    "goal": {
+     "h": 2,
+     "kind": "wander",
+     "x": 117,
+     "y": 107
+    },
+    "reason": "chosen"
+   },
+   "game_minute": 33,
+   "seq": 136,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "goal": {
+     "h": 1,
+     "kind": "wander",
+     "x": 125,
+     "y": 130
+    },
+    "reason": "chosen"
+   },
+   "game_minute": 33,
+   "seq": 137,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "op": "wait",
+    "outcome": "completed",
+    "reason": null
+   },
+   "game_minute": 34,
+   "seq": 138,
+   "type": "activity.finished"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "op": "wait",
+    "outcome": "completed",
+    "reason": null
+   },
+   "game_minute": 34,
+   "seq": 139,
+   "type": "activity.finished"
+  },
+  {
+   "actor_id": "extra-001",
+   "data": {
+    "from_tile": {
+     "h": 2,
+     "x": 120,
+     "y": 110
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 2,
+     "x": 119,
+     "y": 109
+    }
+   },
+   "game_minute": 34,
+   "seq": 141,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-001",
+   "data": {
+    "from_tile": {
+     "h": 2,
+     "x": 119,
+     "y": 109
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 2,
+     "x": 118,
+     "y": 108
+    }
+   },
+   "game_minute": 34,
+   "seq": 142,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-001",
+   "data": {
+    "from_tile": {
+     "h": 2,
+     "x": 118,
+     "y": 108
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 2,
+     "x": 117,
+     "y": 107
+    }
+   },
+   "game_minute": 34,
+   "seq": 143,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "goal": {
+     "h": 2,
+     "kind": "wander",
+     "x": 120,
+     "y": 123
+    },
+    "reason": "chosen"
+   },
+   "game_minute": 34,
+   "seq": 144,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "from_tile": {
+     "h": -1,
+     "x": 137,
+     "y": 129
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 0,
+     "x": 136,
+     "y": 129
+    }
+   },
+   "game_minute": 34,
+   "seq": 145,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "from_tile": {
+     "h": 0,
+     "x": 136,
+     "y": 129
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 0,
+     "x": 135,
+     "y": 129
+    }
+   },
+   "game_minute": 34,
+   "seq": 146,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "from_tile": {
+     "h": 0,
+     "x": 135,
+     "y": 129
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 0,
+     "x": 134,
+     "y": 129
+    }
+   },
+   "game_minute": 34,
+   "seq": 147,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "from_tile": {
+     "h": 0,
+     "x": 134,
+     "y": 129
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 0,
+     "x": 133,
+     "y": 129
+    }
+   },
+   "game_minute": 34,
+   "seq": 148,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "from_tile": {
+     "h": 0,
+     "x": 133,
+     "y": 129
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 0,
+     "x": 132,
+     "y": 129
+    }
+   },
+   "game_minute": 34,
+   "seq": 149,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "from_tile": {
+     "h": 0,
+     "x": 132,
+     "y": 129
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 0,
+     "x": 131,
+     "y": 129
+    }
+   },
+   "game_minute": 34,
+   "seq": 150,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "goal": {
+     "h": 3,
+     "kind": "wander",
+     "x": 106,
+     "y": 118
+    },
+    "reason": "chosen"
+   },
+   "game_minute": 34,
+   "seq": 151,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "op": "wait",
+    "outcome": "completed",
+    "reason": null
+   },
+   "game_minute": 35,
+   "seq": 152,
+   "type": "activity.finished"
+  },
+  {
+   "actor_id": "extra-001",
+   "data": {
+    "goal": null,
+    "reason": "arrived"
+   },
+   "game_minute": 35,
+   "seq": 154,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-001",
+   "data": {
+    "ends_minute": 50,
+    "op": "wait",
+    "target": {
+     "kind": "self"
+    }
+   },
+   "game_minute": 35,
+   "seq": 155,
+   "type": "activity.started"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 5,
+     "x": 104,
+     "y": 131
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 105,
+     "y": 130
+    }
+   },
+   "game_minute": 35,
+   "seq": 156,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 105,
+     "y": 130
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 106,
+     "y": 129
+    }
+   },
+   "game_minute": 35,
+   "seq": 157,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 106,
+     "y": 129
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 107,
+     "y": 129
+    }
+   },
+   "game_minute": 35,
+   "seq": 158,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 107,
+     "y": 129
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 108,
+     "y": 128
+    }
+   },
+   "game_minute": 35,
+   "seq": 159,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 108,
+     "y": 128
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 109,
+     "y": 128
+    }
+   },
+   "game_minute": 35,
+   "seq": 160,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 109,
+     "y": 128
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 110,
+     "y": 128
+    }
+   },
+   "game_minute": 35,
+   "seq": 161,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "ends_minute": 50,
+    "op": "wait",
+    "target": {
+     "kind": "self"
+    }
+   },
+   "game_minute": 35,
+   "seq": 162,
+   "type": "activity.started"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "from_tile": {
+     "h": 0,
+     "x": 131,
+     "y": 129
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 1,
+     "x": 130,
+     "y": 129
+    }
+   },
+   "game_minute": 35,
+   "seq": 163,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "from_tile": {
+     "h": 1,
+     "x": 130,
+     "y": 129
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 1,
+     "x": 129,
+     "y": 129
+    }
+   },
+   "game_minute": 35,
+   "seq": 164,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "from_tile": {
+     "h": 1,
+     "x": 129,
+     "y": 129
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 1,
+     "x": 128,
+     "y": 129
+    }
+   },
+   "game_minute": 35,
+   "seq": 165,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "from_tile": {
+     "h": 1,
+     "x": 128,
+     "y": 129
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 1,
+     "x": 127,
+     "y": 129
+    }
+   },
+   "game_minute": 35,
+   "seq": 166,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "from_tile": {
+     "h": 1,
+     "x": 127,
+     "y": 129
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 1,
+     "x": 126,
+     "y": 129
+    }
+   },
+   "game_minute": 35,
+   "seq": 167,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "from_tile": {
+     "h": 1,
+     "x": 126,
+     "y": 129
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 1,
+     "x": 125,
+     "y": 130
+    }
+   },
+   "game_minute": 35,
+   "seq": 168,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 117,
+     "y": 126
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 116,
+     "y": 125
+    }
+   },
+   "game_minute": 35,
+   "seq": 169,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 116,
+     "y": 125
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 115,
+     "y": 124
+    }
+   },
+   "game_minute": 35,
+   "seq": 170,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 115,
+     "y": 124
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 114,
+     "y": 123
+    }
+   },
+   "game_minute": 35,
+   "seq": 171,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 114,
+     "y": 123
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 113,
+     "y": 122
+    }
+   },
+   "game_minute": 35,
+   "seq": 172,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 113,
+     "y": 122
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 112,
+     "y": 121
+    }
+   },
+   "game_minute": 35,
+   "seq": 173,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 112,
+     "y": 121
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 111,
+     "y": 120
+    }
+   },
+   "game_minute": 35,
+   "seq": 174,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 110,
+     "y": 128
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 127
+    }
+   },
+   "game_minute": 36,
+   "seq": 176,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 127
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 112,
+     "y": 127
+    }
+   },
+   "game_minute": 36,
+   "seq": 177,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 112,
+     "y": 127
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 113,
+     "y": 126
+    }
+   },
+   "game_minute": 36,
+   "seq": 178,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 113,
+     "y": 126
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 114,
+     "y": 126
+    }
+   },
+   "game_minute": 36,
+   "seq": 179,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 114,
+     "y": 126
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 115,
+     "y": 125
+    }
+   },
+   "game_minute": 36,
+   "seq": 180,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 115,
+     "y": 125
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 116,
+     "y": 125
+    }
+   },
+   "game_minute": 36,
+   "seq": 181,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "goal": null,
+    "reason": "arrived"
+   },
+   "game_minute": 36,
+   "seq": 182,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "ends_minute": 51,
+    "op": "wait",
+    "target": {
+     "kind": "self"
+    }
+   },
+   "game_minute": 36,
+   "seq": 183,
+   "type": "activity.started"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 111,
+     "y": 120
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 110,
+     "y": 120
+    }
+   },
+   "game_minute": 36,
+   "seq": 184,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 110,
+     "y": 120
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 109,
+     "y": 119
+    }
+   },
+   "game_minute": 36,
+   "seq": 185,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 109,
+     "y": 119
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 108,
+     "y": 119
+    }
+   },
+   "game_minute": 36,
+   "seq": 186,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 108,
+     "y": 119
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 107,
+     "y": 118
+    }
+   },
+   "game_minute": 36,
+   "seq": 187,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 107,
+     "y": 118
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 106,
+     "y": 118
+    }
+   },
+   "game_minute": 36,
+   "seq": 188,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "op": "wait",
+    "outcome": "completed",
+    "reason": null
+   },
+   "game_minute": 37,
+   "seq": 189,
+   "type": "activity.finished"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 116,
+     "y": 125
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 117,
+     "y": 124
+    }
+   },
+   "game_minute": 37,
+   "seq": 191,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 117,
+     "y": 124
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 118,
+     "y": 124
+    }
+   },
+   "game_minute": 37,
+   "seq": 192,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 118,
+     "y": 124
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 119,
+     "y": 123
+    }
+   },
+   "game_minute": 37,
+   "seq": 193,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 119,
+     "y": 123
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 2,
+     "x": 120,
+     "y": 123
+    }
+   },
+   "game_minute": 37,
+   "seq": 194,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "ends_minute": 52,
+    "op": "wait",
+    "target": {
+     "kind": "self"
+    }
+   },
+   "game_minute": 37,
+   "seq": 195,
+   "type": "activity.started"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "goal": null,
+    "reason": "arrived"
+   },
+   "game_minute": 37,
+   "seq": 196,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "ends_minute": 52,
+    "op": "wait",
+    "target": {
+     "kind": "self"
+    }
+   },
+   "game_minute": 37,
+   "seq": 197,
+   "type": "activity.started"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "goal": null,
+    "reason": "arrived"
+   },
+   "game_minute": 38,
+   "seq": 199,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "ends_minute": 53,
+    "op": "wait",
+    "target": {
+     "kind": "self"
+    }
+   },
+   "game_minute": 38,
+   "seq": 200,
+   "type": "activity.started"
+  },
+  {
+   "actor_id": "niko",
+   "data": {
+    "energy": 225.0,
+    "target": {
+     "direction": "west",
+     "kind": "edge",
+     "x": 124,
+     "y": 130,
+     "z": 0
+    }
+   },
+   "game_minute": 40,
+   "seq": 203,
+   "type": "impact"
+  },
+  {
+   "actor_id": "niko",
+   "data": {
+    "broken": [],
+    "damage": [
+     {
+      "absorbed_j": 225.0,
+      "remaining_j": 1275.0,
+      "target": {
+       "direction": "west",
+       "kind": "edge",
+       "x": 124,
+       "y": 130,
+       "z": 0
+      }
+     }
+    ],
+    "op": "break",
+    "trajectory": []
+   },
+   "game_minute": 40,
+   "seq": 204,
+   "type": "physics.resolved"
+  },
+  {
+   "actor_id": "niko",
+   "data": {
+    "energy": 225.0,
+    "target": {
+     "id": 17,
+     "kind": "object"
+    }
+   },
+   "game_minute": 40,
+   "seq": 205,
+   "type": "impact"
+  },
+  {
+   "actor_id": "niko",
+   "data": {
+    "changes": {
+     "integrity": 75.0
+    },
+    "kind": "chest",
+    "object_id": 17,
+    "op": "hit"
+   },
+   "game_minute": 40,
+   "seq": 206,
+   "type": "object.changed"
+  },
+  {
+   "actor_id": "niko",
+   "data": {
+    "broken": [],
+    "damage": [
+     {
+      "absorbed_j": 225.0,
+      "remaining_j": 75.0,
+      "target": {
+       "id": 17,
+       "kind": "object"
+      }
+     }
+    ],
+    "op": "hit",
+    "trajectory": []
+   },
+   "game_minute": 40,
+   "seq": 207,
+   "type": "physics.resolved"
+  },
+  {
+   "actor_id": "extra-001",
+   "data": {
+    "op": "wait",
+    "outcome": "completed",
+    "reason": null
+   },
+   "game_minute": 50,
+   "seq": 218,
+   "type": "activity.finished"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "op": "wait",
+    "outcome": "completed",
+    "reason": null
+   },
+   "game_minute": 50,
+   "seq": 219,
+   "type": "activity.finished"
+  },
+  {
+   "actor_id": "extra-001",
+   "data": {
+    "ends_minute": 65,
+    "op": "wait",
+    "target": {
+     "kind": "self"
+    }
+   },
+   "game_minute": 50,
+   "seq": 221,
+   "type": "activity.started"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "goal": {
+     "h": 2,
+     "kind": "wander",
+     "x": 120,
+     "y": 131
+    },
+    "reason": "chosen"
+   },
+   "game_minute": 50,
+   "seq": 222,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "op": "wait",
+    "outcome": "completed",
+    "reason": null
+   },
+   "game_minute": 51,
+   "seq": 223,
+   "type": "activity.finished"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "from_tile": {
+     "h": 0,
+     "x": 136,
+     "y": 125
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 0,
+     "x": 135,
+     "y": 125
+    }
+   },
+   "game_minute": 51,
+   "seq": 225,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "from_tile": {
+     "h": 0,
+     "x": 135,
+     "y": 125
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 0,
+     "x": 134,
+     "y": 125
+    }
+   },
+   "game_minute": 51,
+   "seq": 226,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "from_tile": {
+     "h": 0,
+     "x": 134,
+     "y": 125
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 0,
+     "x": 133,
+     "y": 125
+    }
+   },
+   "game_minute": 51,
+   "seq": 227,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "from_tile": {
+     "h": 0,
+     "x": 133,
+     "y": 125
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 0,
+     "x": 132,
+     "y": 126
+    }
+   },
+   "game_minute": 51,
+   "seq": 228,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "from_tile": {
+     "h": 0,
+     "x": 132,
+     "y": 126
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 0,
+     "x": 131,
+     "y": 127
+    }
+   },
+   "game_minute": 51,
+   "seq": 229,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "from_tile": {
+     "h": 0,
+     "x": 131,
+     "y": 127
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 1,
+     "x": 130,
+     "y": 128
+    }
+   },
+   "game_minute": 51,
+   "seq": 230,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-004",
+   "data": {
+    "ends_minute": 66,
+    "op": "wait",
+    "target": {
+     "kind": "self"
+    }
+   },
+   "game_minute": 51,
+   "seq": 231,
+   "type": "activity.started"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "op": "wait",
+    "outcome": "completed",
+    "reason": null
+   },
+   "game_minute": 52,
+   "seq": 232,
+   "type": "activity.finished"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "op": "wait",
+    "outcome": "completed",
+    "reason": null
+   },
+   "game_minute": 52,
+   "seq": 233,
+   "type": "activity.finished"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "from_tile": {
+     "h": 1,
+     "x": 130,
+     "y": 128
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 1,
+     "x": 129,
+     "y": 128
+    }
+   },
+   "game_minute": 52,
+   "seq": 235,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "from_tile": {
+     "h": 1,
+     "x": 129,
+     "y": 128
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 1,
+     "x": 128,
+     "y": 128
+    }
+   },
+   "game_minute": 52,
+   "seq": 236,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "from_tile": {
+     "h": 1,
+     "x": 128,
+     "y": 128
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 1,
+     "x": 127,
+     "y": 128
+    }
+   },
+   "game_minute": 52,
+   "seq": 237,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "from_tile": {
+     "h": 1,
+     "x": 127,
+     "y": 128
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 1,
+     "x": 126,
+     "y": 129
+    }
+   },
+   "game_minute": 52,
+   "seq": 238,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "from_tile": {
+     "h": 1,
+     "x": 126,
+     "y": 129
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 1,
+     "x": 125,
+     "y": 130
+    }
+   },
+   "game_minute": 52,
+   "seq": 239,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "from_tile": {
+     "h": 1,
+     "x": 125,
+     "y": 130
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 1,
+     "x": 124,
+     "y": 131
+    }
+   },
+   "game_minute": 52,
+   "seq": 240,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "goal": {
+     "h": 4,
+     "kind": "wander",
+     "x": 112,
+     "y": 140
+    },
+    "reason": "chosen"
+   },
+   "game_minute": 52,
+   "seq": 241,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "goal": {
+     "h": 4,
+     "kind": "wander",
+     "x": 101,
+     "y": 122
+    },
+    "reason": "chosen"
+   },
+   "game_minute": 52,
+   "seq": 242,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "op": "wait",
+    "outcome": "completed",
+    "reason": null
+   },
+   "game_minute": 53,
+   "seq": 243,
+   "type": "activity.finished"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "goal": {
+     "h": 4,
+     "kind": "wander",
+     "x": 104,
+     "y": 124
+    },
+    "reason": "chosen"
+   },
+   "game_minute": 53,
+   "seq": 245,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "from_tile": {
+     "h": 1,
+     "x": 124,
+     "y": 131
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 2,
+     "x": 123,
+     "y": 131
+    }
+   },
+   "game_minute": 53,
+   "seq": 246,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "from_tile": {
+     "h": 2,
+     "x": 123,
+     "y": 131
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 2,
+     "x": 122,
+     "y": 131
+    }
+   },
+   "game_minute": 53,
+   "seq": 247,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "from_tile": {
+     "h": 2,
+     "x": 122,
+     "y": 131
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 2,
+     "x": 121,
+     "y": 131
+    }
+   },
+   "game_minute": 53,
+   "seq": 248,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "from_tile": {
+     "h": 2,
+     "x": 121,
+     "y": 131
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 2,
+     "x": 120,
+     "y": 131
+    }
+   },
+   "game_minute": 53,
+   "seq": 249,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 135
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 136
+    }
+   },
+   "game_minute": 53,
+   "seq": 250,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 136
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 137
+    }
+   },
+   "game_minute": 53,
+   "seq": 251,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 137
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 138
+    }
+   },
+   "game_minute": 53,
+   "seq": 252,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 138
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 139
+    }
+   },
+   "game_minute": 53,
+   "seq": 253,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 139
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 112,
+     "y": 140
+    }
+   },
+   "game_minute": 53,
+   "seq": 254,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 106,
+     "y": 118
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 105,
+     "y": 119
+    }
+   },
+   "game_minute": 53,
+   "seq": 255,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 105,
+     "y": 119
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 104,
+     "y": 119
+    }
+   },
+   "game_minute": 53,
+   "seq": 256,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 104,
+     "y": 119
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 103,
+     "y": 120
+    }
+   },
+   "game_minute": 53,
+   "seq": 257,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 103,
+     "y": 120
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 102,
+     "y": 121
+    }
+   },
+   "game_minute": 53,
+   "seq": 258,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 102,
+     "y": 121
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 101,
+     "y": 122
+    }
+   },
+   "game_minute": 53,
+   "seq": 259,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 2,
+     "x": 120,
+     "y": 123
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 119,
+     "y": 123
+    }
+   },
+   "game_minute": 54,
+   "seq": 261,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 119,
+     "y": 123
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 118,
+     "y": 123
+    }
+   },
+   "game_minute": 54,
+   "seq": 262,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 118,
+     "y": 123
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 117,
+     "y": 123
+    }
+   },
+   "game_minute": 54,
+   "seq": 263,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 117,
+     "y": 123
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 116,
+     "y": 123
+    }
+   },
+   "game_minute": 54,
+   "seq": 264,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 116,
+     "y": 123
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 115,
+     "y": 123
+    }
+   },
+   "game_minute": 54,
+   "seq": 265,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 115,
+     "y": 123
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 114,
+     "y": 123
+    }
+   },
+   "game_minute": 54,
+   "seq": 266,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "goal": null,
+    "reason": "arrived"
+   },
+   "game_minute": 54,
+   "seq": 267,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-003",
+   "data": {
+    "ends_minute": 69,
+    "op": "wait",
+    "target": {
+     "kind": "self"
+    }
+   },
+   "game_minute": 54,
+   "seq": 268,
+   "type": "activity.started"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "goal": null,
+    "reason": "arrived"
+   },
+   "game_minute": 54,
+   "seq": 269,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-005",
+   "data": {
+    "ends_minute": 69,
+    "op": "wait",
+    "target": {
+     "kind": "self"
+    }
+   },
+   "game_minute": 54,
+   "seq": 270,
+   "type": "activity.started"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "goal": null,
+    "reason": "arrived"
+   },
+   "game_minute": 54,
+   "seq": 271,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-006",
+   "data": {
+    "ends_minute": 69,
+    "op": "wait",
+    "target": {
+     "kind": "self"
+    }
+   },
+   "game_minute": 54,
+   "seq": 272,
+   "type": "activity.started"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 114,
+     "y": 123
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 3,
+     "x": 113,
+     "y": 123
+    }
+   },
+   "game_minute": 55,
+   "seq": 274,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 3,
+     "x": 113,
+     "y": 123
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 112,
+     "y": 123
+    }
+   },
+   "game_minute": 55,
+   "seq": 275,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 112,
+     "y": 123
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 123
+    }
+   },
+   "game_minute": 55,
+   "seq": 276,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 111,
+     "y": 123
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 110,
+     "y": 123
+    }
+   },
+   "game_minute": 55,
+   "seq": 277,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 110,
+     "y": 123
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 109,
+     "y": 123
+    }
+   },
+   "game_minute": 55,
+   "seq": 278,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 109,
+     "y": 123
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 108,
+     "y": 123
+    }
+   },
+   "game_minute": 55,
+   "seq": 279,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 108,
+     "y": 123
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 107,
+     "y": 123
+    }
+   },
+   "game_minute": 56,
+   "seq": 281,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 107,
+     "y": 123
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 106,
+     "y": 123
+    }
+   },
+   "game_minute": 56,
+   "seq": 282,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 106,
+     "y": 123
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 105,
+     "y": 123
+    }
+   },
+   "game_minute": 56,
+   "seq": 283,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "from_tile": {
+     "h": 4,
+     "x": 105,
+     "y": 123
+    },
+    "mode": "walk",
+    "to_tile": {
+     "h": 4,
+     "x": 104,
+     "y": 124
+    }
+   },
+   "game_minute": 56,
+   "seq": 284,
+   "type": "actor.moved"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "goal": null,
+    "reason": "arrived"
+   },
+   "game_minute": 57,
+   "seq": 286,
+   "type": "actor.goal_set"
+  },
+  {
+   "actor_id": "extra-002",
+   "data": {
+    "ends_minute": 72,
+    "op": "wait",
+    "target": {
+     "kind": "self"
+    }
+   },
+   "game_minute": 57,
+   "seq": 287,
+   "type": "activity.started"
+  }
+ ],
+ "state": {
+  "actors": [
+   {
+    "activity": {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "ends_minute": 65,
+     "op": "wait",
+     "started_minute": 50
+    },
+    "h": 2,
+    "id": "extra-001",
+    "kind": "extra",
+    "mass_kg": 80.0,
+    "mind": {
+     "anchor": {
+      "h": 3,
+      "x": 116,
+      "y": 115
+     },
+     "goal": null
+    },
+    "name": "Lena Ueda",
+    "x": 117.50000000000011,
+    "y": 107.5000000000002,
+    "z": 0
+   },
+   {
+    "activity": {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "ends_minute": 72,
+     "op": "wait",
+     "started_minute": 57
+    },
+    "h": 4,
+    "id": "extra-002",
+    "kind": "extra",
+    "mass_kg": 80.0,
+    "mind": {
+     "anchor": {
+      "h": 3,
+      "x": 115,
+      "y": 127
+     },
+     "goal": null
+    },
+    "name": "Elsa Wagner",
+    "x": 104.50000000000018,
+    "y": 124.49999999999987,
+    "z": 0
+   },
+   {
+    "activity": {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "ends_minute": 69,
+     "op": "wait",
+     "started_minute": 54
+    },
+    "h": 2,
+    "id": "extra-003",
+    "kind": "extra",
+    "mass_kg": 80.0,
+    "mind": {
+     "anchor": {
+      "h": 1,
+      "x": 129,
+      "y": 126
+     },
+     "goal": null
+    },
+    "name": "Quinn Silva",
+    "x": 120.49876415967574,
+    "y": 131.49999999030345,
+    "z": 0
+   },
+   {
+    "activity": {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "ends_minute": 66,
+     "op": "wait",
+     "started_minute": 51
+    },
+    "h": 1,
+    "id": "extra-004",
+    "kind": "extra",
+    "mass_kg": 80.0,
+    "mind": {
+     "anchor": {
+      "h": 0,
+      "x": 132,
+      "y": 132
+     },
+     "goal": null
+    },
+    "name": "Gil Mensah",
+    "x": 125.50000000000018,
+    "y": 130.4999999999999,
+    "z": 0
+   },
+   {
+    "activity": {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "ends_minute": 69,
+     "op": "wait",
+     "started_minute": 54
+    },
+    "h": 4,
+    "id": "extra-005",
+    "kind": "extra",
+    "mass_kg": 80.0,
+    "mind": {
+     "anchor": {
+      "h": 4,
+      "x": 111,
+      "y": 136
+     },
+     "goal": null
+    },
+    "name": "Priya Gallo",
+    "x": 112.5000000000001,
+    "y": 140.5,
+    "z": 0
+   },
+   {
+    "activity": {
+     "action": {
+      "op": "wait",
+      "target": {
+       "kind": "self"
+      }
+     },
+     "ends_minute": 69,
+     "op": "wait",
+     "started_minute": 54
+    },
+    "h": 4,
+    "id": "extra-006",
+    "kind": "extra",
+    "mass_kg": 80.0,
+    "mind": {
+     "anchor": {
+      "h": 3,
+      "x": 109,
+      "y": 119
+     },
+     "goal": null
+    },
+    "name": "Alma Ortiz",
+    "x": 101.5,
+    "y": 122.5,
+    "z": 0
+   },
+   {
+    "activity": null,
+    "h": 2,
+    "id": "niko",
+    "kind": "player",
+    "mass_kg": 80.0,
+    "mind": null,
+    "name": null,
+    "x": 123.5,
+    "y": 130.27777777777771,
+    "z": 0
+   }
+  ],
+  "blocks_sha256": "fc57d55784f8a7905217f1f26fdaad42cba4e04c0ba63d63c09d43cf95d99b93",
+  "chunk_revisions": {
+   "3,4": 2
+  },
+  "objects": [
+   {
+    "actor_id": null,
+    "container_id": null,
+    "cx": 3,
+    "cy": 3,
+    "h": 2,
+    "id": 1,
+    "integrity": null,
+    "kind": "shovel",
+    "loc": "tile",
+    "owner": null,
+    "quantity": 1,
+    "slot": null,
+    "state": {},
+    "x": 124,
+    "y": 126
+   },
+   {
+    "actor_id": null,
+    "container_id": null,
+    "cx": 3,
+    "cy": 3,
+    "h": 2,
+    "id": 2,
+    "integrity": null,
+    "kind": "backpack",
+    "loc": "tile",
+    "owner": null,
+    "quantity": 1,
+    "slot": null,
+    "state": {},
+    "x": 125,
+    "y": 126
+   },
+   {
+    "actor_id": null,
+    "container_id": null,
+    "cx": 3,
+    "cy": 3,
+    "h": 2,
+    "id": 3,
+    "integrity": null,
+    "kind": "chest",
+    "loc": "tile",
+    "owner": null,
+    "quantity": 1,
+    "slot": null,
+    "state": {},
+    "x": 124,
+    "y": 127
+   },
+   {
+    "actor_id": null,
+    "container_id": 3,
+    "cx": null,
+    "cy": null,
+    "h": null,
+    "id": 4,
+    "integrity": null,
+    "kind": "apple",
+    "loc": "in",
+    "owner": null,
+    "quantity": 3,
+    "slot": null,
+    "state": {},
+    "x": null,
+    "y": null
+   },
+   {
+    "actor_id": null,
+    "container_id": 3,
+    "cx": null,
+    "cy": null,
+    "h": null,
+    "id": 5,
+    "integrity": null,
+    "kind": "bottle",
+    "loc": "in",
+    "owner": null,
+    "quantity": 2,
+    "slot": null,
+    "state": {},
+    "x": null,
+    "y": null
+   },
+   {
+    "actor_id": null,
+    "container_id": null,
+    "cx": 4,
+    "cy": 4,
+    "h": 12,
+    "id": 6,
+    "integrity": null,
+    "kind": "table",
+    "loc": "tile",
+    "owner": null,
+    "quantity": 1,
+    "slot": null,
+    "state": {},
+    "x": 137,
+    "y": 133
+   },
+   {
+    "actor_id": null,
+    "container_id": null,
+    "cx": 4,
+    "cy": 4,
+    "h": 14,
+    "id": 7,
+    "integrity": null,
+    "kind": "bottle",
+    "loc": "tile",
+    "owner": null,
+    "quantity": 1,
+    "slot": null,
+    "state": {},
+    "x": 137,
+    "y": 133
+   },
+   {
+    "actor_id": null,
+    "container_id": null,
+    "cx": 4,
+    "cy": 4,
+    "h": 12,
+    "id": 8,
+    "integrity": null,
+    "kind": "chair",
+    "loc": "tile",
+    "owner": null,
+    "quantity": 1,
+    "slot": null,
+    "state": {},
+    "x": 138,
+    "y": 133
+   },
+   {
+    "actor_id": null,
+    "container_id": null,
+    "cx": 4,
+    "cy": 4,
+    "h": 12,
+    "id": 9,
+    "integrity": null,
+    "kind": "chair",
+    "loc": "tile",
+    "owner": null,
+    "quantity": 1,
+    "slot": null,
+    "state": {},
+    "x": 137,
+    "y": 134
+   },
+   {
+    "actor_id": null,
+    "container_id": null,
+    "cx": 4,
+    "cy": 4,
+    "h": 12,
+    "id": 10,
+    "integrity": null,
+    "kind": "shelf",
+    "loc": "tile",
+    "owner": null,
+    "quantity": 1,
+    "slot": null,
+    "state": {},
+    "x": 139,
+    "y": 133
+   },
+   {
+    "actor_id": null,
+    "container_id": 10,
+    "cx": null,
+    "cy": null,
+    "h": null,
+    "id": 11,
+    "integrity": null,
+    "kind": "apple",
+    "loc": "in",
+    "owner": null,
+    "quantity": 2,
+    "slot": null,
+    "state": {},
+    "x": null,
+    "y": null
+   },
+   {
+    "actor_id": null,
+    "container_id": null,
+    "cx": 4,
+    "cy": 4,
+    "h": 12,
+    "id": 12,
+    "integrity": null,
+    "kind": "barrel",
+    "loc": "tile",
+    "owner": null,
+    "quantity": 1,
+    "slot": null,
+    "state": {},
+    "x": 140,
+    "y": 133
+   },
+   {
+    "actor_id": null,
+    "container_id": null,
+    "cx": 3,
+    "cy": 3,
+    "h": 1,
+    "id": 13,
+    "integrity": null,
+    "kind": "chest",
+    "loc": "tile",
+    "owner": null,
+    "quantity": 1,
+    "slot": null,
+    "state": {},
+    "x": 126,
+    "y": 127
+   },
+   {
+    "actor_id": null,
+    "container_id": null,
+    "cx": 3,
+    "cy": 3,
+    "h": 3,
+    "id": 14,
+    "integrity": null,
+    "kind": "chest",
+    "loc": "tile",
+    "owner": null,
+    "quantity": 1,
+    "slot": null,
+    "state": {},
+    "x": 126,
+    "y": 127
+   },
+   {
+    "actor_id": null,
+    "container_id": null,
+    "cx": 3,
+    "cy": 3,
+    "h": 2,
+    "id": 15,
+    "integrity": null,
+    "kind": "sledgehammer",
+    "loc": "tile",
+    "owner": null,
+    "quantity": 1,
+    "slot": null,
+    "state": {},
+    "x": 126,
+    "y": 126
+   },
+   {
+    "actor_id": "niko",
+    "container_id": null,
+    "cx": null,
+    "cy": null,
+    "h": null,
+    "id": 16,
+    "integrity": null,
+    "kind": "shovel",
+    "loc": "held",
+    "owner": null,
+    "quantity": 1,
+    "slot": "right",
+    "state": {},
+    "x": null,
+    "y": null
+   },
+   {
+    "actor_id": null,
+    "container_id": null,
+    "cx": 3,
+    "cy": 4,
+    "h": 2,
+    "id": 17,
+    "integrity": 75.0,
+    "kind": "chest",
+    "loc": "tile",
+    "owner": null,
+    "quantity": 1,
+    "slot": null,
+    "state": {},
+    "x": 122,
+    "y": 130
+   }
+  ],
+  "wall_integrity": [
+   [
+    3,
+    4,
+    0,
+    92,
+    "west",
+    1275.0
+   ]
+  ],
+  "world": {
+   "game_minute": 60,
+   "gen_options": {},
+   "gen_version": 5,
+   "generator": "test",
+   "paused": false,
+   "seed": 0,
+   "speed": 1
+  }
+ }
+}

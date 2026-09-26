@@ -11,6 +11,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Frozen copies of the Python data (Dev-025 [Sec. 1] Data); the goldens catch any drift. -->
+    <EmbeddedResource Include="Data\*.toml" LogicalName="EtherBound.Sim.Data.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Db\Schema0008.sql" LogicalName="EtherBound.Sim.Db.Schema0008.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Tomlyn" Version="2.10.1" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
     <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="5.6.0">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>

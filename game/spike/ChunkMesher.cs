@@ -259,19 +259,60 @@ public sealed class ChunkMesher
     private void ObjectBox(Builder b, WorldDump.WorldObject o)
     {
         if (!_world.Kinds.TryGetValue(o.Kind, out var kind)) return;
-        var matId = -1;
-        foreach (var m in _world.Materials.Values) if (m.Key == kind.Material) matId = m.Id;
-        var size = kind.Height > 0 ? 0.8f : 0.3f;
-        var height = kind.Height > 0 ? M(kind.Height) : 0.15f;
-        var inset = (1 - size) / 2;
         // Seed 7 buries the fixed near-spawn layout (ground 5, objects at 2); lift the whole stack.
         var lowest = int.MaxValue;
         foreach (var other in _world.Objects)
             if (other.X == o.X && other.Y == o.Y && other.Parent is null) lowest = Math.Min(lowest, other.H);
         var ground = _world.GroundH(o.X, o.Y) is { } g && !_world.IsVoid(o.X, o.Y, g) ? g : lowest;
         var h = o.H + Math.Max(0, ground - lowest);
+        if (FurnitureLibrary.Find(o.Kind) is { } piece)
+        {
+            FurnitureMesh(b, o, piece, h);
+            return;
+        }
+        var matId = -1;
+        foreach (var m in _world.Materials.Values) if (m.Key == kind.Material) matId = m.Id;
+        var size = kind.Height > 0 ? 0.8f : 0.3f;
+        var height = kind.Height > 0 ? M(kind.Height) : 0.15f;
+        var inset = (1 - size) / 2;
         Box(b, o.X + inset, o.X + 1 - inset, o.Y + inset, o.Y + 1 - inset, M(h), M(h) + height,
             MaterialColor(matId, Prop), new Vector2(o.X, o.Y), new Vector2(h + kind.Height, -1), -1);
+    }
+
+    // A piece's own footprint (SpanX/SpanY voxels) is centered on the object's tile; height stacks
+    // on the same lifted base `h` (half-metres) the plain box would use. Faces shared by two of the
+    // piece's own voxels are skipped so touching cubes of the same colour never z-fight.
+    private static void FurnitureMesh(Builder b, WorldDump.WorldObject o, FurniturePiece piece, int h)
+    {
+        var unit = (float)piece.Unit;
+        var originX = o.X + 0.5f - piece.SpanX * unit / 2f - piece.MinX * unit;
+        var originY = o.Y + 0.5f - piece.SpanY * unit / 2f - piece.MinY * unit;
+        var baseH = M(h);
+        var owner = new Vector2(o.X, o.Y);
+        foreach (var voxel in piece.Voxels)
+        {
+            var x0 = originX + voxel.X * unit;
+            var y0 = originY + voxel.Y * unit;
+            var z0 = baseH + voxel.Z * unit;
+            var z1 = z0 + unit;
+            var faceTop = new Vector2(z1 * 2f, -1);
+            VoxelFaces(b, x0, x0 + unit, y0, y0 + unit, z0, z1, voxel.Color, owner, faceTop,
+                top: !piece.Occupied.Contains((voxel.X, voxel.Y, voxel.Z + 1)),
+                south: !piece.Occupied.Contains((voxel.X, voxel.Y + 1, voxel.Z)),
+                east: !piece.Occupied.Contains((voxel.X + 1, voxel.Y, voxel.Z)),
+                north: !piece.Occupied.Contains((voxel.X, voxel.Y - 1, voxel.Z)),
+                west: !piece.Occupied.Contains((voxel.X - 1, voxel.Y, voxel.Z)));
+        }
+    }
+
+    private static void VoxelFaces(Builder b, float x0, float x1, float y0, float y1, float h0, float h1, Color color,
+        Vector2 owner, Vector2 extra, bool top, bool south, bool east, bool north, bool west)
+    {
+        if (top) b.Quad(new(x0, h1, y0), new(x1, h1, y0), new(x1, h1, y1), new(x0, h1, y1), Vector3.Up, color, owner, extra);
+        if (south) b.Quad(new(x0, h0, y1), new(x1, h0, y1), new(x1, h1, y1), new(x0, h1, y1), Vector3.Back, color, owner, extra);
+        if (east) b.Quad(new(x1, h0, y0), new(x1, h0, y1), new(x1, h1, y1), new(x1, h1, y0), Vector3.Right, color, owner, extra);
+        if (north) b.Quad(new(x0, h0, y0), new(x1, h0, y0), new(x1, h1, y0), new(x0, h1, y0), Vector3.Forward, color, owner, extra);
+        if (west) b.Quad(new(x0, h0, y0), new(x0, h0, y1), new(x0, h1, y1), new(x0, h1, y0), Vector3.Left, color, owner, extra);
     }
 
     /// <summary>An axis-aligned box without its bottom; the top face samples <paramref name="topLayer"/>.</summary>

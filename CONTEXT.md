@@ -216,10 +216,12 @@ cd server && uv run etherbound-schema      # writes server/schema.json
 cd web && npm run gen:types                # server/schema.json -> src/net/schema.d.ts
 
 # Checks (COMMITS.md; hooks run check:fast on commit, check-versions on the message, check on push)
-npm run check                   # versions, docs, sizes, server, web, bitcanvas, launcher, goldens, sim, game
+npm run check                   # versions, docs, sizes, server, web, bitcanvas, launcher, goldens, furniture, sim, game
 npm run check:sim               # dotnet test sim/EtherBound.Sim.Tests
 npm run check:game              # dotnet build game; headless Godot import when GODOT_BIN is set
 npm run check:goldens           # re-export the goldens; fails if Python drifted
+npm run export:furniture        # BitCanvas/furnitureData.js -> game/assets/furniture/*.json
+npm run check:furniture         # re-export furniture; fails if BitCanvas drifted
 npm run check:fast              # versions (staged), docs, sizes, ruff, bitcanvas
 npm run check:docs              # fails on a broken `X.md` [Sec. N] reference
 npm run check:sizes             # warning-only scan: sources over 600 lines, doc budgets

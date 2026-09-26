@@ -40,14 +40,15 @@ Open decisions and loose ends. When one is settled, record the decision where it
 - [ ] **Dev-025 C# sim and Godot client** (`Dev-025.md`): port to a deterministic C# simulation
       and a Godot 4 .NET client with a 3D orthographic pixel-art camera, in seven stages proven by
       goldens from Python. Dev-014/016/021/023/024 stay frozen and are deprecated at cut-over.
-      Approved 25/09/2026; stages 0-4 are done. The 26/09/2026 Release benchmark passes the
-      1,000-Extra x10 gate at 64.864 ms average over 100 measured ticks. Stage 3 has a dedicated
-      sim writer, detached/revisioned frames, a Godot world renderer, queued WASD and clock controls.
-      Stage 4 adds sim-side picking, the right-click list and `V` radial menu, CARRY/FEED/ACT,
-      the input line, `NEW`/`MAP` generator forms, trajectory animation and activity notices;
-      front-wall stubs fold into the stage 0 occlusion-ray cutaway rather than a separate rule.
-      GPU captures at x1/x2/x4 and both menus, and the Godot headless import, passed on 25/09/2026.
-      Stage 5 (3D objects and light) is next.
+      Approved 25/09/2026; stages 0-5 are done. The 26/09/2026 Release benchmark passes the
+      1,000-Extra x10 gate at 64.864 ms average over 100 measured ticks. Stage 4 adds sim-side
+      picking, the right-click list and `V` radial menu, CARRY/FEED/ACT, the input line, `NEW`/`MAP`
+      generator forms, trajectory animation and activity notices; front-wall stubs fold into the
+      stage 0 occlusion-ray cutaway rather than a separate rule. Stage 5 exports BitCanvas's
+      furniture voxels as JSON (`check:furniture`) and builds real 3D meshes per placed object,
+      centred and z-fight-free, in place of the flat placeholder box; the stage 0 lighting needed
+      no retune. GPU captures on 25/09/2026 confirm both menus, the tabs/forms and a properly
+      shaped chest mesh, and the Godot headless import passed. Stage 6 (cut-over) is next.
 - [ ] **Dev-014 AI furniture** (`Dev-014.md`): an LLM proposes furniture as a validated primitive
       spec that BitCanvas renders; lands after Dev-012. The `gamesync.js` syntax error was fixed
       independently by Fix10.

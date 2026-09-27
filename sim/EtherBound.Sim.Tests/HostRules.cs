@@ -28,6 +28,31 @@ public sealed class HostRules
     }
 
     [Fact]
+    public void A_default_move_lasts_one_move_step()
+    {
+        var delta = typeof(SimulationHost).GetMethod(nameof(SimulationHost.TryMove))!.GetParameters()[2].DefaultValue;
+
+        Assert.Equal(1.0 / SimulationHost.MoveHz, (double)delta!);
+    }
+
+    [Fact]
+    public void Frames_count_every_move_the_host_handled_even_one_that_goes_nowhere()
+    {
+        using var host = new SimulationHost(seed: 7, generator: "lab");
+        Assert.True(host.WaitUntilReady(TimeSpan.FromSeconds(30)));
+        Assert.Equal(0, host.LatestFrame!.MovesApplied);
+
+        Assert.True(host.TryMove(1, 0));
+        Assert.True(host.TryMove(0, 0));
+        Assert.True(host.TryMove(0, 1));
+
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (host.LatestFrame!.MovesApplied < 3 && DateTime.UtcNow < deadline)
+            host.WaitForFrameAfter(host.LatestFrame.Sequence, TimeSpan.FromMilliseconds(200));
+        Assert.Equal(3, host.LatestFrame!.MovesApplied);
+    }
+
+    [Fact]
     public void Host_publishes_a_detached_frame_and_runs_the_clock_on_its_worker()
     {
         using var host = new SimulationHost(seed: 7, generator: "lab");

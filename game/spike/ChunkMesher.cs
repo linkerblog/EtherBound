@@ -21,16 +21,19 @@ public sealed class ChunkMesher
     private readonly WorldDump _world;
     private readonly Dictionary<int, int> _topLayers;
     private readonly Dictionary<int, int> _sideLayers;
+    private readonly Dictionary<int, int> _cliffSideLayers;
     private readonly ShaderMaterial _terrainMaterial;
     private readonly ShaderMaterial _structureMaterial;
     private readonly ShaderMaterial _glassMaterial;
 
     public ChunkMesher(WorldDump world, Dictionary<int, int> topLayers, Dictionary<int, int> sideLayers,
+        Dictionary<int, int> cliffSideLayers,
         ShaderMaterial terrainMaterial, ShaderMaterial structureMaterial, ShaderMaterial glassMaterial)
     {
         _world = world;
         _topLayers = topLayers;
         _sideLayers = sideLayers;
+        _cliffSideLayers = cliffSideLayers;
         _terrainMaterial = terrainMaterial;
         _structureMaterial = structureMaterial;
         _glassMaterial = glassMaterial;
@@ -146,22 +149,36 @@ public sealed class ChunkMesher
         if (!voidCut)
         {
             var h = M(ground);
-            b.Quad(new(x, h, y), new(x + 1, h, y), new(x + 1, h, y + 1), new(x, h, y + 1), Vector3.Up,
+            b.Quad(new(x, h, y), new(x + 1, h, y), new(x + 1, h, y + 1), new(x, h, y + 1), GroundNormal(x, y, ground),
                 MaterialColor(mat, Top), owner, new(ground, TopLayer(mat)));
         }
         var faceTop = voidCut ? FillOnly : ground;
+        var sideLayer = !voidCut ? _cliffSideLayers.GetValueOrDefault(mat, SideLayer(mat)) : SideLayer(mat);
         var south = _world.SolidTopH(x, y + 1) ?? BoundaryBottom;
         if (south < solid && !AnyWall(x, y + 1, true))
         {
             b.Quad(new(x, M(south), y + 1), new(x + 1, M(south), y + 1), new(x + 1, M(solid), y + 1),
-                new(x, M(solid), y + 1), Vector3.Back, MaterialColor(mat, SouthFace), owner, new(faceTop, SideLayer(mat)));
+                new(x, M(solid), y + 1), Vector3.Back, MaterialColor(mat, SouthFace), owner, new(faceTop, sideLayer));
         }
         var east = _world.SolidTopH(x + 1, y) ?? BoundaryBottom;
         if (east < solid && !AnyWall(x + 1, y, false))
         {
             b.Quad(new(x + 1, M(east), y), new(x + 1, M(east), y + 1), new(x + 1, M(solid), y + 1),
-                new(x + 1, M(solid), y), Vector3.Right, MaterialColor(mat, EastFace), owner, new(faceTop, SideLayer(mat)));
+                new(x + 1, M(solid), y), Vector3.Right, MaterialColor(mat, EastFace), owner, new(faceTop, sideLayer));
         }
+    }
+
+    private Vector3 GroundNormal(int x, int y, int height)
+    {
+        var west = _world.SolidTopH(x - 1, y) ?? height;
+        var east = _world.SolidTopH(x + 1, y) ?? height;
+        var north = _world.SolidTopH(x, y - 1) ?? height;
+        var south = _world.SolidTopH(x, y + 1) ?? height;
+        var slope = new Vector2((east - west) * 0.25f, (south - north) * 0.25f);
+
+        // Cliffs already have vertical faces; their top should not shade like a ramp.
+        if (slope.Length() > 0.5f) slope = slope.Normalized() * 0.5f;
+        return new Vector3(-slope.X, 1f, -slope.Y).Normalized();
     }
 
     private int NeighbourFloor(int x, int y, int z) =>
@@ -198,17 +215,19 @@ public sealed class ChunkMesher
 
     private HashSet<int>? _roofBands;
 
-    // A band is a roof band if any chunk flags a roof in it; perimeter-only chunks carry no flag.
-    private bool IsRoofLevel(WorldDump.Level level)
+    private bool IsRoofLevel(WorldDump.Level level) => (_roofBands ??= RoofBands(_world)).Contains(level.Z);
+
+    /// <summary>
+    /// A band is a roof band if any chunk flags a roof in it; perimeter-only chunks carry no flag.
+    /// It spans every loaded chunk, so a change here can reshape walls far from the chunk that caused it.
+    /// </summary>
+    public static HashSet<int> RoofBands(WorldDump world)
     {
-        if (_roofBands is null)
-        {
-            _roofBands = new HashSet<int>();
-            foreach (var list in _world.Levels.Values)
-            foreach (var l in list)
-                if (Array.Exists(l.Flags, f => (f & WorldDump.LevelRoof) != 0)) _roofBands.Add(l.Z);
-        }
-        return _roofBands.Contains(level.Z);
+        var bands = new HashSet<int>();
+        foreach (var list in world.Levels.Values)
+        foreach (var l in list)
+            if (Array.Exists(l.Flags, f => (f & WorldDump.LevelRoof) != 0)) bands.Add(l.Z);
+        return bands;
     }
 
     // The lowest wall on an edge stands on the ground, so it covers the terrain face in its plane.

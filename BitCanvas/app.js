@@ -1,28 +1,37 @@
 function updateSpecText(isFurniture) {
   const size = currentSize();
-  document.querySelector('#tile-spec-size').textContent = `${size.width} × ${size.height} px`;
+  const isCliff = !isFurniture && state.view === 'cliff';
+  document.querySelector('#tile-spec-size').textContent = isCliff ? '128 × 32 px' : `${size.width} × ${size.height} px`;
   document.querySelector('#tile-spec-caption').textContent = isFurniture
     ? `${FURNITURE[state.furniture].name} · 4 variants`
+    : isCliff
+      ? '4 side variants · cap + strata'
     : '1 tile · 2:1 ratio';
   const pixel = isPixelStyle();
-  document.querySelector('#face-a-label').textContent = pixel ? 'OUTLINE' : isFurniture ? 'TOP' : 'SOUTH';
-  document.querySelector('#face-a-value').textContent = pixel ? '1 PX' : isFurniture ? '100%' : '82%';
-  document.querySelector('#face-b-label').textContent = pixel ? 'RAMP' : isFurniture ? 'SIDES' : 'EAST';
-  document.querySelector('#face-b-value').textContent = pixel ? '8 TONES' : isFurniture ? '78%' : '66%';
+  document.querySelector('#face-a-label').textContent = pixel ? 'OUTLINE' : isFurniture ? 'TOP' : isCliff ? 'CAP' : 'SOUTH';
+  document.querySelector('#face-a-value').textContent = pixel ? '1 PX' : isFurniture ? '100%' : isCliff ? 'GRASS' : '82%';
+  document.querySelector('#face-b-label').textContent = pixel ? 'RAMP' : isFurniture ? 'SIDES' : isCliff ? 'SOIL' : 'EAST';
+  document.querySelector('#face-b-value').textContent = pixel ? '8 TONES' : isFurniture ? '78%' : isCliff ? 'STRATA' : '66%';
   document.querySelector('#face-note').textContent = pixel
     ? 'Top-left light · cast shadow · hue-shifted tones'
     : isFurniture
       ? '16 × 8 px voxel · top, front, and side faces'
-      : '32 × 16 px faces · 4× sheet with edge caps and repeating fill';
+      : state.view === 'cliff'
+        ? 'Grass ledge · exposed strata · 4 deterministic variants'
+        : '32 × 16 px faces · 4× sheet with edge caps and repeating fill';
   document.querySelector('#stage-mode').innerHTML = pixel
-    ? '<i></i> PIXEL ART SPRITE <b>WITH ALPHA</b>'
-    : isFurniture
-      ? '<i></i> ISOMETRIC PROP <b>WITH ALPHA</b>'
-      : state.view === 'sides'
-        ? '<i></i> SIDES 128 × 32 <b>CAP + FILL</b>'
-        : '<i></i> ISOMETRIC TILING <b>SEAMLESS</b>';
+      ? '<i></i> PIXEL ART SPRITE <b>WITH ALPHA</b>'
+      : isFurniture
+        ? '<i></i> ISOMETRIC PROP <b>WITH ALPHA</b>'
+        : state.view === 'cliff'
+          ? '<i></i> TERRAIN CLIFF <b>GRASS CAP + STRATA</b>'
+          : state.view === 'sides'
+            ? '<i></i> SIDES 128 × 32 <b>CAP + FILL</b>'
+            : '<i></i> ISOMETRIC TILING <b>SEAMLESS</b>';
   document.querySelector('#export-sides').hidden = isFurniture;
   document.querySelector('#export-sides-sheet').hidden = isFurniture;
+  document.querySelector('#cliff-sides-view').hidden = state.material !== 'grass';
+  document.querySelector('#export-cliff-sheet').hidden = state.material !== 'grass';
 }
 
 function drawPreview() {
@@ -59,14 +68,14 @@ function drawPreview() {
         );
       }
     }
-  } else if (view === 'sides' && sideBlockCanvases.length) {
-    // Show all four variants with their cap and fill as the lit game block.
+  } else if (view === 'sides' || (view === 'cliff' && cliffSideBlockCanvases.length)) {
+    const blocks = view === 'cliff' ? cliffSideBlockCanvases : sideBlockCanvases;
     const blockWidth = TILE_WIDTH * PREVIEW_SCALE;
     const blockHeight = (TILE_HEIGHT + SIDE_CELL_HEIGHT * 2) * PREVIEW_SCALE;
     const gap = 24;
     const startX = Math.round((edge - blockWidth * 2 - gap) / 2);
     const startY = Math.round((edge - blockHeight * 2 - gap) / 2);
-    sideBlockCanvases.forEach((block, variant) => {
+    blocks.forEach((block, variant) => {
       previewContext.drawImage(
         block,
         startX + (variant % 2) * (blockWidth + gap),
@@ -100,11 +109,13 @@ function drawPreview() {
   previewMat.classList.toggle('is-original', !tiled);
   preview.setAttribute('aria-label', state.material === 'furniture'
     ? `${isPixelStyle() ? 'Pixel art' : 'Voxel'} isometric ${FURNITURE[state.furniture].name.toLowerCase()} sprite with four variants and a transparent background`
-    : view === 'sides'
-      ? `${state.material} block preview with the 128 by 32 side sheet: edge cap and repeating fill`
-      : tiled
-        ? `Seamless isometric ${state.material} tile preview, 64 by 32, with four variants`
-        : `Isometric ${state.material} block preview, 64 by 32, with side faces`);
+      : view === 'cliff'
+        ? 'Grass cliff preview with four variants, a grass ledge and layered soil'
+        : view === 'sides'
+          ? `${state.material} block preview with the 128 by 32 side sheet: edge cap and repeating fill`
+          : tiled
+            ? `Seamless isometric ${state.material} tile preview, 64 by 32, with four variants`
+            : `Isometric ${state.material} block preview, 64 by 32, with side faces`);
 }
 
 function updateMaterialControls() {
@@ -119,8 +130,8 @@ function updateMaterialControls() {
   };
   const isFurniture = state.material === 'furniture';
   const selected = isFurniture ? furnitureInfo() : materials[state.material];
-  document.querySelector('#generator-title').textContent = selected.title;
-  document.querySelector('#breadcrumb-material').textContent = isFurniture ? selected.breadcrumb : state.material.toUpperCase();
+  document.querySelector('#generator-title').textContent = state.view === 'cliff' ? 'Grass cliff sides' : selected.title;
+  document.querySelector('#breadcrumb-material').textContent = isFurniture ? selected.breadcrumb : state.view === 'cliff' ? 'GRASS CLIFF' : state.material.toUpperCase();
   document.querySelectorAll('.grass-only').forEach((control) => { control.hidden = state.material !== 'grass'; });
   document.querySelectorAll('.furniture-only').forEach((control) => { control.hidden = !isFurniture; });
   document.querySelectorAll('.pixel-only').forEach((control) => { control.hidden = !isPixelStyle(); });
@@ -174,14 +185,14 @@ function updateMaterialControls() {
   document.querySelector('#game-destination').hidden = isFurniture || !BitCanvasGameSync.supported;
   const gameSheet = GAME_SHEETS[state.material];
   document.querySelector('#game-destination').textContent = gameSheet
-    ? `→ sprites/${gameSheet.folder}/ ${gameSheet.variants} + ${gameSheet.sides}`
+    ? `→ sprites/${gameSheet.folder}/ ${gameSheet.variants} + ${gameSheet.sides}${gameSheet.cliffSides ? ` + ${gameSheet.cliffSides}` : ''}`
     : '';
   document.querySelector('#seed-readout').textContent = state.seed.toUpperCase();
 }
 
 function updateReadouts() {
   const size = currentSize();
-  const sides = state.material !== 'furniture' && state.view === 'sides';
+  const sides = state.material !== 'furniture' && (state.view === 'sides' || state.view === 'cliff');
   document.querySelector('#stage-dimensions').textContent = sides ? '128 × 32 PX' : `${size.width} × ${size.height} PX`;
   document.querySelector('#density-value').textContent = state.density;
   document.querySelector('#brightness-value').textContent = state.brightness;
@@ -258,6 +269,7 @@ document.querySelectorAll('.material-option[data-material]').forEach((button) =>
   button.addEventListener('click', () => {
     state.material = button.dataset.material;
     if (button.dataset.piece) state.furniture = button.dataset.piece;
+    if (state.material !== 'grass' && state.view === 'cliff') state.view = 'tiles';
     state.customPalette = null;
     document.querySelector('#random-palette').classList.remove('active');
     document.querySelector('#random-palette').setAttribute('aria-pressed', 'false');
@@ -414,6 +426,15 @@ document.querySelector('#export-sides-sheet').addEventListener('click', () => {
   downloadTexture(sideSheetTexture, `bitcanvas-${state.material}-side-128x32-${safeSeed}.png`, '128 × 32 side sheet exported: edge cap and repeating fill.');
 });
 
+document.querySelector('#export-cliff-sheet').addEventListener('click', () => {
+  if (!cliffSideSheetTexture) {
+    showStatus('The cliff sheet is only available for grass.', 'warn');
+    return;
+  }
+  const filename = GAME_SHEETS.grass.cliffSides;
+  downloadTexture(cliffSideSheetTexture, filename, `Saved ${filename}.`);
+});
+
 const helpButton = document.querySelector('#help-button');
 const helpPopover = document.querySelector('#help-popover');
 helpButton.addEventListener('click', () => { helpPopover.hidden = !helpPopover.hidden; });
@@ -438,7 +459,13 @@ function setMaterialTab(tab) {
 document.querySelector('#send-to-game').addEventListener('click', async () => {
   const sheets = GAME_SHEETS[state.material];
   if (!sheets || !BitCanvasGameSync.supported) return;
-  const result = await BitCanvasGameSync.send(sheets.folder, textureAtlas, sideSheetTexture, [sheets.variants, sheets.sides]);
+  const canvases = [textureAtlas, sideSheetTexture];
+  const names = [sheets.variants, sheets.sides];
+  if (sheets.cliffSides) {
+    canvases.push(cliffSideSheetTexture);
+    names.push(sheets.cliffSides);
+  }
+  const result = await BitCanvasGameSync.send(sheets.folder, canvases, names);
   const message = result.kind === 'warn' ? `CAN'T SEND: ${result.message}`
     : result.kind === 'fail' ? `FAILED: ${result.message}` : result.message;
   showStatus(message, result.kind);
@@ -470,7 +497,7 @@ document.addEventListener('keydown', (event) => {
   } else if (key === 'f') {
     setMaterialTab('furniture');
   } else if (key === 'v' && state.material !== 'furniture') {
-    const views = ['tiles', 'block', 'sides'];
+    const views = ['tiles', 'block', 'sides', ...(state.material === 'grass' ? ['cliff'] : [])];
     setView(views[(views.indexOf(state.view) + 1) % views.length]);
   } else if (key === 'r') {
     document.querySelector('#random-seed').click();

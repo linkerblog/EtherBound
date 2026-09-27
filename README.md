@@ -59,6 +59,18 @@ The client takes `--seed`, `--generator` (`test` or `lab`) and `--database` (def
 user data dir) after `--`; the sim owns the save, so the same `data/etherbound.db` reopens across
 runs. To open the sprite/furniture generator on its own, run `npm run bitcanvas`.
 
+To play without a terminal, export a standalone `EtherBound.exe` (no console window; run args
+default to seed 7, generator `test`, and a save in the user data dir):
+
+```text
+"$GODOT_BIN" --headless --export-release "Windows Desktop" "../EtherBound.exe"
+```
+
+Run from `game/`. The Godot 4.7.2 .NET export templates must be installed first (Editor menu ▸
+Manage Export Templates, or the matching `.tpz` from godotengine.org). The exported `.exe` and its
+sibling `data_EtherBound.Game_*/` folder must ship together and are not committed to git
+(`game/export_presets.cfg` and `game/EtherBound.Game.sln`, the reusable export config, are).
+
 ## Checks
 
 ```text

@@ -11,6 +11,9 @@ public sealed record NewGameRequest(long Seed, string Generator, string OptionsJ
 
 public partial class GeneratorPanel : PanelContainer
 {
+    private static readonly Color TextColor = new("#d6d8de");
+    private static readonly Color MutedColor = new("#929daa");
+    private static readonly Color AccentColor = new("#57c7ff");
     private readonly bool _newGameMode;
     private readonly List<HostGenerator> _generators = new();
     private readonly Dictionary<string, (HostOptionField Field, Control Row, Control Editor)> _editors = new(StringComparer.Ordinal);
@@ -40,22 +43,31 @@ public partial class GeneratorPanel : PanelContainer
     public override void _Ready()
     {
         var body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
+        body.AddThemeConstantOverride("separation", 7);
         AddChild(body);
         var title = new Label { Text = _newGameMode ? "NEW WORLD" : "MAP GENERATOR" };
-        StyleLabel(title, new Color("#57c7ff"));
+        StyleLabel(title, AccentColor);
+        title.AddThemeFontSizeOverride("font_size", 14);
         body.AddChild(title);
+        body.AddChild(new ColorRect
+        {
+            Color = new Color("#25313b"),
+            CustomMinimumSize = new Vector2(0, 1),
+            MouseFilter = MouseFilterEnum.Ignore,
+        });
 
         var generatorRow = new HBoxContainer();
         generatorRow.AddChild(FieldLabel("GENERATOR"));
         _generator = new OptionButton { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        StyleOptionButton(_generator);
         _generator.ItemSelected += _ => SelectGenerator();
         generatorRow.AddChild(_generator);
         body.AddChild(generatorRow);
         _version = new Label { Text = "" };
-        StyleLabel(_version, new Color("#6a6d78"));
+        StyleLabel(_version, MutedColor);
         body.AddChild(_version);
         _bays = new Label { Text = "" };
-        StyleLabel(_bays, new Color("#6a6d78"));
+        StyleLabel(_bays, MutedColor);
         body.AddChild(_bays);
 
         if (_newGameMode)
@@ -63,8 +75,10 @@ public partial class GeneratorPanel : PanelContainer
             var seedRow = new HBoxContainer();
             seedRow.AddChild(FieldLabel("SEED"));
             _seed = new SpinBox { MinValue = 0, MaxValue = int.MaxValue, Step = 1, Rounded = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            StyleSpinBox(_seed);
             seedRow.AddChild(_seed);
             var randomize = new Button { Text = "RANDOMIZE" };
+            StyleButton(randomize);
             randomize.Pressed += RandomizeSeed;
             seedRow.AddChild(randomize);
             body.AddChild(seedRow);
@@ -80,6 +94,7 @@ public partial class GeneratorPanel : PanelContainer
 
         var buttons = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.End };
         var cancel = new Button { Text = "CANCEL" };
+        StyleButton(cancel);
         cancel.Pressed += () =>
         {
             if (_newGameMode) Visible = false;
@@ -87,6 +102,7 @@ public partial class GeneratorPanel : PanelContainer
         };
         if (_newGameMode) buttons.AddChild(cancel);
         var apply = new Button { Text = _newGameMode ? "NEW" : "REGENERATE", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        StyleButton(apply, primary: true);
         apply.Pressed += Confirm;
         buttons.AddChild(apply);
         body.AddChild(buttons);
@@ -165,6 +181,7 @@ public partial class GeneratorPanel : PanelContainer
             if (field.Kind == "choice")
             {
                 var choices = new OptionButton { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+                StyleOptionButton(choices);
                 foreach (var choice in field.Choices) choices.AddItem(choice);
                 choices.Selected = Math.Max(0, FindChoice(field, field.DefaultJson));
                 choices.ItemSelected += _ => UpdateFieldVisibility();
@@ -182,6 +199,7 @@ public partial class GeneratorPanel : PanelContainer
                     Value = value,
                     SizeFlagsHorizontal = SizeFlags.ExpandFill,
                 };
+                StyleSpinBox(spin);
                 editor = spin;
             }
             row.AddChild(editor);
@@ -302,20 +320,81 @@ public partial class GeneratorPanel : PanelContainer
     private static Label FieldLabel(string text)
     {
         var label = new Label { Text = text, CustomMinimumSize = new Vector2(112, 0) };
-        StyleLabel(label, new Color("#6a6d78"));
+        StyleLabel(label, MutedColor);
         return label;
     }
 
     private static void StyleLabel(Label label, Color color)
     {
         label.AddThemeColorOverride("font_color", color);
-        label.AddThemeFontSizeOverride("font_size", 11);
+        label.AddThemeFontSizeOverride("font_size", 12);
     }
+
+    private static void StyleOptionButton(OptionButton button)
+    {
+        StyleField(button);
+        var popup = button.GetPopup();
+        popup.AddThemeColorOverride("font_color", TextColor);
+        popup.AddThemeColorOverride("font_hover_color", TextColor);
+        popup.AddThemeStyleboxOverride("panel", FieldBox("#0b1016", "#35414c"));
+    }
+
+    private static void StyleSpinBox(SpinBox spin)
+    {
+        StyleField(spin);
+        StyleField(spin.GetLineEdit());
+    }
+
+    private static void StyleField(Control control)
+    {
+        control.AddThemeColorOverride("font_color", TextColor);
+        control.AddThemeColorOverride("font_hover_color", TextColor);
+        control.AddThemeColorOverride("font_disabled_color", MutedColor);
+        control.AddThemeStyleboxOverride("normal", FieldBox("#10151b", "#303a44"));
+        control.AddThemeStyleboxOverride("hover", FieldBox("#141e26", "#506271"));
+        control.AddThemeStyleboxOverride("focus", FieldBox("#101820", "#57c7ff"));
+        control.AddThemeStyleboxOverride("disabled", FieldBox("#0b1015", "#29313a"));
+        control.AddThemeFontSizeOverride("font_size", 12);
+    }
+
+    private static void StyleButton(Button button, bool primary = false)
+    {
+        button.AddThemeColorOverride("font_color", primary ? AccentColor : TextColor);
+        button.AddThemeColorOverride("font_hover_color", TextColor);
+        button.AddThemeColorOverride("font_pressed_color", new Color("#071117"));
+        button.AddThemeColorOverride("font_disabled_color", MutedColor);
+        button.AddThemeStyleboxOverride("normal", primary
+            ? FieldBox("#12303c", "#57c7ff")
+            : FieldBox("#10151b", "#303a44"));
+        button.AddThemeStyleboxOverride("hover", FieldBox("#1a2b35", "#70d5ff"));
+        button.AddThemeStyleboxOverride("pressed", FieldBox("#57c7ff", "#a5e6ff"));
+        button.AddThemeStyleboxOverride("focus", FieldBox("#101820", "#57c7ff"));
+        button.AddThemeStyleboxOverride("disabled", FieldBox("#0b1015", "#29313a"));
+        button.AddThemeFontSizeOverride("font_size", 12);
+    }
+
+    private static StyleBoxFlat FieldBox(string background, string border) => new()
+    {
+        BgColor = new Color(background),
+        BorderColor = new Color(border),
+        BorderWidthLeft = 1,
+        BorderWidthTop = 1,
+        BorderWidthRight = 1,
+        BorderWidthBottom = 1,
+        ContentMarginLeft = 8,
+        ContentMarginTop = 4,
+        ContentMarginRight = 8,
+        ContentMarginBottom = 4,
+        CornerRadiusBottomLeft = 0,
+        CornerRadiusBottomRight = 0,
+        CornerRadiusTopLeft = 0,
+        CornerRadiusTopRight = 0,
+    };
 
     private static StyleBoxFlat PanelStyle() => new()
     {
-        BgColor = new Color("#0c0d10"),
-        BorderColor = new Color("#3a3d47"),
+        BgColor = new Color("#0b1016"),
+        BorderColor = new Color("#35414c"),
         BorderWidthLeft = 2,
         BorderWidthTop = 1,
         BorderWidthRight = 1,

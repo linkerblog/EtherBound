@@ -20,7 +20,7 @@ faster, at clock speed 10.
 | sim.db | `sim/EtherBound.Sim/Db/` | `Microsoft.Data.Sqlite` schema, load/save and the migration runner. |
 | sim.engine | `sim/EtherBound.Sim/Engine/`, `sim/EtherBound.Sim/Clock/` | The only state writer: `WorldEngine` orchestration, action/target types, generated menus, every handler, deterministic SI physics, trajectory resolution, `Pick` (ray casting for the client) and `SimClock`. |
 | sim.minds | `sim/EtherBound.Sim/Minds/` | Decision sources that propose through the action API; today `ExtrasBrain`, the deterministic routine of an Extra. |
-| sim.host | `sim/EtherBound.Host/` | `SimulationHost`: the sim's single writer thread, a bounded command channel (move, clock, actions, menu/pick queries, new game) and detached, revisioned `WorldFrame`s the client reads without a lock. |
+| sim.host | `sim/EtherBound.Host/` | `SimulationHost`: the sim's single writer thread, a bounded command channel (move, clock, actions, menu/pick queries, new game) and detached, revisioned `WorldFrame`s the client reads without a lock. `ActorMotion` and `StepPlayout`: the client's presentational interpolation between frames. |
 | game.app | `game/app/`, `game/project.godot`, `game/EtherBound.Game.csproj` | `WorldClient`: Godot entry point, environment/light setup, chunk/actor sync from host frames, WASD input, the `--shots` GPU-capture script. |
 | game.render | `game/spike/` | `PixelView` (low-res `SubViewport`, orthographic camera, art-pixel snapping), `ChunkMesher` (exposed terrain/structure faces, `Terrain.gdshader`, furniture voxel meshes), `Cutaway` (occlusion-ray clip height), `FurnitureLibrary`, `WorldDump` (render-only projection). |
 | game.ui | `game/ui/` | `GameHud` (`GAME`/`DEBUG`/`LLM` tabs, `CLOCK`/`FEED`/`CARRY`/`ACT` panels, input line, `NEW` popover), `ActionMenuOverlay` (right-click list, `V` radial menu), `GeneratorPanel` (`NEW`/`MAP` forms from `GeneratorSpec`), `TrajectoryAnimator`. |
@@ -31,7 +31,9 @@ faster, at clock speed 10.
 
 SQLite at `data/etherbound.db` (gitignored), opened by `sim/EtherBound.Sim/Db/` through
 `Microsoft.Data.Sqlite`; the engine keeps authoritative state in memory and commits a session's
-changes in one transaction. Migrations `0001_initial`, `0002_world`, `0003_event`,
+changes in one transaction. File saves run in WAL with `synchronous=NORMAL` and no connection
+pooling (Fix19): a step commits in about 0.7 ms, a power cut can drop the last moments but never
+corrupts, and the `-wal` file is folded back on close. Migrations `0001_initial`, `0002_world`, `0003_event`,
 `0004_dig_activity`, `0005_object`, `0006_physics`, `0007_generator` and `0008_extra` are unchanged
 from the retired Python server (`legacy-python-web-stack.zip`); the sim records its own
 `schema_version` and leaves the save's old `alembic_version` column alone:
@@ -176,8 +178,11 @@ the feature bay. Every published `WorldFrame` carries `Generators` (`HostGenerat
   no request id and is pushed as it happens. `WorldEngine.Pick(ray)` (sim-space ray cast: tiles,
   wall edges, actor bodies, object volumes) backs both picking and the menu-at-ray query, so the
   Godot camera's cursor ray always agrees with the sim's own geometry. Movement is stepped at
-  `MoveHz` (20, unchanged from the old 20 Hz WS input), independent of the 1 Hz clock; there is no
-  client-side prediction, since there is no network latency to hide.
+  `SimulationHost.MoveHz` (20, unchanged from the old 20 Hz WS input), independent of the 1 Hz
+  clock; there is no client-side prediction, since there is no network latency to hide. The client
+  draws Extras through `ActorMotion`, interpolating each new position over one clock tick, and Niko
+  through `StepPlayout`, which places each WASD step on its ideal 50 ms schedule using the frame's
+  `MovesApplied` (every `Move` the host has handled). Other player moves fall back to `ActorMotion`.
 - **Standing rule (shared).** Step at most 0.5 m (`Δh ≤ 1`), keep the three half-metre cells
   `h+1..h+3` clear (a slab at `h+4` touches but does not intersect a 2 m body), no wall on the shared
   edge, and at least 0.3 m body-centre clearance from blocked edges. A solid object's cells count as
@@ -199,7 +204,8 @@ npm run bitcanvas                      # open the standalone texture/furniture g
 npm run export:furniture               # BitCanvas/furnitureData.js -> game/assets/furniture/*.json
 dotnet build EtherBound.sln            # sim, host, tests, bench, game
 dotnet run --project sim/EtherBound.Bench -c Release   # 1,000/5,000/10,000-Extra tick benchmark
-"$GODOT_BIN" --path game -- [--seed N] [--generator test|lab] [--database PATH] [--shots DIR]
+"$GODOT_BIN" --path game -- [--seed N] [--generator test|lab] [--database PATH] [--shots DIR] [--trace-walk CSV]
+node scripts/trace-walk.mjs CSV        # walking smoothness from a --trace-walk run (Fix19)
 
 # Checks (COMMITS.md; hooks run check:fast on commit, check-versions on the message, check on push)
 npm run check                   # versions, docs, sizes, bitcanvas, furniture, sim, game

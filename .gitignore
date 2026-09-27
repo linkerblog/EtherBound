@@ -10,3 +10,6 @@ game/spike/dumps/
 game/spike/out/
 sim/**/bin/
 sim/**/obj/
+legacy-python-web-stack.zip
+/EtherBound.exe
+/data_EtherBound.Game_*/

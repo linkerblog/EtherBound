@@ -121,6 +121,8 @@ public sealed class ExtrasBrainRules : IDisposable
         _paths.Add(cPath);
         SqliteConnection.ClearAllPools();
         File.Copy(aPath, cPath);
+        // `a` is still open, so its newest commits live in the WAL until a checkpoint (Fix19).
+        if (File.Exists(aPath + "-wal")) File.Copy(aPath + "-wal", cPath + "-wal");
         using var c = new WorldEngine(cPath);
         c.EnsureWorld(Seed);
         new ExtrasBrain(c).Attach(c.Bus);

@@ -70,6 +70,7 @@
               <button id="tile-view" class="mini view-button active" type="button" data-view="tiles" aria-pressed="true">TILES</button>
               <button id="single-view" class="mini view-button" type="button" data-view="block" aria-pressed="false">BLOCK</button>
               <button id="sides-view" class="mini view-button" type="button" data-view="sides" aria-pressed="false">SIDES</button>
+              <button id="cliff-sides-view" class="mini view-button grass-only" type="button" data-view="cliff" aria-pressed="false" hidden>CLIFF</button>
             </div>
           </div>
           <div class="preview-stage">
@@ -129,12 +130,13 @@
       <footer class="export-panel" aria-label="Export textures">
         <div class="game-export">
           <button class="primary" id="send-to-game" type="button">SEND TO GAME</button>
-          <span class="destination" id="game-destination">→ sprites/grass/ grass_x4.png + grass_side_x4.png</span>
+          <span class="destination" id="game-destination">→ sprites/grass/ grass_x4.png + grass_side_x4.png + grass_cliff_side_x4.png</span>
           <span class="folder-control"><span id="folder-name">FOLDER NOT SET</span><button class="mini" id="change-folder" type="button">CHANGE</button></span>
         </div>
         <div class="download-controls">
           <button class="mini" id="export-variants" type="button">VARIANTS</button>
           <button class="mini" id="export-sides-sheet" type="button">SIDES</button>
+          <button class="mini grass-only" id="export-cliff-sheet" type="button" hidden>CLIFF SHEET</button>
           <button class="mini" id="export-button" type="button">TOP</button>
           <button class="mini" id="export-sides" type="button">SIDE PAIRS</button>
         </div>

@@ -14,20 +14,21 @@ namespace EtherBound.Game.App;
 
 public partial class WorldClient : Node
 {
-    private static readonly (string Key, string Top, string Side)[] Sheets =
+    private static readonly (string Key, string Top, string Side, string? CliffSide)[] Sheets =
     {
-        ("grass", "grass/grass_x4.png", "grass/grass_side_x4.png"),
-        ("wood_floor", "floor/planks_x4.png", "floor/planks_side_x4.png"),
-        ("concrete", "floor/concrete_x4.png", "floor/concrete_side_x4.png"),
-        ("asphalt", "floor/asphalt_x4.png", "floor/asphalt_side_x4.png"),
-        ("roofing", "floor/roofing_x4.png", "floor/roofing_side_x4.png"),
-        ("brick", "wall/brick_x4.png", "wall/brick_side_x4.png"),
+        ("grass", "grass/grass_x4.png", "grass/grass_side_x4.png", "grass/grass_cliff_side_x4.png"),
+        ("wood_floor", "floor/planks_x4.png", "floor/planks_side_x4.png", null),
+        ("concrete", "floor/concrete_x4.png", "floor/concrete_side_x4.png", null),
+        ("asphalt", "floor/asphalt_x4.png", "floor/asphalt_side_x4.png", null),
+        ("roofing", "floor/roofing_x4.png", "floor/roofing_side_x4.png", null),
+        ("brick", "wall/brick_x4.png", "wall/brick_side_x4.png", null),
     };
 
     private readonly Dictionary<(int Cx, int Cy, int Z), MeshInstance3D> _chunkMeshes = new();
     private readonly Dictionary<(int Cx, int Cy), HostChunk> _renderedChunks = new();
+    private HashSet<int> _roofBands = new();
     private readonly Dictionary<string, MeshInstance3D> _actors = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, Vector3> _actorTargets = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, ActorMotion> _actorMotions = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _args = new(StringComparer.Ordinal);
     private SimulationHost? _host;
     private PixelView _view = null!;
@@ -42,9 +43,18 @@ public partial class WorldClient : Node
     private ActionMenuOverlay _actionMenu = null!;
     private Dictionary<int, int> _topLayers = new();
     private Dictionary<int, int> _sideLayers = new();
+    private Dictionary<int, int> _cliffSideLayers = new();
     private long _lastSequence;
     private double _moveAccumulator;
+    private double _sinceLastStep = MoveInterval;
+    private bool _walking;
+    private readonly StepPlayout _playout = new();
+    private bool _playoutOwnsPlayer;
+    private long _movesSent;
+    private StreamWriter? _trace;
+    private double _traceElapsed;
     private bool _cutaway = true;
+    private bool _levelOnlyView;
     private bool _scripted;
     private bool _shotsStarted;
     private int _texMode;
@@ -55,11 +65,16 @@ public partial class WorldClient : Node
     private Vector2 _contextPosition;
     private string? _lastFault;
 
+    private const double MoveInterval = 1.0 / SimulationHost.MoveHz;
+
     public override void _Ready()
     {
         var raw = OS.GetCmdlineUserArgs();
         for (var i = 0; i < raw.Length; i++)
             if (raw[i].StartsWith("--")) _args[raw[i][2..]] = i + 1 < raw.Length && !raw[i + 1].StartsWith("--") ? raw[++i] : "";
+        _levelOnlyView = _args.ContainsKey("shots-level-only") && _args.ContainsKey("shots");
+        // Screenshots keep the project's fixed 1280x720 so every capture has the same size.
+        if (!_args.ContainsKey("shots")) DisplayServer.WindowSetMode(DisplayServer.WindowMode.Maximized);
 
         _view = new PixelView();
         AddChild(_view);
@@ -88,7 +103,7 @@ public partial class WorldClient : Node
             AmbientLightEnergy = 0.25f,
             TonemapMode = Godot.Environment.ToneMapper.Linear,
             SsaoEnabled = true,
-            SsaoRadius = 1.2f,
+            SsaoRadius = 0.9f,
             SsaoIntensity = 2.5f,
             SsaoDetail = 0.5f,
             SsaoLightAffect = 0.2f,
@@ -100,9 +115,9 @@ public partial class WorldClient : Node
             LightEnergy = 0.8617f,
             ShadowEnabled = true,
             DirectionalShadowMode = DirectionalLight3D.ShadowMode.Parallel2Splits,
-            DirectionalShadowMaxDistance = 60f,
-            ShadowBias = 0.08f,
-            ShadowNormalBias = 1.5f,
+            DirectionalShadowMaxDistance = 28f,
+            ShadowBias = 0.04f,
+            ShadowNormalBias = 0.5f,
         };
         _view.Viewport.AddChild(_sun);
         _sun.LookAt(-light, Mathf.Abs(light.Y) > 0.99f ? Vector3.Forward : Vector3.Up);
@@ -125,6 +140,7 @@ public partial class WorldClient : Node
         {
             _actionMenu.Close();
             _moveAccumulator = 0;
+            _walking = false;
         };
         _actionMenu = _gameHud.ActionMenus;
         _actionMenu.ActionSelected += action =>
@@ -137,7 +153,8 @@ public partial class WorldClient : Node
 
     public override void _Process(double delta)
     {
-        if (_host?.LatestFrame is { } latest && latest.Sequence != _lastSequence) ApplyFrame(latest);
+        var arrived = _host?.LatestFrame is { } latest && latest.Sequence != _lastSequence;
+        if (arrived) ApplyFrame(_host!.LatestFrame!);
         DrainHostResponses();
         if (_host?.Fault is { } fault && _lastFault != fault.Message)
         {
@@ -145,11 +162,17 @@ public partial class WorldClient : Node
             _gameHud.PushFeed($"SIMULATION STOPPED · {fault.Message}", "fail");
         }
 
+        var now = Now;
         foreach (var (id, actor) in _actors)
-            if (_actorTargets.TryGetValue(id, out var target)) actor.Position = actor.Position.MoveToward(target, (float)delta * 12f);
+        {
+            var playout = id == Ids.Player ? _playout.Sample(now, delta) : null;
+            if (playout is { } scheduled) actor.Position = ToVector(scheduled);
+            else if (_actorMotions.TryGetValue(id, out var motion)) actor.Position = ToVector(motion.Sample(now));
+        }
         _trajectoryAnimator.Advance(delta);
         FollowPlayer();
-        SendMovement(delta);
+        SendMovement(delta, now);
+        TraceWalk(delta, arrived);
     }
 
     private void ApplyFrame(WorldFrame frame)
@@ -183,8 +206,9 @@ public partial class WorldClient : Node
         var sides = new Godot.Collections.Array<Image>();
         _topLayers = new Dictionary<int, int>();
         _sideLayers = new Dictionary<int, int>();
+        _cliffSideLayers = new Dictionary<int, int>();
         var sprites = Path.Combine(ProjectSettings.GlobalizePath("res://"), "assets", "sprites");
-        foreach (var (key, top, side) in Sheets)
+        foreach (var (key, top, side, cliffSide) in Sheets)
         {
             var material = _world!.Materials.Values.FirstOrDefault(item => item.Key == key);
             if (material is null) continue;
@@ -196,6 +220,13 @@ public partial class WorldClient : Node
             _sideLayers[material.Id] = sides.Count;
             tops.Add(topImage);
             sides.Add(sideImage);
+            if (cliffSide is not null)
+            {
+                var cliffImage = Image.LoadFromFile(Path.Combine(sprites, cliffSide));
+                cliffImage.Convert(Image.Format.Rgba8);
+                _cliffSideLayers[material.Id] = sides.Count;
+                sides.Add(cliffImage);
+            }
         }
         var topArray = new Texture2DArray();
         topArray.CreateFromImages(tops);
@@ -228,24 +259,46 @@ public partial class WorldClient : Node
 
     private void RebuildChunks(WorldFrame frame, Dictionary<(int Cx, int Cy), HostChunk> current)
     {
-        foreach (var node in _chunkMeshes.Values) node.QueueFree();
-        _chunkMeshes.Clear();
-        var mesher = new ChunkMesher(_world!, _topLayers, _sideLayers, _terrainMat, _structureMat, _glassMat);
-        foreach (var chunk in frame.Chunks)
-        foreach (var (z, result) in mesher.Build(chunk.Cx, chunk.Cy))
+        var roofBands = ChunkMesher.RoofBands(_world!);
+        var build = roofBands.SetEquals(_roofBands) ? ChunksToBuild(current) : current.Keys.ToHashSet();
+        _roofBands = roofBands;
+        foreach (var key in _chunkMeshes.Keys.Where(key => build.Contains((key.Cx, key.Cy)) || !current.ContainsKey((key.Cx, key.Cy))).ToArray())
         {
-            if (result.Mesh is null) continue;
-            var node = new MeshInstance3D
+            _chunkMeshes[key].QueueFree();
+            _chunkMeshes.Remove(key);
+        }
+        var mesher = new ChunkMesher(_world!, _topLayers, _sideLayers, _cliffSideLayers, _terrainMat, _structureMat, _glassMat);
+        foreach (var chunk in frame.Chunks)
+        {
+            if (!build.Contains((chunk.Cx, chunk.Cy))) continue;
+            foreach (var (z, result) in mesher.Build(chunk.Cx, chunk.Cy))
             {
-                Name = $"chunk_{chunk.Cx}_{chunk.Cy}_{z}",
-                Mesh = result.Mesh,
-                CastShadow = GeometryInstance3D.ShadowCastingSetting.DoubleSided,
-            };
-            _root.AddChild(node);
-            _chunkMeshes[(chunk.Cx, chunk.Cy, z)] = node;
+                if (result.Mesh is null) continue;
+                var node = new MeshInstance3D
+                {
+                    Name = $"chunk_{chunk.Cx}_{chunk.Cy}_{z}",
+                    Mesh = result.Mesh,
+                    CastShadow = GeometryInstance3D.ShadowCastingSetting.DoubleSided,
+                };
+                _root.AddChild(node);
+                _chunkMeshes[(chunk.Cx, chunk.Cy, z)] = node;
+            }
         }
         _renderedChunks.Clear();
         foreach (var pair in current) _renderedChunks[pair.Key] = pair.Value;
+    }
+
+    // The mesher reads one cell past a chunk on every side (edge faces, wall corners), so a new,
+    // changed or dropped chunk also reshapes its four neighbours.
+    private HashSet<(int Cx, int Cy)> ChunksToBuild(Dictionary<(int Cx, int Cy), HostChunk> current)
+    {
+        var changed = current.Where(pair => !_renderedChunks.TryGetValue(pair.Key, out var old) || !ReferenceEquals(old, pair.Value))
+            .Select(pair => pair.Key)
+            .Concat(_renderedChunks.Keys.Where(key => !current.ContainsKey(key)));
+        return changed
+            .SelectMany(key => new[] { key, (key.Cx - 1, key.Cy), (key.Cx + 1, key.Cy), (key.Cx, key.Cy - 1), (key.Cx, key.Cy + 1) })
+            .Where(current.ContainsKey)
+            .ToHashSet();
     }
 
     private void UpdateActors(WorldFrame frame)
@@ -255,12 +308,14 @@ public partial class WorldClient : Node
         {
             _actors[stale].QueueFree();
             _actors.Remove(stale);
-            _actorTargets.Remove(stale);
+            _actorMotions.Remove(stale);
         }
+        var now = Now;
+        // Niko moves once per Move step, everyone else once per clock tick.
+        var tickSeconds = 1.0 / Math.Max(1, frame.Speed);
         foreach (var actor in frame.Actors)
         {
-            var feet = new Vector3((float)actor.X, actor.H * 0.5f, (float)actor.Y);
-            var target = feet + new Vector3(0, 0.85f, 0);
+            var target = (actor.X, actor.H * 0.5 + 0.85, actor.Y);
             if (!_actors.TryGetValue(actor.Id, out var node))
             {
                 var isPlayer = actor.Id == Ids.Player;
@@ -283,37 +338,95 @@ public partial class WorldClient : Node
                     Mesh = new CapsuleMesh { Radius = 0.22f, Height = 1.7f, Material = material },
                 };
                 _root.AddChild(node);
-                node.Position = target;
+                node.Position = ToVector(target);
                 _actors[actor.Id] = node;
+                _actorMotions[actor.Id] = ActorMotion.At(target, now);
             }
-            _actorTargets[actor.Id] = target;
+            if (actor.Id == Ids.Player)
+            {
+                // WASD steps play on their own schedule; anything else (actions, new game) glides or snaps.
+                if (_playout.Applied(frame.MovesApplied, target, now))
+                {
+                    _playoutOwnsPlayer = true;
+                    continue;
+                }
+                if (_playoutOwnsPlayer) _actorMotions[actor.Id] = ActorMotion.At(FromVector(node.Position), now);
+                _playoutOwnsPlayer = false;
+            }
+            var duration = actor.Id == Ids.Player ? MoveInterval : tickSeconds;
+            _actorMotions[actor.Id].Retarget(target, duration, ActorMotion.MaxStep(duration), now);
         }
     }
 
-    private void SendMovement(double delta)
+    private void SendMovement(double delta, double now)
     {
+        _sinceLastStep += delta;
         if (_scripted || _frame is null || _host is null || !_gameHud.CanMoveWorld) return;
-        var kx = (Input.IsKeyPressed(Key.D) ? 1 : 0) - (Input.IsKeyPressed(Key.A) ? 1 : 0);
+        var tracing = _trace is not null && _traceElapsed is >= TraceSettle and < TraceSettle + TraceWalkSeconds;
+        var kx = (Input.IsKeyPressed(Key.D) || tracing ? 1 : 0) - (Input.IsKeyPressed(Key.A) ? 1 : 0);
         var ky = (Input.IsKeyPressed(Key.S) ? 1 : 0) - (Input.IsKeyPressed(Key.W) ? 1 : 0);
         var direction = new Vector2(kx + ky, ky - kx);
         if (direction == Vector2.Zero)
         {
             _moveAccumulator = 0;
+            _walking = false;
             return;
         }
         direction = direction.Normalized();
-        _moveAccumulator += delta;
-        const double moveInterval = 1.0 / 20;
-        while (_moveAccumulator >= moveInterval)
+        // The first step leaves on the key-down frame, but never sooner than one interval after the
+        // last one, so tapping is never faster than holding.
+        var starting = !_walking;
+        _moveAccumulator = _walking ? _moveAccumulator + delta : Math.Min(MoveInterval, _sinceLastStep);
+        _walking = true;
+        while (_moveAccumulator >= MoveInterval)
         {
-            if (!_host.TryMove(direction.X, direction.Y, moveInterval))
+            if (!_host.TryMove(direction.X, direction.Y, MoveInterval))
             {
-                _moveAccumulator = Math.Min(_moveAccumulator, moveInterval);
+                _moveAccumulator = Math.Min(_moveAccumulator, MoveInterval);
                 break;
             }
-            _moveAccumulator -= moveInterval;
+            _moveAccumulator -= MoveInterval;
+            _sinceLastStep = 0;
+            // The step's ideal time is when the accumulator crossed the interval, not this frame.
+            var idealAt = now - _moveAccumulator;
+            if (starting && _actors.TryGetValue(Ids.Player, out var player)) _playout.Anchor(FromVector(player.Position), idealAt);
+            starting = false;
+            _playout.Sent(++_movesSent, idealAt);
         }
     }
+
+    private static double Now => Time.GetTicksUsec() / 1e6;
+
+    private static Vector3 ToVector((double X, double Y, double Z) position) =>
+        new((float)position.X, (float)position.Y, (float)position.Z);
+
+    private static (double X, double Y, double Z) FromVector(Vector3 position) => (position.X, position.Y, position.Z);
+
+    private const double TraceSettle = 1.5, TraceWalkSeconds = 6;
+
+    /// <summary>
+    /// <c>--trace-walk PATH</c>: holds D for six seconds after a settle and logs one CSV row per frame,
+    /// so walking smoothness is a number (<c>scripts/trace-walk.mjs</c>), not an impression.
+    /// </summary>
+    private void TraceWalk(double delta, bool arrived)
+    {
+        if (!_args.TryGetValue("trace-walk", out var path) || _frame is null || !_actors.TryGetValue(Ids.Player, out var player)) return;
+        if (_trace is null)
+        {
+            _trace = new StreamWriter(path) { AutoFlush = true };
+            _trace.WriteLine("usec,delta,arrived,moves_applied,x,y,z,cam_x,cam_y,cam_z,rem_x,rem_y,scale");
+        }
+        _traceElapsed += delta;
+        var cam = _view.Camera.Position;
+        _trace.WriteLine(string.Join(",", Time.GetTicksUsec(), Fmt(delta), arrived ? 1 : 0, _frame.MovesApplied,
+            Fmt(player.Position.X), Fmt(player.Position.Y), Fmt(player.Position.Z), Fmt(cam.X), Fmt(cam.Y), Fmt(cam.Z),
+            Fmt(_view.Remainder.X), Fmt(_view.Remainder.Y), _view.Scale));
+        if (_traceElapsed < TraceSettle + TraceWalkSeconds + 0.5) return;
+        _trace.Dispose();
+        GetTree().Quit();
+    }
+
+    private static string Fmt(double value) => value.ToString("0.000000", System.Globalization.CultureInfo.InvariantCulture);
 
     private void FollowPlayer()
     {
@@ -321,10 +434,9 @@ public partial class WorldClient : Node
         var feet = player.Position - new Vector3(0, 0.85f, 0);
         _view.Follow(feet * new Vector3(1, PixelView.VerticalScale, 1) + new Vector3(0, 0.6f, 0));
         if (_world is null || _frame is null) return;
-        var clip = _cutaway ? Cutaway.ClipH(_world, feet.X, feet.Z, _frame.Actors.First(a => a.Id == Ids.Player).H) : float.PositiveInfinity;
-        var clipH = float.IsInfinity(clip) ? 100000f : clip;
-        _structureMat.SetShaderParameter("clip_h", clipH);
-        _glassMat.SetShaderParameter("clip_h", clipH);
+        Cutaway.UpdateView(_terrainMat, _structureMat, _glassMat, _world, feet, player.Position,
+            _frame.Actors.First(a => a.Id == Ids.Player).H, _root, _view.Camera,
+            _cutaway, _levelOnlyView);
     }
 
     private void DrainHostResponses()
@@ -402,6 +514,11 @@ public partial class WorldClient : Node
             case Key.Key4: _view.SetScale(4); break;
             case Key.T: SetTexMode(1 - _texMode); break;
             case Key.C: _cutaway = !_cutaway; break;
+            case Key.X:
+                _levelOnlyView = !_levelOnlyView;
+                _gameHud.PushFeed(_levelOnlyView ? "VIEW: CURRENT LEVEL" : "VIEW: AROUND NIKO", "seen");
+                GetViewport().SetInputAsHandled();
+                break;
             case Key.O: _env.SsaoEnabled = !_env.SsaoEnabled; break;
             case Key.H: _sun.ShadowEnabled = !_sun.ShadowEnabled; break;
             case Key.V:

@@ -61,6 +61,35 @@ public sealed class SaveCompatibility : IDisposable
     private const string Database0008 = "0008_extra";
 
     [Fact]
+    public void A_file_save_runs_in_wal_and_leaves_no_sidecar_after_dispose()
+    {
+        using (var engine = new WorldEngine(_path))
+        {
+            engine.EnsureWorld(0);
+            Assert.True(engine.Submit(Ids.Player, GameAction.Move(1, 0), 0.05).Accepted);
+            Assert.True(File.Exists(_path + "-wal"));
+        }
+        Assert.False(File.Exists(_path + "-wal"));
+        Assert.False(File.Exists(_path + "-shm"));
+        Assert.Equal("wal", Scalar("PRAGMA journal_mode"));
+    }
+
+    [Fact]
+    public void An_open_save_commits_without_a_full_sync()
+    {
+        using var db = new EtherBound.Sim.Db.Database(_path);
+        Assert.Equal("wal", db.PragmaValue("journal_mode"));
+        Assert.Equal("1", db.PragmaValue("synchronous"));
+    }
+
+    [Fact]
+    public void A_memory_world_keeps_its_memory_journal()
+    {
+        using var db = new EtherBound.Sim.Db.Database(":memory:");
+        Assert.Equal("memory", db.PragmaValue("journal_mode"));
+    }
+
+    [Fact]
     public void A_write_round_trips_and_leaves_alembic_alone()
     {
         JsonObject before;

@@ -24,10 +24,34 @@ public sealed class Database : IDisposable
 
     public Database(string path)
     {
-        var builder = new SqliteConnectionStringBuilder { DataSource = path, Mode = path == ":memory:" ? SqliteOpenMode.Memory : SqliteOpenMode.ReadWriteCreate };
+        var memory = path == ":memory:";
+        // Unpooled, so Dispose really closes the file and SQLite folds the WAL back into the save.
+        var builder = new SqliteConnectionStringBuilder
+        {
+            DataSource = path,
+            Mode = memory ? SqliteOpenMode.Memory : SqliteOpenMode.ReadWriteCreate,
+            Pooling = memory,
+        };
         _connection = new SqliteConnection(builder.ToString());
         _connection.Open();
+        // Every WASD step is one commit; the default journal fsyncs each one (4.6 ms p50, Fix19 F5).
+        // WAL with NORMAL fsyncs only at checkpoints: a power cut may drop the last moments, never corrupt.
+        if (!memory) Pragma("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;");
         EnsureSchema();
+    }
+
+    private void Pragma(string sql)
+    {
+        using var command = _connection.CreateCommand();
+        command.CommandText = sql;
+        command.ExecuteNonQuery();
+    }
+
+    internal string PragmaValue(string name)
+    {
+        using var command = _connection.CreateCommand();
+        command.CommandText = $"PRAGMA {name}";
+        return Convert.ToString(command.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture)!;
     }
 
     public void Dispose() => _connection.Dispose();

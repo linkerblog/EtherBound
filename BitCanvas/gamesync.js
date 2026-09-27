@@ -134,10 +134,10 @@ const BitCanvasGameSync = (() => {
     await writable.close();
   }
 
-  async function send(folderName, variantsCanvas, sidesCanvas, names) {
+  async function send(folderName, canvases, names) {
     let copies;
     try {
-      copies = [variantsCanvas, sidesCanvas].map((source) => {
+      copies = canvases.map((source) => {
         const copy = document.createElement('canvas');
         copy.width = source.width;
         copy.height = source.height;
@@ -177,7 +177,7 @@ const BitCanvasGameSync = (() => {
         return { kind: 'fail', message: `Could not write ${names[index]}: ${error.message}` };
       }
     }
-    return { kind: 'act', message: `Sent ${names[0]} and ${names[1]} to sprites/${folderName}/.` };
+    return { kind: 'act', message: `Sent ${names.join(', ')} to sprites/${folderName}/.` };
   }
 
   return {

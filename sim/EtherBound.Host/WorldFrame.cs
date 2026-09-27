@@ -51,8 +51,12 @@ public sealed record HostChunk(int Cx, int Cy, int Revision, ImmutableArray<shor
         ImmutableArray.CreateRange(payload.Objects.Select(o => new HostObject(o.Id, o.Kind, o.X, o.Y, o.H, o.Quantity, o.Open))));
 }
 
-/// <summary>A detached render/input snapshot. It contains no sim-owned arrays or mutable JSON nodes.</summary>
+/// <summary>
+/// A detached render/input snapshot. It contains no sim-owned arrays or mutable JSON nodes.
+/// <see cref="MovesApplied"/> counts every <c>Move</c> the host has handled, blocked ones included, so
+/// the client can tell which of its steps a frame already shows.
+/// </summary>
 public sealed record WorldFrame(long Sequence, long Seed, int GameMinute, int Speed, bool Paused,
     string Generator, int GenVersion, string GenOptionsJson, ImmutableArray<HostGenerator> Generators,
     ImmutableArray<HostActor> Actors, ImmutableArray<HostMaterial> Materials, ImmutableArray<HostObjectKind> ObjectKinds,
-    ImmutableArray<HostChunk> Chunks);
+    ImmutableArray<HostChunk> Chunks, long MovesApplied);

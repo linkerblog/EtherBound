@@ -46,7 +46,7 @@ const materialPalettes = {
 };
 
 const GAME_SHEETS = {
-  grass: { folder: 'grass', variants: 'grass_x4.png', sides: 'grass_side_x4.png' },
+  grass: { folder: 'grass', variants: 'grass_x4.png', sides: 'grass_side_x4.png', cliffSides: 'grass_cliff_side_x4.png' },
   planks: { folder: 'floor', variants: 'planks_x4.png', sides: 'planks_side_x4.png' },
   cobblestone: { folder: 'floor', variants: 'stone_x4.png', sides: 'stone_side_x4.png' },
   concrete: { folder: 'floor', variants: 'concrete_x4.png', sides: 'concrete_side_x4.png' },
@@ -75,12 +75,14 @@ const statusFeed = document.querySelector('#toast');
 let textureCanvas;
 let textureSides;
 let textureBlock;
+let cliffSideSheetTexture;
 let textureCanvases = [];
 let sideCanvases = [];
 let textureAtlas;
 let sideAtlas;
 let sideSheetTexture;
 let sideBlockCanvases = [];
+let cliffSideBlockCanvases = [];
 
 function seedNumber(value) {
   let hash = 2166136261;
@@ -254,4 +256,3 @@ function spreadTufts(random, count) {
   }
   return points;
 }
-

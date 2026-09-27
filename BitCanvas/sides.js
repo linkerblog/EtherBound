@@ -203,6 +203,46 @@ function createSideSheetTexture(cells) {
   return canvas;
 }
 
+function createCliffSideCell(colors, seed, patternSeed, tilePixels, part) {
+  const cell = createSideCell(colors, seed, patternSeed, 'grass', tilePixels, part);
+  const random = randomGenerator((seed ^ (part === 'cap' ? 0x9e3779b1 : 0x85ebca6b)) >>> 0);
+  const lip = part === 'cap' ? grassLipDepth(random, SIDE_CELL_WIDTH) : null;
+  const faceBase = part === 'cap' ? 0 : SIDE_CELL_HEIGHT;
+  const phase = patternSeed % SIDE_CELL_HEIGHT;
+
+  for (let x = 0; x < SIDE_CELL_WIDTH; x += 1) {
+    const segment = Math.floor(x / 4);
+    const wobble = materialCellHash(segment, 0, patternSeed) % 3 - 1;
+    const band = 7 + wobble;
+    for (let row = 0; row < SIDE_CELL_HEIGHT; row += 1) {
+      if (lip && row <= lip[x]) continue;
+
+      const faceRow = faceBase + row;
+      const patternRow = (row + phase) % SIDE_CELL_HEIGHT;
+      const hash = materialCellHash(x, faceRow, seed ^ patternSeed);
+      let color;
+      if (lip && row <= lip[x] + 2) {
+        color = row === lip[x] + 1 ? DIRT_COLORS[0] : DIRT_COLORS[1];
+      } else if (patternRow === band) {
+        color = DIRT_COLORS[0];
+      } else if (patternRow === band + 1 && hash % 100 < 76) {
+        color = DIRT_COLORS[2];
+      } else if (hash % 127 === 0) {
+        color = DIRT_COLORS[0];
+      } else {
+        continue;
+      }
+
+      const offset = (row * SIDE_CELL_WIDTH + x) * 4;
+      cell.data[offset] = color[0];
+      cell.data[offset + 1] = color[1];
+      cell.data[offset + 2] = color[2];
+    }
+  }
+
+  return cell;
+}
+
 // Compose the tile, mirrored south/east caps, and fill as the game renders them.
 // Face lighting belongs to composition, never to the texture sheet.
 function createSideBlockTexture(tileCanvas, capCell, fillCell, fills) {
@@ -288,4 +328,3 @@ function createBlockTexture(surface, sides) {
   context.drawImage(surface, 0, 0);
   return canvas;
 }
-

@@ -18,6 +18,11 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
 - **The database file stays locked while a Godot session runs.** `SimulationHost` opens
   `data/etherbound.db` for the life of the process; close the running client before touching the
   file directly.
+- **A save is WAL while open (Fix19).** `Database` sets `journal_mode=WAL` and `synchronous=NORMAL`
+  for file saves, so the newest commits sit in `etherbound.db-wal` until the session closes. Copying
+  only the `.db` of an open save gets an old snapshot; copy the `-wal` too, or close the client first.
+  `Database` does not pool connections, so a clean `Dispose` folds the WAL back and removes it. A
+  leftover `-wal` means a session did not close cleanly; SQLite replays it on the next open.
 - Kill any zombie Godot process (`Stop-Process` by id) left over from a hung or crashed run before
   starting another one against the same database.
 
@@ -58,6 +63,23 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
   `SimulationHost`'s bounded channel to the same thread that owns the world; the client only ever
   draws the frame the sim already committed, and the capsule/camera interpolation in `_Process` is
   presentational only, never a source of truth.
+- **Interpolate over the update interval, never chase at a fixed speed.** Niko's position changes
+  only `MoveHz` (20) times a second, 0.2 m per step. A fixed-speed chase faster than walking
+  (the old `MoveToward(12 m/s)`) covers a step in one frame and then waits, so the camera and the
+  world stutter even at 75 fps (Fix18). `ActorMotion` (`sim/EtherBound.Host/`) draws a linear
+  segment from the drawn position to each new one, lasting `1 / MoveHz` for Niko and one clock
+  tick (`1 / Speed` s) for everyone else, and snaps past `ActorMotion.MaxStep` (spawn, new game).
+- **Draw Niko's steps on their schedule, not on their arrival.** Frames reach `_Process` only on
+  frame boundaries and a step's commit time varies, so a segment started on arrival beats between
+  0.76× and 1.35× (Fix19). `StepPlayout` gives each step its ideal time (when the accumulator
+  crossed the interval), matches frames to steps through `WorldFrame.MovesApplied`, and plays about
+  two frames behind real time. It never rewinds: a stall holds on the newest committed position and
+  the delay re-settles at ±2 %. Check changes with `--trace-walk` and `scripts/trace-walk.mjs`: on
+  `lab` every walking frame is within 5 % of 4 m/s. On the `test` spawn, walking D runs into an
+  edge and the sim's own slide zigzags (`docs/PENDING.md`), which the trace shows faithfully.
+- **The first step leaves on the key-down frame.** `SendMovement` primes the accumulator with
+  `Min(1 / MoveHz, time since the last step)`, so movement starts at once but tapping never beats
+  holding.
 - **A full channel drops the command, silently, unless the caller checks.** `TryMove`,
   `TryRequestRadialMenu`, `TrySubmitAction` and friends all return `bool`; a `RunShots`-style script
   that ignores the result can wait forever on a response that was never enqueued. Push a HUD warning
@@ -94,6 +116,12 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
   client re-reads the container's own `open`.
 
 ## 5. Renderer, shaders and furniture meshes
+
+- **A chunk's mesh depends on its four neighbours and on every roof flag.** `ChunkMesher` reads one
+  cell past the chunk on each side (edge faces `x+1`/`y+1`, wall corners `x-1`/`y-1`), and
+  `RoofBands` spans all loaded chunks. `WorldClient.RebuildChunks` rebuilds new or changed chunks
+  plus their 4-neighbours, and everything when the roof bands change. A full rebuild costs
+  47–99 ms, an incremental border crossing 23–37 ms (Fix18).
 
 - **VOID is a ground-volume flag, not a missing-floor flag.** `ChunkMesher` and `Cutaway` render
   and pick stored floors even when their band is VOID; suppress only a ground top whose own band

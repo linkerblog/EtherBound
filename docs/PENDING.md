@@ -71,6 +71,15 @@ gameplay change Dev-025 explicitly excluded from its port-only scope and still n
 - [ ] **Activity progress is lost on interruption.** Walking away from a half-dug hole throws
       the progress away; partial progress that survives is a later refinement
       (`done/Dev-007.md` [Sec. 1]).
+- [ ] **Sliding along an edge zigzags.** Walking diagonally into a blocked edge (the `test` spawn,
+      holding D) makes the committed path flip ±0.2 m sideways on every step: on hitting the edge,
+      `Movement.MoveInWorld` snaps the body back to 0.3 m from the boundary, and the next step
+      starts fresh, walks up to the boundary inside the tile and snaps back again. Seen in the Fix19
+      trace (X velocity alternating +0.79/-0.79 while Z stays 0.78). A `sim.engine` fix touches
+      the parity goldens, so it needs its own doc.
+- [ ] **Chunk meshing still hitches on a border crossing.** Fix18 made the rebuild incremental
+      (75–99 ms down to 23–37 ms), but that is still 2 to 3 frames on the main thread. The next step
+      is meshing off the main thread, or spreading the builds over frames (`done/Fix18.md` [Sec. 8]).
 
 ## Manual checks not run
 
@@ -86,6 +95,11 @@ carries the check forward. Dev-025 itself tracks what the new client still needs
       because both are visual/hands-on and were not run in this change — the seed-7 spawn, the lab
       bays, building cutaway and stubs, dig/push/throw/break a wall, both menus, `NEW`, `MAP` in a
       live Godot session; and a Windows export from a clean folder (new game, save, quit, reopen).
+
+- [ ] **Walking feel** (`done/Fix19.md` [Sec. 4] manual 6, replacing `done/Fix18.md` manual 4–5):
+      manual, because feel is the goal. Walk in all 8 directions at x2, tap, cross a chunk border.
+      Extras at x1 and x10 walk with no slide-and-freeze. Try 75 Hz and one other refresh rate. The
+      measured half is done: on `lab` every walking frame is within 5 % of 4 m/s (Fix19 [Sec. 0]).
 
 The Dev-005 GUI acceptance passed; details are recorded in `docs/done/Fix02.md`.
 

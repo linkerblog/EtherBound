@@ -12,6 +12,35 @@ public static class Cutaway
 {
     private const int HeadroomH = 4;
 
+    public static float LevelClipH(int actorH) => (WorldDump.FloorDiv(actorH, WorldDump.LevelH) + 1) * WorldDump.LevelH;
+
+    public static void UpdateView(ShaderMaterial terrain, ShaderMaterial structure, ShaderMaterial glass,
+        WorldDump world, Vector3 feet, Vector3 actorPosition, int actorH, Node3D root, Camera3D camera,
+        bool enabled, bool levelOnly)
+    {
+        var aroundPlayer = enabled && !levelOnly && Hidden(world, feet.X, feet.Z, actorH);
+        var clip = !enabled ? float.PositiveInfinity : levelOnly
+            ? Math.Min(LevelClipH(actorH), ClipH(world, feet.X, feet.Z, actorH)) : float.PositiveInfinity;
+        var clipH = float.IsInfinity(clip) ? 100000f : clip;
+        structure.SetShaderParameter("clip_h", clipH);
+        glass.SetShaderParameter("clip_h", clipH);
+        terrain.SetShaderParameter("clip_enabled", enabled && levelOnly);
+        terrain.SetShaderParameter("clip_h", clipH);
+        UpdateCliffShader(terrain, root, camera, actorPosition, aroundPlayer);
+        UpdateCliffShader(structure, root, camera, actorPosition, aroundPlayer);
+    }
+
+    public static void UpdateCliffShader(ShaderMaterial material, Node3D root, Camera3D camera,
+        Vector3 actorPosition, bool enabled)
+    {
+        // Project local mesh coordinates through the root's vertical scale onto the camera axes.
+        var projection = root.GlobalBasis.Transposed();
+        material.SetShaderParameter("cliff_cut_center", actorPosition);
+        material.SetShaderParameter("cliff_cut_right", projection * camera.GlobalBasis.X);
+        material.SetShaderParameter("cliff_cut_up", projection * camera.GlobalBasis.Y);
+        material.SetShaderParameter("cliff_cutaway_enabled", enabled);
+    }
+
     public static float ClipH(WorldDump world, float x, float y, int viewerH)
     {
         int nx = (int)MathF.Floor(x), ny = (int)MathF.Floor(y);
@@ -59,6 +88,30 @@ public static class Cutaway
             if (Structure(world, px, py, hh)) return true;
         }
         return false;
+    }
+
+    // A body-height ray from Niko toward the camera: anything solid above it hides him. The three
+    // heights cover legs, torso and head, so the circle only lights up when he is really covered.
+    private static readonly float[] BodyHeights = { 0.5f, 1.0f, 1.5f };
+
+    /// <summary>True when terrain or a structure stands between the camera and Niko's body.</summary>
+    public static bool Hidden(WorldDump world, float x, float y, int viewerH)
+    {
+        var feetM = viewerH * 0.5f;
+        foreach (var body in BodyHeights)
+        for (var s = 0.25f; s < 40f; s += 0.25f)
+        {
+            float px = x + s, py = y + s;
+            if (Blocked(world, px, py, feetM + body + s)) return true;
+        }
+        return false;
+    }
+
+    private static bool Blocked(WorldDump world, float px, float py, float hm)
+    {
+        int tx = (int)MathF.Floor(px), ty = (int)MathF.Floor(py);
+        if (world.SolidTopH(tx, ty) is { } top && top * 0.5f >= hm) return true;
+        return Structure(world, px, py, hm * 2f);
     }
 
     private static bool Structure(WorldDump world, float px, float py, float hh)

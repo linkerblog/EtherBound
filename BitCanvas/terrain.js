@@ -237,7 +237,9 @@ function paintTexture() {
     textureAtlas = createAtlas(textureCanvases);
     sideAtlas = null;
     sideSheetTexture = null;
+    cliffSideSheetTexture = null;
     sideBlockCanvases = [];
+    cliffSideBlockCanvases = [];
     textureBlock = textureCanvas;
     drawPreview();
     updateReadouts();
@@ -269,6 +271,21 @@ function paintTexture() {
   });
   sideSheetTexture = createSideSheetTexture(sideCells);
   sideBlockCanvases = sideCells.map((cell) => createSideBlockTexture(cell.tile, cell.cap, cell.fill, 1));
+  cliffSideSheetTexture = null;
+  cliffSideBlockCanvases = [];
+  if (state.material === 'grass') {
+    const cliffCells = textureCanvases.map((tile, variant) => {
+      const variantSeed = variantSeedFor(seed, variant);
+      const tilePixels = tile.getContext('2d').getImageData(0, 0, TILE_WIDTH, TILE_HEIGHT).data;
+      return {
+        tile,
+        cap: createCliffSideCell(colors, variantSeed, seed, tilePixels, 'cap'),
+        fill: createCliffSideCell(colors, variantSeed, seed, tilePixels, 'fill'),
+      };
+    });
+    cliffSideSheetTexture = createSideSheetTexture(cliffCells);
+    cliffSideBlockCanvases = cliffCells.map((cell) => createSideBlockTexture(cell.tile, cell.cap, cell.fill, 1));
+  }
   drawPreview();
   updateReadouts();
 }
@@ -312,4 +329,3 @@ function createSideTextures(colors, seed) {
   context.putImageData(pixels, 0, 0);
   return canvas;
 }
-

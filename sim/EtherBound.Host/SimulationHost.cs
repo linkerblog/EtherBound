@@ -16,6 +16,9 @@ namespace EtherBound.Host;
 /// <summary>Owns the only sim thread and publishes detached frames for the client to draw.</summary>
 public sealed class SimulationHost : IDisposable
 {
+    /// <summary>WASD steps per second; the client paces its <c>Move</c> commands and interpolation by it.</summary>
+    public const int MoveHz = 20;
+
     private abstract record Command(int RequestId = 0);
     private sealed record Move(double Dx, double Dy, double DeltaSeconds) : Command;
     private sealed record Clock(int? Speed, bool? Paused) : Command;
@@ -49,6 +52,7 @@ public sealed class SimulationHost : IDisposable
     private Exception? _fault;
     private int _disposed;
     private long _frameSequence;
+    private long _movesApplied;
 
     public SimulationHost(string databasePath = ":memory:", long seed = 7, string generator = "test", int chunkRadius = 2)
     {
@@ -73,7 +77,7 @@ public sealed class SimulationHost : IDisposable
         return LatestFrame is not null;
     }
 
-    public bool TryMove(double dx, double dy, double deltaSeconds = 1.0 / 20)
+    public bool TryMove(double dx, double dy, double deltaSeconds = 1.0 / MoveHz)
     {
         if (!double.IsFinite(dx) || !double.IsFinite(dy) || dx is < -1 or > 1 || dy is < -1 or > 1 ||
             !double.IsFinite(deltaSeconds) || deltaSeconds is <= 0 or > 1) return false;
@@ -198,6 +202,7 @@ public sealed class SimulationHost : IDisposable
                         {
                             case Move move:
                                 engine.Submit(Ids.Player, GameAction.Move(move.Dx, move.Dy), move.DeltaSeconds);
+                                _movesApplied++;
                                 changed = true;
                                 break;
                             case Clock setClock:
@@ -300,7 +305,8 @@ public sealed class SimulationHost : IDisposable
                 a.LoadKg))),
             System.Collections.Immutable.ImmutableArray.CreateRange(materials),
             System.Collections.Immutable.ImmutableArray.CreateRange(objectKinds),
-            System.Collections.Immutable.ImmutableArray.CreateRange(payloads.Select(p => chunks[(p.Cx, p.Cy)])));
+            System.Collections.Immutable.ImmutableArray.CreateRange(payloads.Select(p => chunks[(p.Cx, p.Cy)])),
+            _movesApplied);
         Volatile.Write(ref _latestFrame, frame);
         _frameChanged.Set();
     }

@@ -9,13 +9,18 @@ namespace EtherBound.Game.Ui;
 
 public partial class GameHud : CanvasLayer
 {
-    private static readonly Color TextColor = new("#d6d8de");
-    private static readonly Color DimColor = new("#929daa");
+    private static readonly Color TextColor = new("#e8ebf0");
+    private static readonly Color DimColor = new("#a7b2c0");
     private static readonly Color CyanColor = new("#57c7ff");
     private static readonly Color GreenColor = new("#5af78e");
     private static readonly Color YellowColor = new("#f3f99d");
     private static readonly Color RedColor = new("#ff5c57");
-    private static readonly Color InterfaceModulate = new(1, 1, 1, 0.8f);
+    private static readonly Color InterfaceModulate = new(1, 1, 1, 1f);
+    // The whole HUD is designed at 100% and scaled by this factor, so the layout keeps its numbers.
+    private const float UiScale = 1.5f;
+    private static int S(float value) => (int)MathF.Round(value * UiScale);
+    private static Vector2 V(float x, float y) => new(x * UiScale, y * UiScale);
+
     private readonly Queue<Label> _feedRows = new();
     private readonly Dictionary<string, Button> _viewButtons = new(StringComparer.Ordinal);
     private readonly Dictionary<int, Button> _speedButtons = new();
@@ -34,6 +39,7 @@ public partial class GameHud : CanvasLayer
     private Button _pauseButton = null!;
     private GeneratorPanel _newGame = null!, _mapForm = null!;
     private Label _fpsLabel = null!;
+    private CompassOverlay _compass = null!;
     private WorldFrame? _frame;
 
     public GameHud()
@@ -59,7 +65,7 @@ public partial class GameHud : CanvasLayer
     {
         var font = GD.Load<FontFile>("res://assets/fonts/Montserrat-VariableFont_wght.ttf");
         if (font is null) throw new InvalidOperationException("The HUD font could not be loaded.");
-        var uiTheme = new Theme { DefaultFont = font, DefaultFontSize = 12 };
+        var uiTheme = new Theme { DefaultFont = font, DefaultFontSize = S(12) };
         ActionMenus.Theme = uiTheme;
         _root = new Control { Name = "HudRoot", Modulate = InterfaceModulate, Theme = uiTheme };
         _root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
@@ -70,6 +76,7 @@ public partial class GameHud : CanvasLayer
         BuildDebugView();
         BuildLlmView();
         BuildFpsCounter();
+        BuildCompass();
         AddChild(ActionMenus);
         GetViewport().SizeChanged += Layout;
         Layout();
@@ -88,11 +95,17 @@ public partial class GameHud : CanvasLayer
             Text = "0 FPS",
             MouseFilter = Control.MouseFilterEnum.Ignore,
             HorizontalAlignment = HorizontalAlignment.Right,
-            CustomMinimumSize = new Vector2(70, 18),
-            Size = new Vector2(70, 18),
+            CustomMinimumSize = V(70, 18),
+            Size = V(70, 18),
         };
         StyleLabel(_fpsLabel, DimColor, true);
         _root.AddChild(_fpsLabel);
+    }
+
+    private void BuildCompass()
+    {
+        _compass = new CompassOverlay { CustomMinimumSize = V(80, 80), Size = V(80, 80) };
+        _gameView.AddChild(_compass);
     }
 
     public void UpdateFrame(WorldFrame frame)
@@ -206,43 +219,43 @@ public partial class GameHud : CanvasLayer
         _navigationPanel = new PanelContainer
         {
             Name = "NavigationPanel",
-            Position = new Vector2(20, 12),
-            Size = new Vector2(430, 76),
-            CustomMinimumSize = new Vector2(430, 76),
+            Position = V(20, 12),
+            Size = V(430, 76),
+            CustomMinimumSize = V(430, 76),
             MouseFilter = Control.MouseFilterEnum.Pass,
         };
         _navigationPanel.AddThemeStyleboxOverride("panel", PanelFrame());
         var navigation = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, SizeFlagsVertical = Control.SizeFlags.ExpandFill };
-        navigation.AddThemeConstantOverride("separation", 7);
+        navigation.AddThemeConstantOverride("separation", S(7));
         navigation.AddChild(new ColorRect
         {
             Color = CyanColor,
-            CustomMinimumSize = new Vector2(3, 26),
+            CustomMinimumSize = V(3, 26),
             SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
             MouseFilter = Control.MouseFilterEnum.Ignore,
         });
         _brandLabel = new Label
         {
             Text = "ETHERBOUND",
-            CustomMinimumSize = new Vector2(116, 0),
+            CustomMinimumSize = V(116, 0),
             VerticalAlignment = VerticalAlignment.Center,
         };
         StyleLabel(_brandLabel, TextColor, true);
-        _brandLabel.AddThemeFontSizeOverride("font_size", 13);
+        _brandLabel.AddThemeFontSizeOverride("font_size", S(13));
         navigation.AddChild(_brandLabel);
         _brandDivider = new ColorRect
         {
             Color = new Color("#303a44"),
-            CustomMinimumSize = new Vector2(1, 28),
+            CustomMinimumSize = V(1, 28),
             SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
         navigation.AddChild(_brandDivider);
         _viewTabs = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, SizeFlagsVertical = Control.SizeFlags.ExpandFill };
-        _viewTabs.AddThemeConstantOverride("separation", 4);
+        _viewTabs.AddThemeConstantOverride("separation", S(4));
         foreach (var view in new[] { "GAME", "DEBUG", "LLM" })
         {
-            var button = new Button { Text = view, CustomMinimumSize = new Vector2(68, 30), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            var button = new Button { Text = view, CustomMinimumSize = V(68, 30), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
             ButtonStyle(button, CyanColor, compact: true);
             button.Pressed += () => SwitchView(view);
             _viewButtons.Add(view, button);
@@ -269,53 +282,53 @@ public partial class GameHud : CanvasLayer
 
     private void BuildGamePanels()
     {
-        _clockPanel = CreatePanel(_root, Vector2.Zero, new Vector2(540, 76), "WORLD CLOCK");
+        _clockPanel = CreatePanel(_root, Vector2.Zero, V(540, 76), "WORLD CLOCK");
         _clockRow = new HBoxContainer();
-        _clockRow.AddThemeConstantOverride("separation", 4);
+        _clockRow.AddThemeConstantOverride("separation", S(4));
         var clockContent = Content(_clockPanel);
-        _clockText = new Label { Text = "DAY 01   00:00", CustomMinimumSize = new Vector2(154, 0), VerticalAlignment = VerticalAlignment.Center };
+        _clockText = new Label { Text = "DAY 01   00:00", CustomMinimumSize = V(154, 0), VerticalAlignment = VerticalAlignment.Center };
         StyleLabel(_clockText, GreenColor, true);
-        _clockText.AddThemeFontSizeOverride("font_size", 16);
+        _clockText.AddThemeFontSizeOverride("font_size", S(16));
         _clockRow.AddChild(_clockText);
         _pauseButton = AddMiniButton("PAUSE", () => PauseRequested?.Invoke(!(_frame?.Paused ?? false)));
-        _pauseButton.CustomMinimumSize = new Vector2(56, 30);
+        _pauseButton.CustomMinimumSize = V(56, 30);
         _clockRow.AddChild(_pauseButton);
         foreach (var speed in new[] { 1, 3, 10 })
         {
             var button = AddMiniButton($"x{speed}", () => SpeedRequested?.Invoke(speed));
-            button.CustomMinimumSize = new Vector2(40, 30);
+            button.CustomMinimumSize = V(40, 30);
             _speedButtons.Add(speed, button);
             _clockRow.AddChild(button);
         }
         var newWorldButton = AddMiniButton("NEW", ShowNewGame);
-        newWorldButton.CustomMinimumSize = new Vector2(48, 30);
+        newWorldButton.CustomMinimumSize = V(48, 30);
         _clockRow.AddChild(newWorldButton);
         clockContent.AddChild(_clockRow);
 
-        _feedPanel = CreatePanel(_gameView, new Vector2(20, 0), new Vector2(360, 166), "FEED");
+        _feedPanel = CreatePanel(_gameView, V(20, 0), V(360, 166), "FEED");
         _feedRowsContainer = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, SizeFlagsVertical = Control.SizeFlags.ExpandFill };
-        _feedRowsContainer.AddThemeConstantOverride("separation", 2);
+        _feedRowsContainer.AddThemeConstantOverride("separation", S(2));
         Content(_feedPanel).AddChild(_feedRowsContainer);
 
-        _activityPanel = CreatePanel(_gameView, new Vector2(400, 0), new Vector2(280, 68), "ACT");
+        _activityPanel = CreatePanel(_gameView, V(400, 0), V(280, 68), "ACT");
         var activityColumn = Content(_activityPanel);
         _activityText = new Label { Text = "", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         StyleLabel(_activityText, TextColor);
         activityColumn.AddChild(_activityText);
-        _activityProgress = new ProgressBar { MinValue = 0, MaxValue = 100, Value = 0, CustomMinimumSize = new Vector2(250, 8), ShowPercentage = false };
+        _activityProgress = new ProgressBar { MinValue = 0, MaxValue = 100, Value = 0, CustomMinimumSize = V(250, 8), ShowPercentage = false };
         _activityProgress.AddThemeStyleboxOverride("background", FlatBox("#202a33"));
         _activityProgress.AddThemeStyleboxOverride("fill", FlatBox("#57c7ff"));
         activityColumn.AddChild(_activityProgress);
         _activityPanel.Visible = false;
 
-        _carryPanel = CreatePanel(_gameView, new Vector2(0, 0), new Vector2(260, 140), "CARRY");
+        _carryPanel = CreatePanel(_gameView, Vector2.Zero, V(260, 140), "CARRY");
         _carryText = new Label { Text = "L  —\nR  —\nBACK  —\nLOAD  0.0 kg" };
         StyleLabel(_carryText, TextColor);
         Content(_carryPanel).AddChild(_carryText);
 
-        var inputPanel = CreatePanel(_gameView, new Vector2(20, 0), new Vector2(540, 46), "");
+        var inputPanel = CreatePanel(_gameView, V(20, 0), V(540, 46), "");
         var inputRow = new HBoxContainer();
-        var prompt = new Label { Text = ">", CustomMinimumSize = new Vector2(16, 0) };
+        var prompt = new Label { Text = ">", CustomMinimumSize = V(16, 0) };
         StyleLabel(prompt, GreenColor, true);
         inputRow.AddChild(prompt);
         _input = new LineEdit { PlaceholderText = "say or try anything", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, ClearButtonEnabled = true };
@@ -339,7 +352,7 @@ public partial class GameHud : CanvasLayer
 
     private void BuildDebugView()
     {
-        _debugShell = CreatePanel(_debugView, new Vector2(20, 96), new Vector2(520, 220), "DEBUG");
+        _debugShell = CreatePanel(_debugView, V(20, 96), V(520, 220), "DEBUG");
         _mapForm = new GeneratorPanel(newGameMode: false) { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         _mapForm.Confirmed += request => NewGameRequested?.Invoke(request);
         Content(_debugShell).AddChild(_mapForm);
@@ -347,7 +360,7 @@ public partial class GameHud : CanvasLayer
 
     private void BuildLlmView()
     {
-        _llmPanel = CreatePanel(_llmView, new Vector2(20, 96), new Vector2(520, 120), "LLM");
+        _llmPanel = CreatePanel(_llmView, V(20, 96), V(520, 120), "LLM");
         var placeholder = new Label { Text = "NO MODEL CONNECTED", HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         StyleLabel(placeholder, DimColor);
         Content(_llmPanel).AddChild(placeholder);
@@ -357,41 +370,45 @@ public partial class GameHud : CanvasLayer
     {
         if (_root is null || _feedPanel is null) return;
         var size = _root.Size;
-        var compact = size.X < 700;
-        var stacked = size.X < 1030;
-        var navigationWidth = stacked ? Math.Max(280, size.X - 40) : 430;
-        var clockWidth = stacked ? Math.Max(320, size.X - 40) : 540;
-        _navigationPanel.CustomMinimumSize = _navigationPanel.Size = new Vector2(navigationWidth, 76);
-        _clockPanel.CustomMinimumSize = _clockPanel.Size = new Vector2(clockWidth, 76);
-        _navigationPanel.Position = new Vector2(20, 12);
-        _clockPanel.Position = stacked ? new Vector2(20, 96) : new Vector2(size.X - clockWidth - 20, 12);
+        var compact = size.X < S(700);
+        var stacked = size.X < S(1030);
+        var navigationWidth = stacked ? Math.Max(S(280), size.X - S(40)) : S(430);
+        var clockWidth = stacked ? Math.Max(S(320), size.X - S(40)) : S(540);
+        _navigationPanel.CustomMinimumSize = _navigationPanel.Size = new Vector2(navigationWidth, S(76));
+        _clockPanel.CustomMinimumSize = _clockPanel.Size = new Vector2(clockWidth, S(76));
+        _navigationPanel.Position = V(20, 12);
+        _clockPanel.Position = stacked ? V(20, 96) : new Vector2(size.X - clockWidth - S(20), S(12));
         _brandLabel.Visible = !compact;
         _brandDivider.Visible = !compact;
-        _clockText.CustomMinimumSize = new Vector2(compact ? 92 : 154, 0);
-        _pauseButton.CustomMinimumSize = new Vector2(compact ? 46 : 56, 30);
-        foreach (var button in _speedButtons.Values) button.CustomMinimumSize = new Vector2(compact ? 34 : 40, 30);
-        var narrow = size.X < 700;
-        var bottomPanelWidth = narrow ? Math.Max(100, (size.X - 60) * 0.5f) : 360;
-        var carryWidth = narrow ? bottomPanelWidth : 260;
-        var inputWidth = Math.Min(540, Math.Max(260, size.X - 40));
-        var feedHeight = Math.Clamp(48 + _feedRows.Count * 15, 64, 166);
+        _clockText.CustomMinimumSize = new Vector2(compact ? S(92) : S(154), 0);
+        _pauseButton.CustomMinimumSize = V(compact ? 46 : 56, 30);
+        foreach (var button in _speedButtons.Values) button.CustomMinimumSize = V(compact ? 34 : 40, 30);
+        var narrow = size.X < S(700);
+        var bottomPanelWidth = narrow ? Math.Max(S(100), (size.X - S(60)) * 0.5f) : S(360);
+        var carryWidth = narrow ? bottomPanelWidth : S(260);
+        var inputWidth = Math.Min(S(540), Math.Max(S(260), size.X - S(40)));
+        var feedHeight = Math.Clamp(S(48) + _feedRows.Count * S(15), S(64), S(166));
         _feedPanel.CustomMinimumSize = _feedPanel.Size = new Vector2(bottomPanelWidth, feedHeight);
-        _carryPanel.CustomMinimumSize = _carryPanel.Size = new Vector2(carryWidth, 140);
-        _inputPanel.CustomMinimumSize = _inputPanel.Size = new Vector2(inputWidth, 46);
-        _inputPanel.Position = new Vector2(20, Math.Max(30, size.Y - _inputPanel.Size.Y - 12));
-        _feedPanel.Position = new Vector2(20, Math.Max(90, _inputPanel.Position.Y - feedHeight - 8));
-        _carryPanel.Position = new Vector2(Math.Max(20, size.X - carryWidth - 20), Math.Max(90, size.Y - 216));
+        _carryPanel.CustomMinimumSize = _carryPanel.Size = new Vector2(carryWidth, S(140));
+        _inputPanel.CustomMinimumSize = _inputPanel.Size = new Vector2(inputWidth, S(46));
+        _inputPanel.Position = new Vector2(S(20), Math.Max(S(30), size.Y - _inputPanel.Size.Y - S(12)));
+        _feedPanel.Position = new Vector2(S(20), Math.Max(S(90), _inputPanel.Position.Y - feedHeight - S(8)));
+        _carryPanel.Position = new Vector2(Math.Max(S(20), size.X - carryWidth - S(20)), Math.Max(S(90), size.Y - S(216)));
         var activityY = stacked
-            ? Math.Max(_clockPanel.Position.Y + _clockPanel.Size.Y + 12, size.Y - 320)
-            : Math.Max(92, size.Y - 134);
-        _activityPanel.Position = new Vector2(Mathf.Clamp(size.X * 0.5f - 140, 20, Math.Max(20, size.X - 300)), activityY);
-        var contentY = stacked ? _clockPanel.Position.Y + _clockPanel.Size.Y + 12 : 96;
-        var contentWidth = Math.Min(520, Math.Max(280, size.X - 40));
-        _debugShell.Position = new Vector2(20, contentY);
-        _debugShell.CustomMinimumSize = _debugShell.Size = new Vector2(contentWidth, Math.Clamp(_mapForm.Size.Y + 46, 220, Math.Max(220, size.Y - contentY - 20)));
-        _llmPanel.Position = new Vector2(20, contentY);
-        _llmPanel.CustomMinimumSize = _llmPanel.Size = new Vector2(contentWidth, 120);
-        _fpsLabel.Position = new Vector2(size.X - _fpsLabel.CustomMinimumSize.X - 12, _clockPanel.Position.Y + _clockPanel.Size.Y + 7);
+            ? Math.Max(_clockPanel.Position.Y + _clockPanel.Size.Y + S(12), size.Y - S(320))
+            : Math.Max(S(92), size.Y - S(134));
+        _activityPanel.Position = new Vector2(Mathf.Clamp(size.X * 0.5f - S(140), S(20), Math.Max(S(20), size.X - S(300))), activityY);
+        var contentY = stacked ? _clockPanel.Position.Y + _clockPanel.Size.Y + S(12) : S(96);
+        var contentWidth = Math.Min(S(520), Math.Max(S(280), size.X - S(40)));
+        _debugShell.Position = new Vector2(S(20), contentY);
+        _debugShell.CustomMinimumSize = _debugShell.Size = new Vector2(contentWidth, Math.Clamp(_mapForm.Size.Y + S(46), S(220), Math.Max(S(220), size.Y - contentY - S(20))));
+        _llmPanel.Position = new Vector2(S(20), contentY);
+        _llmPanel.CustomMinimumSize = _llmPanel.Size = new Vector2(contentWidth, S(120));
+        _fpsLabel.Position = new Vector2(size.X - _fpsLabel.CustomMinimumSize.X - S(12),
+            size.Y - _fpsLabel.CustomMinimumSize.Y - S(10));
+        _compass.Position = new Vector2(size.X - _compass.Size.X - S(28),
+            Math.Max(_clockPanel.Position.Y + _clockPanel.Size.Y + S(12),
+                _carryPanel.Position.Y - _compass.Size.Y - S(12)));
         PositionNewGame();
     }
 
@@ -413,7 +430,7 @@ public partial class GameHud : CanvasLayer
 
     private Button AddMiniButton(string text, Action callback)
     {
-        var button = new Button { Text = text, CustomMinimumSize = new Vector2(32, 28) };
+        var button = new Button { Text = text, CustomMinimumSize = V(32, 28) };
         ButtonStyle(button, TextColor, compact: true);
         button.Pressed += callback;
         return button;
@@ -424,21 +441,21 @@ public partial class GameHud : CanvasLayer
         var panel = new PanelContainer { Position = position, Size = size, CustomMinimumSize = size, MouseFilter = Control.MouseFilterEnum.Pass };
         panel.AddThemeStyleboxOverride("panel", PanelFrame());
         var body = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, SizeFlagsVertical = Control.SizeFlags.ExpandFill };
-        body.AddThemeConstantOverride("separation", 5);
+        body.AddThemeConstantOverride("separation", S(5));
         if (!string.IsNullOrEmpty(title))
         {
-            var heading = new HBoxContainer { CustomMinimumSize = new Vector2(0, 15) };
-            heading.AddThemeConstantOverride("separation", 7);
+            var heading = new HBoxContainer { CustomMinimumSize = V(0, 15) };
+            heading.AddThemeConstantOverride("separation", S(7));
             heading.AddChild(new ColorRect
             {
                 Color = CyanColor,
-                CustomMinimumSize = new Vector2(2, 10),
+                CustomMinimumSize = V(2, 10),
                 SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
                 MouseFilter = Control.MouseFilterEnum.Ignore,
             });
             var label = new Label { Text = title, VerticalAlignment = VerticalAlignment.Center };
             StyleLabel(label, CyanColor, true);
-            label.AddThemeFontSizeOverride("font_size", 11);
+            label.AddThemeFontSizeOverride("font_size", S(11));
             heading.AddChild(label);
             body.AddChild(heading);
             body.AddChild(new ColorRect
@@ -460,7 +477,7 @@ public partial class GameHud : CanvasLayer
     private static void StyleLabel(Label label, Color color, bool bold = false)
     {
         label.AddThemeColorOverride("font_color", color);
-        label.AddThemeFontSizeOverride("font_size", bold ? 13 : 12);
+        label.AddThemeFontSizeOverride("font_size", S(bold ? 13 : 12));
     }
 
     private static void ButtonStyle(Button button, Color color, bool compact, bool selected = false)
@@ -476,7 +493,7 @@ public partial class GameHud : CanvasLayer
         button.AddThemeStyleboxOverride("pressed", Box("#57c7ff", "#a5e6ff", 1));
         button.AddThemeStyleboxOverride("focus", Box("#101820", "#57c7ff", 1));
         button.AddThemeStyleboxOverride("disabled", Box("#0b1015", "#29313a", 0.72f));
-        button.AddThemeFontSizeOverride("font_size", compact ? 11 : 12);
+        button.AddThemeFontSizeOverride("font_size", S(compact ? 11 : 12));
     }
 
     private static void StyleInput(LineEdit input)
@@ -487,17 +504,17 @@ public partial class GameHud : CanvasLayer
         input.AddThemeColorOverride("selection_color", new Color("#24495c"));
         input.AddThemeStyleboxOverride("normal", Box("#10151b", "#303a44", 1));
         input.AddThemeStyleboxOverride("focus", Box("#101820", "#57c7ff", 1));
-        input.AddThemeFontSizeOverride("font_size", 12);
+        input.AddThemeFontSizeOverride("font_size", S(12));
     }
 
     private static StyleBoxFlat PanelFrame()
     {
-        var frame = Box("#0b1016", "#35414c", 0.96f);
-        frame.BorderWidthLeft = 2;
-        frame.ContentMarginLeft = 10;
-        frame.ContentMarginTop = 7;
-        frame.ContentMarginRight = 10;
-        frame.ContentMarginBottom = 7;
+        var frame = Box("#090e13", "#3f4d5a", 0.97f);
+        frame.BorderWidthLeft = S(2);
+        frame.ContentMarginLeft = S(10);
+        frame.ContentMarginTop = S(7);
+        frame.ContentMarginRight = S(10);
+        frame.ContentMarginBottom = S(7);
         return frame;
     }
 
@@ -522,10 +539,10 @@ public partial class GameHud : CanvasLayer
             BorderWidthTop = 1,
             BorderWidthRight = 1,
             BorderWidthBottom = 1,
-            ContentMarginLeft = 8,
-            ContentMarginTop = 4,
-            ContentMarginRight = 8,
-            ContentMarginBottom = 4,
+            ContentMarginLeft = S(8),
+            ContentMarginTop = S(4),
+            ContentMarginRight = S(8),
+            ContentMarginBottom = S(4),
             CornerRadiusBottomLeft = 0,
             CornerRadiusBottomRight = 0,
             CornerRadiusTopLeft = 0,

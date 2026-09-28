@@ -11,9 +11,12 @@ public sealed record NewGameRequest(long Seed, string Generator, string OptionsJ
 
 public partial class GeneratorPanel : PanelContainer
 {
-    private static readonly Color TextColor = new("#d6d8de");
-    private static readonly Color MutedColor = new("#929daa");
+    private static readonly Color TextColor = new("#e8ebf0");
+    private static readonly Color MutedColor = new("#a7b2c0");
     private static readonly Color AccentColor = new("#57c7ff");
+    // Matches GameHud.UiScale: the panel is designed at 100% and scaled to stay aligned with the HUD.
+    private static int S(float value) => (int)MathF.Round(value * 1.5f);
+    private static Vector2 V(float x, float y) => new(x * 1.5f, y * 1.5f);
     private readonly bool _newGameMode;
     private readonly List<HostGenerator> _generators = new();
     private readonly Dictionary<string, (HostOptionField Field, Control Row, Control Editor)> _editors = new(StringComparer.Ordinal);
@@ -31,7 +34,7 @@ public partial class GeneratorPanel : PanelContainer
     {
         _newGameMode = newGameMode;
         Visible = !newGameMode;
-        CustomMinimumSize = new Vector2(440, 0);
+        CustomMinimumSize = V(440, 0);
         AddThemeStyleboxOverride("panel", PanelStyle());
     }
 
@@ -43,16 +46,16 @@ public partial class GeneratorPanel : PanelContainer
     public override void _Ready()
     {
         var body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
-        body.AddThemeConstantOverride("separation", 7);
+        body.AddThemeConstantOverride("separation", S(7));
         AddChild(body);
         var title = new Label { Text = _newGameMode ? "NEW WORLD" : "MAP GENERATOR" };
         StyleLabel(title, AccentColor);
-        title.AddThemeFontSizeOverride("font_size", 14);
+        title.AddThemeFontSizeOverride("font_size", S(14));
         body.AddChild(title);
         body.AddChild(new ColorRect
         {
             Color = new Color("#25313b"),
-            CustomMinimumSize = new Vector2(0, 1),
+            CustomMinimumSize = V(0, 1),
             MouseFilter = MouseFilterEnum.Ignore,
         });
 
@@ -217,7 +220,7 @@ public partial class GeneratorPanel : PanelContainer
             row.Visible = field.Group is null || field.Group == feature;
         var visibleFields = _editors.Values.Count(editor => editor.Row.Visible);
         var height = (_newGameMode ? 205 : 165) + visibleFields * 38;
-        Size = CustomMinimumSize = new Vector2(440, Mathf.Clamp(height, 200, 520));
+        Size = CustomMinimumSize = V(440, Mathf.Clamp(height, S(200), S(520)));
     }
 
     private void LoadOptions(string json)
@@ -319,7 +322,7 @@ public partial class GeneratorPanel : PanelContainer
 
     private static Label FieldLabel(string text)
     {
-        var label = new Label { Text = text, CustomMinimumSize = new Vector2(112, 0) };
+        var label = new Label { Text = text, CustomMinimumSize = V(112, 0) };
         StyleLabel(label, MutedColor);
         return label;
     }
@@ -327,7 +330,7 @@ public partial class GeneratorPanel : PanelContainer
     private static void StyleLabel(Label label, Color color)
     {
         label.AddThemeColorOverride("font_color", color);
-        label.AddThemeFontSizeOverride("font_size", 12);
+        label.AddThemeFontSizeOverride("font_size", S(12));
     }
 
     private static void StyleOptionButton(OptionButton button)
@@ -354,7 +357,7 @@ public partial class GeneratorPanel : PanelContainer
         control.AddThemeStyleboxOverride("hover", FieldBox("#141e26", "#506271"));
         control.AddThemeStyleboxOverride("focus", FieldBox("#101820", "#57c7ff"));
         control.AddThemeStyleboxOverride("disabled", FieldBox("#0b1015", "#29313a"));
-        control.AddThemeFontSizeOverride("font_size", 12);
+        control.AddThemeFontSizeOverride("font_size", S(12));
     }
 
     private static void StyleButton(Button button, bool primary = false)
@@ -370,7 +373,7 @@ public partial class GeneratorPanel : PanelContainer
         button.AddThemeStyleboxOverride("pressed", FieldBox("#57c7ff", "#a5e6ff"));
         button.AddThemeStyleboxOverride("focus", FieldBox("#101820", "#57c7ff"));
         button.AddThemeStyleboxOverride("disabled", FieldBox("#0b1015", "#29313a"));
-        button.AddThemeFontSizeOverride("font_size", 12);
+        button.AddThemeFontSizeOverride("font_size", S(12));
     }
 
     private static StyleBoxFlat FieldBox(string background, string border) => new()
@@ -381,10 +384,10 @@ public partial class GeneratorPanel : PanelContainer
         BorderWidthTop = 1,
         BorderWidthRight = 1,
         BorderWidthBottom = 1,
-        ContentMarginLeft = 8,
-        ContentMarginTop = 4,
-        ContentMarginRight = 8,
-        ContentMarginBottom = 4,
+        ContentMarginLeft = S(8),
+        ContentMarginTop = S(4),
+        ContentMarginRight = S(8),
+        ContentMarginBottom = S(4),
         CornerRadiusBottomLeft = 0,
         CornerRadiusBottomRight = 0,
         CornerRadiusTopLeft = 0,
@@ -395,14 +398,14 @@ public partial class GeneratorPanel : PanelContainer
     {
         BgColor = new Color("#0b1016"),
         BorderColor = new Color("#35414c"),
-        BorderWidthLeft = 2,
+        BorderWidthLeft = S(2),
         BorderWidthTop = 1,
         BorderWidthRight = 1,
         BorderWidthBottom = 1,
-        ContentMarginLeft = 12,
-        ContentMarginTop = 10,
-        ContentMarginRight = 12,
-        ContentMarginBottom = 10,
+        ContentMarginLeft = S(12),
+        ContentMarginTop = S(10),
+        ContentMarginRight = S(12),
+        ContentMarginBottom = S(10),
         CornerRadiusBottomLeft = 0,
         CornerRadiusBottomRight = 0,
         CornerRadiusTopLeft = 0,

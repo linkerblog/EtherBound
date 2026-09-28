@@ -11,6 +11,11 @@ public partial class ActionMenuOverlay : Control
 {
     private sealed record VerbGroup(string Op, string Label, List<HostMenuEntry> Entries);
 
+    // Matches GameHud.UiScale: the overlay is designed at 100% and scaled to stay aligned with the HUD.
+    private static float Sc(float value) => value * 1.5f;
+    private static int S(float value) => (int)MathF.Round(value * 1.5f);
+    private static Vector2 V(float x, float y) => new(x * 1.5f, y * 1.5f);
+
     private readonly List<Button> _buttons = new();
     private HostMenuPayload? _menu;
     private List<VerbGroup> _groups = new();
@@ -38,12 +43,12 @@ public partial class ActionMenuOverlay : Control
         _level = 0;
         Visible = true;
         ClearContent();
-        var width = 280f;
-        var height = Math.Min(520f, 42f + menu.Entries.Length * 32f);
-        var clamped = new Vector2(Mathf.Clamp(position.X, 8, Math.Max(8, Size.X - width - 8)),
-            Mathf.Clamp(position.Y, 8, Math.Max(8, Size.Y - height - 8)));
+        var width = Sc(280f);
+        var height = Math.Min(Sc(520f), Sc(42f) + menu.Entries.Length * Sc(32f));
+        var clamped = new Vector2(Mathf.Clamp(position.X, Sc(8), Math.Max(Sc(8), Size.X - width - Sc(8))),
+            Mathf.Clamp(position.Y, Sc(8), Math.Max(Sc(8), Size.Y - height - Sc(8))));
         var panel = PanelAt(clamped, new Vector2(width, height));
-        var target = new Label { Text = menu.Target.ToUpperInvariant(), CustomMinimumSize = new Vector2(0, 28) };
+        var target = new Label { Text = menu.Target.ToUpperInvariant(), CustomMinimumSize = V(0, 28) };
         LabelStyle(target, new Color("#57c7ff"));
         var content = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, SizeFlagsVertical = Control.SizeFlags.ExpandFill };
         content.AddChild(target);
@@ -51,7 +56,7 @@ public partial class ActionMenuOverlay : Control
         {
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             SizeFlagsVertical = Control.SizeFlags.ExpandFill,
-            CustomMinimumSize = new Vector2(0, height - 60),
+            CustomMinimumSize = new Vector2(0, height - Sc(60)),
         };
         var entries = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         scroll.AddChild(entries);
@@ -125,14 +130,14 @@ public partial class ActionMenuOverlay : Control
     {
         if (!_radial || _level != 2 || _buttons.Count == 0) return;
         foreach (var button in _buttons)
-            DrawLine(_center, button.Position + button.Size * 0.5f, new Color("#3a3d47"), 1f, true);
+            DrawLine(_center, button.Position + button.Size * 0.5f, new Color("#3a3d47"), 2f, true);
     }
 
     private void ShowVerbs()
     {
         _level = 1;
         ClearContent();
-        var hub = PanelAt(_center - new Vector2(86, 36), new Vector2(172, 72));
+        var hub = PanelAt(_center - V(86, 36), V(172, 72));
         var title = new Label { Text = _menu?.Target.ToUpperInvariant() ?? "NIKO", HorizontalAlignment = HorizontalAlignment.Center };
         LabelStyle(title, new Color("#57c7ff"));
         hub.AddChild(title);
@@ -140,10 +145,10 @@ public partial class ActionMenuOverlay : Control
         _buttons.Clear();
         if (_groups.Count == 0)
         {
-            AddRadialButton("NO ACTIONS", _center + new Vector2(-56, 60), false, "");
+            AddRadialButton("NO ACTIONS", _center + V(-56, 60), false, "");
             return;
         }
-        var radius = Math.Max(150f, _groups.Count * 13f);
+        var radius = Math.Max(Sc(150f), _groups.Count * Sc(13f));
         for (var i = 0; i < _groups.Count; i++)
         {
             var group = _groups[i];
@@ -170,7 +175,7 @@ public partial class ActionMenuOverlay : Control
         }
         _level = 2;
         ClearContent();
-        var hub = PanelAt(_center - new Vector2(86, 38), new Vector2(172, 76));
+        var hub = PanelAt(_center - V(86, 38), V(172, 76));
         var back = new Button { Text = $"< {group.Label.ToUpperInvariant()}" };
         ButtonStyle(back, new Color("#57c7ff"), false);
         back.Pressed += ShowVerbs;
@@ -192,7 +197,7 @@ public partial class ActionMenuOverlay : Control
                 var angle = -MathF.PI * 0.5f + MathF.Tau * sameTile / Math.Max(1, group.Entries.Count);
                 direction = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
             }
-            var point = _center + direction * (145 + sameTile * 38);
+            var point = _center + direction * (Sc(145) + sameTile * Sc(38));
             var subject = entry.Subject ?? (entry.TileDx == 0 && entry.TileDy == 0 ? _menu?.Target : "tile");
             var label = subject is null ? entry.Label : $"{entry.Label.ToUpperInvariant()} {subject}";
             var button = AddRadialButton(label, point, entry.Available, entry.Reason ?? "");
@@ -215,9 +220,9 @@ public partial class ActionMenuOverlay : Control
         var button = new Button
         {
             Text = text,
-            Position = center - new Vector2(68, 17),
-            Size = new Vector2(136, 34),
-            CustomMinimumSize = new Vector2(136, 34),
+            Position = center - V(68, 17),
+            Size = V(136, 34),
+            CustomMinimumSize = V(136, 34),
             TooltipText = available ? "" : reason,
             Disabled = !available,
             MouseFilter = MouseFilterEnum.Stop,
@@ -234,7 +239,7 @@ public partial class ActionMenuOverlay : Control
         {
             Text = entry.Available || string.IsNullOrEmpty(entry.Reason) ? text : $"{text}  ·  {entry.Reason}",
             Disabled = !entry.Available,
-            CustomMinimumSize = new Vector2(0, 30),
+            CustomMinimumSize = V(0, 30),
             TooltipText = entry.Reason ?? "",
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
         };
@@ -272,14 +277,14 @@ public partial class ActionMenuOverlay : Control
         {
             BgColor = new Color("#0c0d10"),
             BorderColor = new Color("#3a3d47"),
-            BorderWidthLeft = 2,
+            BorderWidthLeft = S(2),
             BorderWidthTop = 1,
             BorderWidthRight = 1,
             BorderWidthBottom = 1,
-            ContentMarginLeft = 10,
-            ContentMarginTop = 8,
-            ContentMarginRight = 10,
-            ContentMarginBottom = 8,
+            ContentMarginLeft = S(10),
+            ContentMarginTop = S(8),
+            ContentMarginRight = S(10),
+            ContentMarginBottom = S(8),
             CornerRadiusBottomLeft = 0,
             CornerRadiusBottomRight = 0,
             CornerRadiusTopLeft = 0,
@@ -305,7 +310,7 @@ public partial class ActionMenuOverlay : Control
         button.AddThemeStyleboxOverride("normal", ButtonBox("#0c0d10", "#3a3d47"));
         button.AddThemeStyleboxOverride("hover", ButtonBox("#57c7ff", "#57c7ff"));
         button.AddThemeStyleboxOverride("disabled", ButtonBox("#0c0d10", "#22242b"));
-        button.AddThemeFontSizeOverride("font_size", compact ? 10 : 11);
+        button.AddThemeFontSizeOverride("font_size", S(compact ? 10 : 11));
     }
 
     private static StyleBoxFlat ButtonBox(string background, string border) => new()
@@ -320,16 +325,16 @@ public partial class ActionMenuOverlay : Control
         CornerRadiusBottomRight = 0,
         CornerRadiusTopLeft = 0,
         CornerRadiusTopRight = 0,
-        ContentMarginLeft = 7,
-        ContentMarginRight = 7,
-        ContentMarginTop = 4,
-        ContentMarginBottom = 4,
+        ContentMarginLeft = S(7),
+        ContentMarginRight = S(7),
+        ContentMarginTop = S(4),
+        ContentMarginBottom = S(4),
     };
 
     private static void LabelStyle(Label label, Color color)
     {
         label.AddThemeColorOverride("font_color", color);
-        label.AddThemeFontSizeOverride("font_size", 11);
+        label.AddThemeFontSizeOverride("font_size", S(11));
     }
 
     private void Focus(int index)

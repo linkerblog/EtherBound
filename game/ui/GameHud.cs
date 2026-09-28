@@ -63,7 +63,7 @@ public partial class GameHud : CanvasLayer
 
     public override void _Ready()
     {
-        var font = GD.Load<FontFile>("res://assets/fonts/Montserrat-VariableFont_wght.ttf");
+        var font = GD.Load<FontFile>("res://assets/fonts/Inter-VariableFont_opsz_wght.ttf");
         if (font is null) throw new InvalidOperationException("The HUD font could not be loaded.");
         var uiTheme = new Theme { DefaultFont = font, DefaultFontSize = S(12) };
         ActionMenus.Theme = uiTheme;

@@ -140,6 +140,68 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
   (`Occluded`) and separately checks what roofs or covers Niko's own tile (`Roofed`); there is no
   separate "front wall" rule to keep in sync — a wall between the camera and Niko is just another
   occluder on that same ray.
+- **Only the natural-ground face codes may change.** The around-Niko cliff window cuts the shader
+  codes `0`/`1`/`2` (unbuilt ground top and exposed sides) and nothing else. Built slabs use `6`/`7`
+  and walls keep their `3`/`4` on the top strip (`ChunkMesher.Box`), so floors and stairs are never
+  shredded by the window; a new code that renders as ground must be added to both `ChunkMesher` and
+  the `cut_top`/`cut_side` test in `Terrain.gdshader`.
+- **The cliff cut is a line-of-sight hole with a rim and a silhouette outline.** `Terrain.gdshader`
+  clears natural ground only where `length(vec2(dot(offset, cliff_cut_right), dot(offset,
+  cliff_cut_up)))` is within `Cutaway.CliffCutRadius` (`6` m, one constant shared with the outline)
+  and the fragment is above `viewer_h + 1` (0.5 m over Niko's feet), so the floor and the lower
+  stairs keep their tiles; Niko's window also requires `dot(offset, cliff_cut_back) > 0` (toward the
+  camera), so it never opens behind him. There are two windows, Niko's and the cursor's
+  (`cliff_cutaway_enabled`/`cursor_cutaway_enabled`, each with its own center). Niko's opens only
+  when natural terrain itself hides his body (`Cutaway.TerrainHidden`), never when a roof or a
+  building does — a terrain window opened by a structure cut walls and stairs that covered nothing,
+  while the building's own cut is by storey band. The cursor's opens only while the right button is
+  held and it rests on terrain above the same half-metre line over Niko's feet:
+  `Cutaway.CursorTerrain` marches the mouse ray over the dump's solid tops in unscaled mesh space
+  and gives up when a structure or the sky comes first, so a hole follows the mouse on cliffs and
+  banks. The two windows **fuse**: the rim only traces the outer boundary of the union (`max` of the
+  two rims while inside both, `min` otherwise), so no seam shows where they overlap. The cursor's
+  disc is fully round — no `front` cut — because a view-plane line through its center read as a
+  crack. The `6` m circle can still clear nearby terrain that does not cover him; shrinking it to
+  `2.2` m and to Niko's body column was tried and reverted (too tight, read as a small rectangle). A
+  fragment within `0.08` m of a boundary — a screen arc, the 0.5 m line or (Niko's only) the far cut
+  on the view plane through his center — stays and draws with the outline cream, so the opening is
+  traced as a closed contour; without the `front` term Niko's far (north and west) edges have no
+  visible trace. Cleared fragments `discard`, never `ALPHA = 0` (which kept depth and moved the
+  material to the transparent pipeline), but the whole block is skipped in the shadow pass so the
+  removed mass keeps casting (see the shadow bullet). The band threshold mixes metres (`len`,
+  `front`) with half-metres (`above`), so convert `above` before comparing. The hole is bounded on
+  both screen axes: dropping the vertical bound turns it into a straight slit through the world, and
+  widening it shows the background because a heightmap draws only exposed faces. A wide wedge, a
+  band cut over an 8 m radius and ghosting the cut (`blend_mix, depth_draw_always`, alpha `0.4`)
+  were tried and reverted (Dev-033).
+- **The cut is view-only: it must not change the lighting.** The window `discard`s for the camera
+  pass (never `ALPHA = 0`, which kept depth and pushed the material into the transparent pipeline)
+  but skips the cut in the shadow pass (`IN_SHADOW_PASS`, a global built-in), so the removed mass
+  keeps casting its shadow exactly as if it were intact. Discarding in the shadow pass too made the
+  hole light up and the ground lose the mass's shadow, which read as the cutaway "changing the
+  shadows" (Dev-033).
+- **The cut mass's outline is geometry, built by the mesher, not a post-process.** `ChunkMesher`
+  emits an `Outline` surface: an `OutlineW` (`0.06` m) strip along each drawn face's top crest and
+  along each end that does not continue into the next tile (`SouthContinues`/`EastContinues`), plus
+  a bare crest (no end caps) on the north and west drops whose risers face away and are never drawn.
+  Those far crests skip an edge with a wall (`AnyWall`) or with a floor resting on the ground
+  (`RestsOnGround`): an ungated crest on all four drop directions was tried and reverted because it
+  drew over walls and floors and left artifacts in the terrain. `_outlineMat` (`WorldClient`) is
+  `unshaded, cull_disabled, depth_draw_opaque` and discards every fragment outside the same hole
+  (same `len`, `above` and `front` test as the terrain shader), so it is invisible unless the cut is
+  on. Keep its uniforms in sync with `UpdateCliffShader`, and keep each crest offset `0.01` away
+  from the terrain mass (toward the lower neighbour) or it z-fights the face it sits on.
+  `cliff_cut_back`, `cliff_cut_center`, `viewer_h` and `cliff_cut_right/up` are in unscaled mesh
+  coordinates, and `Cutaway.RayToCamera` (the mesh-space camera back) feeds both the shader uniform
+  and the `TerrainHidden`/`Occluded` probe.
+- **The building cut is by storey band, and a flat plane cannot replace it.** `Terrain.gdshader`'s
+  `band_cut` hides a slab when its own floor band (`UV2.x`) is above `viewer_band`, and a wall, prop
+  or furniture fragment when its height band is. A clip plane at 3 m would keep the next floor's
+  slab (its underside sits below the plane) and reveal it from above. The front-wall stub reads
+  `UV2.x` as the wall's top and `UV` as its owner tile, so both must keep their current meaning for
+  walls. The gate is `Cutaway.ClipH` (roofed, or a building between Niko and the camera): it reads
+  only floors and walls, so a natural cliff hides its tiles through the cliff window without
+  opening a building, and an outdoor building that blocks Niko does open (Dev-033).
 - **The iso-space shader only samples a texture when `layer >= 0`.** Furniture and the plain object
   box pass `topLayer = -1`, so `Terrain.gdshader` takes the `col = base * tint` branch and just
   tints the vertex `COLOR.rgb`; a voxel's alpha does not need a face-code encoded into it the way a

@@ -4,47 +4,95 @@ using Godot;
 namespace EtherBound.Game.Spike;
 
 /// <summary>
-/// Stage-0 cutaway over the dump grid (VISION [Sec. 5]): roofed or hidden behind a structure means
-/// everything built more than 2 m above Niko's feet is clipped. In render space the ray toward the
-/// camera advances 1 m in x, 1 m in y and 1 m in height per step, so it walks the grid directly.
+/// Stage-0 cutaway over the dump grid (VISION [Sec. 5]): roofed, or hidden behind a structure, means
+/// every built storey one 3 m band above Niko is hidden, while a wall of his own band standing in
+/// front of him is cut to a stub. In render space the ray toward the camera advances 1 m in x, 1 m in
+/// y and 1 m in height per step, so it walks the grid directly.
 /// </summary>
 public static class Cutaway
 {
     private const int HeadroomH = 4;
+    // Radius of the round transparent cliff hole around Niko, in screen metres, shared with the
+    // silhouette outline: the size the cliff shot reads well with. It can also reach walls and
+    // stairs that do not cover him, so the window only opens when natural terrain itself hides his
+    // body (TerrainHidden); a building that hides him opens its storey through the band cut.
+    private const float CliffCutRadius = 6f;
+    // Niko's capsule, shared with the mesh WorldClient builds for him.
+    public const float BodyRadius = 0.22f;
+    public const float BodyHeight = 1.7f;
 
     public static float LevelClipH(int actorH) => (WorldDump.FloorDiv(actorH, WorldDump.LevelH) + 1) * WorldDump.LevelH;
 
     public static void UpdateView(ShaderMaterial terrain, ShaderMaterial structure, ShaderMaterial glass,
-        WorldDump world, Vector3 feet, Vector3 actorPosition, int actorH, Node3D root, Camera3D camera,
-        bool enabled, bool levelOnly)
+        ShaderMaterial outline, WorldDump world, Vector3 feet, Vector3 actorPosition, Vector3? cursorTerrain,
+        int actorH, Node3D root, Camera3D camera, bool enabled, bool levelOnly)
     {
-        var aroundPlayer = enabled && !levelOnly && Hidden(world, feet.X, feet.Z, actorH);
-        var clip = !enabled ? float.PositiveInfinity : levelOnly
-            ? Math.Min(LevelClipH(actorH), ClipH(world, feet.X, feet.Z, actorH)) : float.PositiveInfinity;
+        // A roof over Niko, or a building between him and the camera, opens his storey: every built
+        // floor or wall one band above him is hidden (Dev-033). ClipH only reads floors and walls,
+        // never natural terrain, so a cliff is left to the view cone and does not open a building. A
+        // flat plane would hide the next floor's slab only from its bottom, so the cut follows the
+        // band, not a height. The probe follows the true camera ray (in sim axes: x, y, height).
+        var meshBack = RayToCamera(root, camera);
+        var probe = new Vector3(meshBack.X, meshBack.Z, meshBack.Y);
+        var covered = ClipH(world, feet.X, feet.Z, actorH, probe);
+        var clip = !enabled ? float.PositiveInfinity
+            : levelOnly ? Math.Min(LevelClipH(actorH), covered) : float.PositiveInfinity;
         var clipH = float.IsInfinity(clip) ? 100000f : clip;
+        var bandCut = enabled && (levelOnly || !float.IsInfinity(covered));
+        var viewerBand = WorldDump.FloorDiv(actorH, WorldDump.LevelH);
         structure.SetShaderParameter("clip_h", clipH);
         glass.SetShaderParameter("clip_h", clipH);
         terrain.SetShaderParameter("clip_enabled", enabled && levelOnly);
         terrain.SetShaderParameter("clip_h", clipH);
-        UpdateCliffShader(terrain, root, camera, actorPosition, aroundPlayer);
-        UpdateCliffShader(structure, root, camera, actorPosition, aroundPlayer);
+        foreach (var material in new[] { terrain, structure })
+        {
+            material.SetShaderParameter("band_cut", bandCut);
+            material.SetShaderParameter("viewer_band", viewerBand);
+            material.SetShaderParameter("viewer_h", (float)actorH);
+            // The front-wall stub rides the same gate as the level cut: it opens Niko's own storey,
+            // and outside a building the level view does not apply.
+            material.SetShaderParameter("wall_stub", enabled && !levelOnly && bandCut);
+        }
+        glass.SetShaderParameter("band_cut", bandCut);
+        glass.SetShaderParameter("viewer_band", viewerBand);
+        // The outline pass draws the silhouette of the cut terrain, so it shares the window uniforms.
+        outline.SetShaderParameter("viewer_h", (float)actorH);
+        // The two windows are independent: Niko's follows its own occluder (a building that covers
+        // him never cuts the ground), and the cursor's opens on its own while it rests on ground
+        // above Niko's half-metre line, so the hole follows the mouse on cliffs and banks.
+        var aroundPlayer = enabled && !levelOnly && TerrainHidden(world, feet.X, feet.Z, actorH, probe);
+        var cursorOn = enabled && !levelOnly && cursorTerrain is { } point && point.Y * 2f > actorH + 1f;
+        var cursorCenter = cursorTerrain ?? actorPosition;
+        UpdateCliffShader(terrain, root, camera, actorPosition, aroundPlayer, cursorCenter, cursorOn);
+        UpdateCliffShader(structure, root, camera, actorPosition, aroundPlayer, cursorCenter, cursorOn);
+        UpdateCliffShader(outline, root, camera, actorPosition, aroundPlayer, cursorCenter, cursorOn);
     }
 
+    /// <summary>The camera's backward direction in unscaled mesh space, unit length.</summary>
+    private static Vector3 RayToCamera(Node3D root, Camera3D camera) =>
+        (root.GlobalTransform.Basis.Inverse() * camera.GlobalBasis.Z).Normalized();
+
     public static void UpdateCliffShader(ShaderMaterial material, Node3D root, Camera3D camera,
-        Vector3 actorPosition, bool enabled)
+        Vector3 nikoCenter, bool nikoOn, Vector3 cursorCenter, bool cursorOn)
     {
         // Project local mesh coordinates through the root's vertical scale onto the camera axes.
         var projection = root.GlobalBasis.Transposed();
-        material.SetShaderParameter("cliff_cut_center", actorPosition);
+        material.SetShaderParameter("cliff_cut_center", nikoCenter);
         material.SetShaderParameter("cliff_cut_right", projection * camera.GlobalBasis.X);
         material.SetShaderParameter("cliff_cut_up", projection * camera.GlobalBasis.Y);
-        material.SetShaderParameter("cliff_cutaway_enabled", enabled);
+        // The camera ray in unscaled mesh coordinates, so the windows only open toward the camera.
+        material.SetShaderParameter("cliff_cut_back", RayToCamera(root, camera));
+        // One radius for both windows and the silhouette outline, so they never drift.
+        material.SetShaderParameter("cliff_cut_radius", CliffCutRadius);
+        material.SetShaderParameter("cliff_cutaway_enabled", nikoOn);
+        material.SetShaderParameter("cursor_cut_center", cursorCenter);
+        material.SetShaderParameter("cursor_cutaway_enabled", cursorOn);
     }
 
-    public static float ClipH(WorldDump world, float x, float y, int viewerH)
+    public static float ClipH(WorldDump world, float x, float y, int viewerH, Vector3 ray)
     {
         int nx = (int)MathF.Floor(x), ny = (int)MathF.Floor(y);
-        if (Roofed(world, nx, ny, viewerH) || Occluded(world, x, y, viewerH)) return viewerH + HeadroomH;
+        if (Roofed(world, nx, ny, viewerH) || Occluded(world, x, y, viewerH, ray)) return viewerH + HeadroomH;
         return float.PositiveInfinity;
     }
 
@@ -77,13 +125,13 @@ public static class Cutaway
         return false;
     }
 
-    private static bool Occluded(WorldDump world, float x, float y, int viewerH)
+    private static bool Occluded(WorldDump world, float x, float y, int viewerH, Vector3 ray)
     {
         var feetM = viewerH * 0.5f;
-        for (var s = 0.3f; s < 40f; s += 0.05f)
+        for (var t = 0.25f; t < 72f; t += 0.2f)
         {
-            float px = x + s, py = y + s, hm = feetM + 0.9f + s;
-            var hh = hm * 2;
+            float px = x + ray.X * t, py = y + ray.Y * t;
+            var hh = (feetM + 0.9f + ray.Z * t) * 2f;
             if (hh <= viewerH + HeadroomH) continue;
             if (Structure(world, px, py, hh)) return true;
         }
@@ -94,24 +142,35 @@ public static class Cutaway
     // heights cover legs, torso and head, so the circle only lights up when he is really covered.
     private static readonly float[] BodyHeights = { 0.5f, 1.0f, 1.5f };
 
-    /// <summary>True when terrain or a structure stands between the camera and Niko's body.</summary>
-    public static bool Hidden(WorldDump world, float x, float y, int viewerH)
+    /// <summary>True when natural terrain stands between the camera and Niko's body.</summary>
+    public static bool TerrainHidden(WorldDump world, float x, float y, int viewerH, Vector3 ray)
     {
         var feetM = viewerH * 0.5f;
         foreach (var body in BodyHeights)
-        for (var s = 0.25f; s < 40f; s += 0.25f)
+        for (var t = 0.25f; t < 72f; t += 0.2f)
         {
-            float px = x + s, py = y + s;
-            if (Blocked(world, px, py, feetM + body + s)) return true;
+            float px = x + ray.X * t, py = y + ray.Y * t;
+            int tx = (int)MathF.Floor(px), ty = (int)MathF.Floor(py);
+            if (world.SolidTopH(tx, ty) is { } top && top * 0.5f >= feetM + body + ray.Z * t) return true;
         }
         return false;
     }
 
-    private static bool Blocked(WorldDump world, float px, float py, float hm)
+    /// <summary>
+    /// The first natural-terrain point under a cursor ray, in unscaled mesh space (x, metres of
+    /// height, y), or null when a structure or the sky is hit first: the window follows the cursor
+    /// only over ground.
+    /// </summary>
+    public static Vector3? CursorTerrain(WorldDump world, Vector3 origin, Vector3 direction)
     {
-        int tx = (int)MathF.Floor(px), ty = (int)MathF.Floor(py);
-        if (world.SolidTopH(tx, ty) is { } top && top * 0.5f >= hm) return true;
-        return Structure(world, px, py, hm * 2f);
+        for (var t = 0f; t < 420f; t += 0.25f)
+        {
+            var p = origin + direction * t;
+            if (Structure(world, p.X, p.Z, p.Y * 2f)) return null;
+            int tx = (int)MathF.Floor(p.X), ty = (int)MathF.Floor(p.Z);
+            if (world.SolidTopH(tx, ty) is { } top && p.Y <= top * 0.5f) return p;
+        }
+        return null;
     }
 
     private static bool Structure(WorldDump world, float px, float py, float hh)

@@ -3,7 +3,7 @@
 // camera snapped to the art-pixel grid one texel lands on one art pixel. Mirrors the web client's
 // tileMasks.ts / terrainSprites.ts rules (variants, cap rows, height shading).
 shader_type spatial;
-render_mode cull_disabled, specular_disabled, depth_prepass_alpha;
+render_mode cull_disabled, specular_disabled;
 
 uniform sampler2DArray tops : filter_nearest, repeat_disable;
 uniform sampler2DArray sides : filter_nearest, repeat_disable;
@@ -11,11 +11,31 @@ uniform sampler2DArray sides : filter_nearest, repeat_disable;
 uniform int tex_mode = 0;
 uniform bool clip_enabled = false;
 uniform float clip_h = 100000.0;
+// Level cut (Dev-033): hide a built fragment whose storey sits above Niko's 3 m band, and cut the
+// walls of his own band that stand in front of him to a stub.
+uniform bool band_cut = false;
+uniform int viewer_band = 0;
+uniform float viewer_h = 0.0;
+uniform bool wall_stub = false;
 uniform bool cliff_cutaway_enabled = false;
 uniform vec3 cliff_cut_center = vec3(0.0);
+// The cursor's own window, independent of Niko's: both can clear at once, each on the same rules.
+uniform bool cursor_cutaway_enabled = false;
+uniform vec3 cursor_cut_center = vec3(0.0);
 uniform vec3 cliff_cut_right = vec3(1.0, 0.0, 0.0);
 uniform vec3 cliff_cut_up = vec3(0.0, 1.0, 0.0);
+uniform vec3 cliff_cut_back = vec3(0.5773503);
+// Radius of each round line-of-sight window, in screen metres: the size the cliff cut reads well
+// with. It can also reach walls and stairs that do not cover him, so Cutaway opens Niko's window
+// only when natural terrain itself hides him (Dev-033).
+uniform float cliff_cut_radius = 6.0;
 uniform bool height_shading = true;
+
+// Mirrors ChunkMesher's face codes (COLOR.a * 8).
+const int CODE_WALL_N = 3;
+const int CODE_WALL_W = 4;
+const int CODE_SLAB_TOP = 6;
+const int CODE_SLAB_SIDE = 7;
 
 varying vec3 wpos;
 varying vec3 lnormal;
@@ -59,6 +79,32 @@ vec3 to_linear(vec3 c) {
 	return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c));
 }
 
+// Distance to the nearest boundary of Niko's window, or a large value when the point is outside it:
+// a disc that only opens toward the camera and only above 0.5 m over Niko's feet (the floor and the
+// lower stairs stay whole).
+float niko_rim(vec3 point, float hh) {
+	vec3 offset = point - cliff_cut_center;
+	float len = length(vec2(dot(offset, cliff_cut_right), dot(offset, cliff_cut_up)));
+	float front = dot(offset, cliff_cut_back);
+	float above = hh - viewer_h;
+	bool inside = len < cliff_cut_radius && above > 1.0 && front > 0.0;
+	float aboveM = above * 0.5;
+	float rim = min(min(abs(len - cliff_cut_radius), abs(aboveM - 0.5)), abs(front));
+	return inside ? rim : 1e6;
+}
+
+// The same for the cursor's window, but fully round: no view-plane cut, so no line crosses its
+// center.
+float cursor_rim(vec3 point, float hh) {
+	vec3 offset = point - cursor_cut_center;
+	float len = length(vec2(dot(offset, cliff_cut_right), dot(offset, cliff_cut_up)));
+	float above = hh - viewer_h;
+	bool inside = len < cliff_cut_radius && above > 1.0;
+	float aboveM = above * 0.5;
+	float rim = min(abs(len - cliff_cut_radius), abs(aboveM - 0.5));
+	return inside ? rim : 1e6;
+}
+
 void fragment() {
 	float hh = wpos.y * 2.0;
 	if (clip_enabled && hh > clip_h + 0.001) discard;
@@ -69,19 +115,50 @@ void fragment() {
 	vec3 base = COLOR.rgb;
 	vec3 col;
 	bool is_top = lnormal.y > 0.5;
-	// Codes: 0 terrain/floor top, 1/2 exposed terrain sides; walls, props and furniture stay.
+	// Level cut: a slab's band comes from its floor and a wall's from its top minus one storey, both
+	// in face_top, so each build is kept or dropped whole; props and furniture follow their own
+	// height. Natural ground (0-2) is left to the circular window.
+	if (band_cut) {
+		if (code == CODE_SLAB_TOP || code == CODE_SLAB_SIDE) {
+			if (int(floor(face_top / 6.0)) > viewer_band) discard;
+		} else if (code == CODE_WALL_N || code == CODE_WALL_W) {
+			if (int(floor(face_top / 6.0)) - 1 > viewer_band) discard;
+		} else if (code >= 5 && int(floor(hh / 6.0)) > viewer_band) {
+			discard;
+		}
+	}
+	// Front-wall stub: a wall of Niko's own band on the camera side is cut to half a metre, so it
+	// opens the storey instead of hiding him; the walls behind him stay whole (Dev-008, Dev-033).
+	if (wall_stub && (code == CODE_WALL_N || code == CODE_WALL_W)) {
+		bool north = code == CODE_WALL_N;
+		int nx = int(floor(cliff_cut_center.x));
+		int ny = int(floor(cliff_cut_center.z));
+		bool front = north ? owner.y > ny : owner.x > nx;
+		bool same_band = int(floor(face_top / 6.0)) - 1 == viewer_band;
+		if (front && same_band && hh > viewer_h + 1.0) discard;
+	}
+	// The cliff windows cut natural ground only: 0 top, 1/2 exposed sides. Built slabs (6/7),
+	// walls (3/4), props (5) and furniture stay, so floors and stairs keep their shape.
 	bool cut_top = is_top && code == 0;
 	bool cut_side = !is_top && (code == 1 || code == 2);
-	if (cliff_cutaway_enabled && (cut_top || cut_side)) {
-		vec3 offset = wpos - cliff_cut_center;
-		float horizontal = dot(offset, cliff_cut_right);
-		float vertical = dot(offset, cliff_cut_up);
-		float screen_radius = length(vec2(horizontal, vertical));
-		// One clean circular window: every terrain tile around Niko clears except the floor he stands
-		// on, so a tile's top and faces never split into floating crumbs.
-		bool upper_top = cut_top && wpos.y > cliff_cut_center.y - 0.8;
-		float fade = (1.0 - smoothstep(1.2, 1.5, screen_radius)) * float(cut_side || upper_top);
-		ALPHA = 1.0 - fade;
+	bool cut_rim = false;
+	if (!IN_SHADOW_PASS && (cliff_cutaway_enabled || cursor_cutaway_enabled) && (cut_top || cut_side)) {
+		// Niko's and the cursor's round holes fuse into one area: the rim only traces the outer
+		// boundary of the union, so where they overlap there is no seam between them. Each keeps its
+		// own clips (Niko's never opens behind him; the cursor's is fully round), and the rim draws
+		// with the outline cream, as the silhouette geometry does, so the opening is traced.
+		float niko = cliff_cutaway_enabled ? niko_rim(wpos, hh) : 1e6;
+		float cursor = cursor_cutaway_enabled ? cursor_rim(wpos, hh) : 1e6;
+		bool inNiko = niko < 1e5;
+		bool inCursor = cursor < 1e5;
+		if (inNiko || inCursor) {
+			float rim = inNiko && inCursor ? max(niko, cursor) : min(niko, cursor);
+			cut_rim = rim <= 0.08;
+			// Discard, never alpha-zero: the material stays opaque and writes no depth where it
+			// clears. The shadow pass skips this whole block (IN_SHADOW_PASS), so the removed mass
+			// keeps casting exactly as if it were intact (Dev-033).
+			if (!cut_rim) discard;
+		}
 	}
 	if (is_top) {
 		ivec2 tile = ivec2(floor(wpos.xz));
@@ -114,6 +191,8 @@ void fragment() {
 			col = base * tint;
 		}
 	}
+	// The rim reads as the silhouette, so it takes the same cream as ChunkMesher.OutlineColor.
+	if (cut_rim) col = vec3(0.93, 0.90, 0.82);
 	ALBEDO = to_linear(col);
 	NORMAL = view_normal;
 }

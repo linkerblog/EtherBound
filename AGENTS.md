@@ -43,6 +43,9 @@ and the build order; several rules below look arbitrary until you read why they 
   `game.*`), `FixNN.md` for reviews, and `InfraNN.md` for tooling, tests or process only. Before
   creating any `.md`, check whether it already exists and reuse it.
 - **Plans.** Lifecycle (`docs/` → `docs/done/`), format and closing a phase: `docs/utils/PLANS.md`.
+- **System map.** After finishing work that changes or clarifies a current game system, its
+  architecture, module boundaries or data flow, update `docs/excalidraw/system-map.excalidraw` in
+  the same task. Unrelated work does not require a diagram update.
 - **Vision changes go to `docs/utils/VISION.md` first.** If a decision changes, update the doc, then the code.
 - **Versions.** `docs/utils/VERSION.md` lists every module (from `v0.0.0`); a change bumps each
   module it touches by `0.0.1` in the same change, and the overall version matches the latest

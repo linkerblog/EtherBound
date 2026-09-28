@@ -11,12 +11,16 @@ namespace EtherBound.Game.Spike;
 /// </summary>
 public sealed class ChunkMesher
 {
-    // Face codes, read back by the shader from COLOR.a * 8.
+    // Face codes, read back by the shader from COLOR.a * 8. Codes 0-2 are natural ground, the only
+    // ones the cliff-cutaway window cuts; 6/7 are built slabs, so floors and stairs stay whole.
     public const int Top = 0, SouthFace = 1, EastFace = 2, WallNorth = 3, WallWest = 4, Prop = 5;
+    public const int SlabTop = 6, SlabSide = 7;
     // A face with no grass lip (void-cut or boundary) never gets a cap row.
     private const int FillOnly = -9999;
     private const int BoundaryBottom = -12;
     private const float WallT = 0.25f;
+    // Width of the silhouette strips the outline pass draws along a cut terrain's outer edges.
+    private const float OutlineW = 0.06f;
 
     private readonly WorldDump _world;
     private readonly Dictionary<int, int> _topLayers;
@@ -25,10 +29,12 @@ public sealed class ChunkMesher
     private readonly ShaderMaterial _terrainMaterial;
     private readonly ShaderMaterial _structureMaterial;
     private readonly ShaderMaterial _glassMaterial;
+    private readonly ShaderMaterial _outlineMaterial;
 
     public ChunkMesher(WorldDump world, Dictionary<int, int> topLayers, Dictionary<int, int> sideLayers,
         Dictionary<int, int> cliffSideLayers,
-        ShaderMaterial terrainMaterial, ShaderMaterial structureMaterial, ShaderMaterial glassMaterial)
+        ShaderMaterial terrainMaterial, ShaderMaterial structureMaterial, ShaderMaterial glassMaterial,
+        ShaderMaterial outlineMaterial)
     {
         _world = world;
         _topLayers = topLayers;
@@ -37,6 +43,7 @@ public sealed class ChunkMesher
         _terrainMaterial = terrainMaterial;
         _structureMaterial = structureMaterial;
         _glassMaterial = glassMaterial;
+        _outlineMaterial = outlineMaterial;
     }
 
     public sealed class Builder
@@ -84,6 +91,7 @@ public sealed class ChunkMesher
         public readonly Builder Terrain = new();
         public readonly Builder Structure = new();
         public readonly Builder Glass = new();
+        public readonly Builder Outline = new();
     }
 
     public sealed record ChunkMeshes(ArrayMesh? Mesh);
@@ -112,7 +120,10 @@ public sealed class ChunkMesher
                 var x = cx * WorldDump.ChunkSize + lx;
                 var y = cy * WorldDump.ChunkSize + ly;
                 if (_world.SolidTopH(x, y) is { } ground)
-                    Ground(Band(WorldDump.FloorDiv(ground, WorldDump.LevelH)).Terrain, x, y);
+                {
+                    var band = Band(WorldDump.FloorDiv(ground, WorldDump.LevelH));
+                    Ground(band.Terrain, band.Outline, x, y);
+                }
                 foreach (var (level, index) in _world.LevelsAt(x, y))
                 {
                     // A slab resting on the solid ground is ground for the cutaway: clipping it would
@@ -135,12 +146,13 @@ public sealed class ChunkMesher
             band.Terrain.AddSurface(mesh, _terrainMaterial);
             band.Structure.AddSurface(mesh, _structureMaterial);
             band.Glass.AddSurface(mesh, _glassMaterial);
+            band.Outline.AddSurface(mesh, _outlineMaterial);
             result[z] = new ChunkMeshes(mesh.GetSurfaceCount() == 0 ? null : mesh);
         }
         return result;
     }
 
-    private void Ground(Builder b, int x, int y)
+    private void Ground(Builder b, Builder outline, int x, int y)
     {
         if (_world.GroundH(x, y) is not { } ground || _world.SolidTopH(x, y) is not { } solid) return;
         var mat = _world.SurfaceMat(x, y);
@@ -159,14 +171,94 @@ public sealed class ChunkMesher
         {
             b.Quad(new(x, M(south), y + 1), new(x + 1, M(south), y + 1), new(x + 1, M(solid), y + 1),
                 new(x, M(solid), y + 1), Vector3.Back, MaterialColor(mat, SouthFace), owner, new(faceTop, sideLayer));
+            OutlineFace(outline, x, y, solid, south, south: true);
         }
         var east = _world.SolidTopH(x + 1, y) ?? BoundaryBottom;
         if (east < solid && !AnyWall(x + 1, y, false))
         {
             b.Quad(new(x + 1, M(east), y), new(x + 1, M(east), y + 1), new(x + 1, M(solid), y + 1),
                 new(x + 1, M(solid), y), Vector3.Right, MaterialColor(mat, EastFace), owner, new(faceTop, sideLayer));
+            OutlineFace(outline, x, y, solid, east, south: false);
+        }
+        // A drop away from the camera draws no face, so its crest stays invisible until the cliff
+        // window makes the surrounding ground transparent; it keeps the cut's far (north and west)
+        // boundary readable as a silhouette (Dev-033).
+        var north = _world.SolidTopH(x, y - 1) ?? BoundaryBottom;
+        if (north < solid && !AnyWall(x, y, true) && !RestsOnGround(x, y))
+            Crest(outline, x, y, solid, north: true);
+        var west = _world.SolidTopH(x - 1, y) ?? BoundaryBottom;
+        if (west < solid && !AnyWall(x, y, false) && !RestsOnGround(x, y))
+            Crest(outline, x, y, solid, north: false);
+    }
+
+    /// <summary>A bare drop's top edge, for the drops whose riser faces away from the camera. A
+    /// wall on the shared edge or a floor resting on the ground hides the drop, so those are
+    /// skipped: a strip there would poke through the wall or the floor.</summary>
+    private void Crest(Builder o, int x, int y, int top, bool north)
+    {
+        float h = M(top);
+        if (north)
+        {
+            float z = y - 0.01f;
+            o.Quad(new(x, h - OutlineW, z), new(x + 1, h - OutlineW, z), new(x + 1, h, z), new(x, h, z),
+                Vector3.Forward, OutlineColor, default, default);
+        }
+        else
+        {
+            float wx = x - 0.01f;
+            o.Quad(new(wx, h - OutlineW, y), new(wx, h - OutlineW, y + 1), new(wx, h, y + 1), new(wx, h, y),
+                Vector3.Left, OutlineColor, default, default);
         }
     }
+
+    private bool RestsOnGround(int x, int y)
+    {
+        if (_world.SolidTopH(x, y) is not { } solid) return false;
+        foreach (var (level, i) in _world.LevelsAt(x, y))
+            if (level.FloorH[i] != WorldDump.NoFloor && level.FloorH[i] <= solid) return true;
+        return false;
+    }
+
+    /// <summary>The outer edges of one ground face: its top crest and the ends it does not share
+    /// with the next tile. The outline pass draws them only where the mass is made transparent.</summary>
+    private void OutlineFace(Builder o, int x, int y, int top, int bottom, bool south)
+    {
+        float h = M(top), lo = M(bottom);
+        if (south)
+        {
+            float z = y + 1f + 0.01f;
+            o.Quad(new(x, h - OutlineW, z), new(x + 1, h - OutlineW, z), new(x + 1, h, z), new(x, h, z), Vector3.Back,
+                OutlineColor, default, default);
+            if (!SouthContinues(x - 1, y, top))
+                o.Quad(new(x, lo, z), new(x + OutlineW, lo, z), new(x + OutlineW, h, z), new(x, h, z), Vector3.Back,
+                    OutlineColor, default, default);
+            if (!SouthContinues(x + 1, y, top))
+                o.Quad(new(x + 1 - OutlineW, lo, z), new(x + 1, lo, z), new(x + 1, h, z), new(x + 1 - OutlineW, h, z),
+                    Vector3.Back, OutlineColor, default, default);
+        }
+        else
+        {
+            float wx = x + 1f + 0.01f;
+            o.Quad(new(wx, h - OutlineW, y), new(wx, h - OutlineW, y + 1), new(wx, h, y + 1), new(wx, h, y), Vector3.Right,
+                OutlineColor, default, default);
+            if (!EastContinues(x, y - 1, top))
+                o.Quad(new(wx, lo, y), new(wx, lo, y + OutlineW), new(wx, h, y + OutlineW), new(wx, h, y), Vector3.Right,
+                    OutlineColor, default, default);
+            if (!EastContinues(x, y + 1, top))
+                o.Quad(new(wx, lo, y + 1 - OutlineW), new(wx, lo, y + 1), new(wx, h, y + 1), new(wx, h, y + 1 - OutlineW),
+                    Vector3.Right, OutlineColor, default, default);
+        }
+    }
+
+    private static readonly Color OutlineColor = new(0.93f, 0.90f, 0.82f, 1f);
+
+    private bool SouthContinues(int x, int y, int top) =>
+        _world.SolidTopH(x, y) == top && (_world.SolidTopH(x, y + 1) ?? BoundaryBottom) < top
+        && !AnyWall(x, y + 1, true);
+
+    private bool EastContinues(int x, int y, int top) =>
+        _world.SolidTopH(x, y) == top && (_world.SolidTopH(x + 1, y) ?? BoundaryBottom) < top
+        && !AnyWall(x + 1, y, false);
 
     private Vector3 GroundNormal(int x, int y, int height)
     {
@@ -193,20 +285,20 @@ public sealed class ChunkMesher
             var mat = level.FloorMat[i];
             var h = M(floor);
             slab.Quad(new(x, h, y), new(x + 1, h, y), new(x + 1, h, y + 1), new(x, h, y + 1), Vector3.Up,
-                MaterialColor(mat, Top), owner, new(floor, TopLayer(mat)));
+                MaterialColor(mat, SlabTop), owner, new(floor, TopLayer(mat)));
             var lo = M(floor - 1);
             var south = NeighbourFloor(x, y + 1, level.Z);
             // A wall on the shared edge covers the slab's edge face; drawing both z-fights.
             if ((south == WorldDump.NoFloor || south < floor) && !HasWall(x, y + 1, level.Z, true))
             {
                 slab.Quad(new(x, lo, y + 1), new(x + 1, lo, y + 1), new(x + 1, h, y + 1), new(x, h, y + 1),
-                    Vector3.Back, MaterialColor(mat, SouthFace), owner, new(floor, SideLayer(mat)));
+                    Vector3.Back, MaterialColor(mat, SlabSide), owner, new(floor, SideLayer(mat)));
             }
             var east = NeighbourFloor(x + 1, y, level.Z);
             if ((east == WorldDump.NoFloor || east < floor) && !HasWall(x + 1, y, level.Z, false))
             {
                 slab.Quad(new(x + 1, lo, y), new(x + 1, lo, y + 1), new(x + 1, h, y + 1), new(x + 1, h, y),
-                    Vector3.Right, MaterialColor(mat, EastFace), owner, new(floor, SideLayer(mat)));
+                    Vector3.Right, MaterialColor(mat, SlabSide), owner, new(floor, SideLayer(mat)));
             }
         }
         Wall(b, glass, x, y, level, i, north: true);
@@ -338,7 +430,11 @@ public sealed class ChunkMesher
     private static void Box(Builder b, float x0, float x1, float y0, float y1, float h0, float h1, Color color,
         Vector2 owner, Vector2 extra, int topLayer)
     {
-        var topColor = color with { A = color.A == Prop / 8f ? color.A : Top / 8f };
+        // A wall keeps its code on the top strip, so the circular window (codes 0-2 only) cannot
+        // punch it; other boxes drop to the terrain top code as before.
+        var code = (int)MathF.Round(color.A * 8f);
+        var topCode = code is Prop or WallNorth or WallWest ? code : Top;
+        var topColor = color with { A = topCode / 8f };
         b.Quad(new(x0, h1, y0), new(x1, h1, y0), new(x1, h1, y1), new(x0, h1, y1), Vector3.Up, topColor, owner,
             new(extra.X, topLayer));
         b.Quad(new(x0, h0, y1), new(x1, h0, y1), new(x1, h1, y1), new(x0, h1, y1), Vector3.Back, color, owner, extra);

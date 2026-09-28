@@ -36,7 +36,7 @@ public partial class WorldClient : Node
     private WorldDump? _world;
     private WorldFrame? _frame;
     private TrajectoryAnimator _trajectoryAnimator = null!;
-    private ShaderMaterial _terrainMat = null!, _structureMat = null!, _glassMat = null!;
+    private ShaderMaterial _terrainMat = null!, _structureMat = null!, _glassMat = null!, _outlineMat = null!;
     private Godot.Environment _env = null!;
     private DirectionalLight3D _sun = null!;
     private GameHud _gameHud = null!;
@@ -245,12 +245,48 @@ public partial class WorldClient : Node
                     shader_type spatial;
                     render_mode cull_disabled, specular_disabled, depth_draw_never;
                     uniform float clip_h = 100000.0;
+                    uniform bool band_cut = false;
+                    uniform int viewer_band = 30;
                     varying float hh;
                     void vertex() { hh = VERTEX.y * 2.0; }
                     void fragment() {
+                        if (band_cut && int(floor(hh / 6.0)) > viewer_band) discard;
                         if (hh > clip_h + 0.001) discard;
                         ALBEDO = vec3(0.686, 0.791, 0.871);
                         ALPHA = 0.45;
+                    }
+                    """,
+            },
+        };
+        _outlineMat = new ShaderMaterial
+        {
+            Shader = new Shader
+            {
+                Code = """
+                    shader_type spatial;
+                    render_mode unshaded, cull_disabled, depth_draw_opaque;
+                    uniform bool cliff_cutaway_enabled = false;
+                    uniform vec3 cliff_cut_center = vec3(0.0);
+                    uniform bool cursor_cutaway_enabled = false;
+                    uniform vec3 cursor_cut_center = vec3(0.0);
+                    uniform vec3 cliff_cut_right = vec3(1.0, 0.0, 0.0);
+                    uniform vec3 cliff_cut_up = vec3(0.0, 1.0, 0.0);
+                    uniform vec3 cliff_cut_back = vec3(0.5773503);
+                    uniform float cliff_cut_radius = 6.0;
+                    uniform float viewer_h = 0.0;
+                    varying vec3 wpos;
+                    void vertex() { wpos = VERTEX; }
+                    bool inside_window(vec3 center, bool front_cut) {
+                        vec3 offset = wpos - center;
+                        float len = length(vec2(dot(offset, cliff_cut_right), dot(offset, cliff_cut_up)));
+                        return len < cliff_cut_radius && (wpos.y * 2.0 - viewer_h) > 1.0
+                            && (!front_cut || dot(offset, cliff_cut_back) > 0.0);
+                    }
+                    void fragment() {
+                        bool inside = (cliff_cutaway_enabled && inside_window(cliff_cut_center, true))
+                            || (cursor_cutaway_enabled && inside_window(cursor_cut_center, false));
+                        if (!inside) discard;
+                        ALBEDO = COLOR.rgb;
                     }
                     """,
             },
@@ -267,7 +303,8 @@ public partial class WorldClient : Node
             _chunkMeshes[key].QueueFree();
             _chunkMeshes.Remove(key);
         }
-        var mesher = new ChunkMesher(_world!, _topLayers, _sideLayers, _cliffSideLayers, _terrainMat, _structureMat, _glassMat);
+        var mesher = new ChunkMesher(_world!, _topLayers, _sideLayers, _cliffSideLayers, _terrainMat, _structureMat,
+            _glassMat, _outlineMat);
         foreach (var chunk in frame.Chunks)
         {
             if (!build.Contains((chunk.Cx, chunk.Cy))) continue;
@@ -335,7 +372,7 @@ public partial class WorldClient : Node
                 node = new MeshInstance3D
                 {
                     Name = actor.Id,
-                    Mesh = new CapsuleMesh { Radius = 0.22f, Height = 1.7f, Material = material },
+                    Mesh = new CapsuleMesh { Radius = Cutaway.BodyRadius, Height = Cutaway.BodyHeight, Material = material },
                 };
                 _root.AddChild(node);
                 node.Position = ToVector(target);
@@ -434,9 +471,21 @@ public partial class WorldClient : Node
         var feet = player.Position - new Vector3(0, 0.85f, 0);
         _view.Follow(feet * new Vector3(1, PixelView.VerticalScale, 1) + new Vector3(0, 0.6f, 0));
         if (_world is null || _frame is null) return;
-        Cutaway.UpdateView(_terrainMat, _structureMat, _glassMat, _world, feet, player.Position,
-            _frame.Actors.First(a => a.Id == Ids.Player).H, _root, _view.Camera,
+        Cutaway.UpdateView(_terrainMat, _structureMat, _glassMat, _outlineMat, _world, feet, player.Position,
+            CursorTerrainPoint(), _frame.Actors.First(a => a.Id == Ids.Player).H, _root, _view.Camera,
             _cutaway, _levelOnlyView);
+    }
+
+    /// <summary>The terrain point under the cursor in mesh space, while the right button is held.</summary>
+    private Vector3? CursorTerrainPoint()
+    {
+        if (_scripted || !_cutaway || _levelOnlyView || _world is null
+            || !Input.IsMouseButtonPressed(MouseButton.Right)
+            || _gameHud.ActiveView != "GAME" || _gameHud.InputHasFocus || _gameHud.NewGameVisible)
+            return null;
+        var (origin, direction) = _view.RayFromScreen(GetViewport().GetMousePosition());
+        var basis = _root.GlobalTransform.Basis;
+        return Cutaway.CursorTerrain(_world, _root.ToLocal(origin), (basis.Inverse() * direction).Normalized());
     }
 
     private void DrainHostResponses()

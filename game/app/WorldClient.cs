@@ -20,6 +20,8 @@ public partial class WorldClient : Node
     private static readonly (string Key, string Top, string Side, string? CliffSide)[] Sheets =
     {
         ("grass", "grass/grass_x4.png", "grass/grass_side_x4.png", "grass/grass_cliff_side_x4.png"),
+        ("topsoil", "floor/dirt_x4.png", "floor/dirt_side_x4.png", null),
+        ("dirt", "floor/dirt_x4.png", "floor/dirt_side_x4.png", null),
         ("wood_floor", "floor/planks_x4.png", "floor/planks_side_x4.png", null),
         ("concrete", "floor/concrete_x4.png", "floor/concrete_side_x4.png", null),
         ("asphalt", "floor/asphalt_x4.png", "floor/asphalt_side_x4.png", null),

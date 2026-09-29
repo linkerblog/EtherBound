@@ -1,6 +1,6 @@
 # Versions
 
-Overall project version: `v4.0.2`
+Overall project version: `v4.0.3`
 
 Every module and its current version. Modules start at `v0.0.0`; each modification bumps its
 version by `0.0.1`, and the bump ships in the same change. The overall project version tracks the
@@ -19,7 +19,7 @@ stays in git log and in `legacy-python-web-stack.zip`, not below.
 | sim.engine | `sim/EtherBound.Sim/Engine/`, `sim/EtherBound.Sim/Clock/` | v0.0.5 |
 | sim.minds | `sim/EtherBound.Sim/Minds/` | v0.0.3 |
 | sim.host | `sim/EtherBound.Host/` | v0.0.5 |
-| game.app | `game/app/`, `game/project.godot`, `game/EtherBound.Game.csproj`, `game/EtherBound.Game.sln`, `game/export_presets.cfg` | v0.0.7 |
+| game.app | `game/app/`, `game/project.godot`, `game/EtherBound.Game.csproj`, `game/EtherBound.Game.sln`, `game/export_presets.cfg` | v0.0.8 |
 | game.render | `game/spike/` | v0.0.8 |
 | game.ui | `game/ui/` | v0.0.5 |
 | tooling | `.gitattributes`, `.githooks/`, `scripts/`, `EtherBound.sln`, `sim/Directory.Build.props`, `sim/EtherBound.Sim/EtherBound.Sim.csproj`, `sim/EtherBound.Sim/BannedSymbols.txt`, `sim/EtherBound.Bench/`, `package.json`, `global.json`, `.gitignore` | v0.0.22 |

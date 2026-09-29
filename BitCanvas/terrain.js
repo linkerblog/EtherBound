@@ -171,6 +171,16 @@ function materialLevel(material, x, y, seed, brightness, face = false) {
     else if (!face && roll >= 1.06 && roll < 1.16) level += 0.7;
     if (grit < 5) level += 1.2;
     else if (grit < 8) level -= 0.8;
+  } else if (material === 'dirt') {
+    // Packed earth on the same tones as the grass patches and the cliff strata:
+    // broad moisture blotches, fine crumb noise, and sparse light speckle.
+    const broad = isoNoise(x + 0.5, y + 0.5, 4, 4, seed);
+    const fine = isoNoise(x + 0.5, y + 0.5, 15, 11, seed ^ 0x2545f491);
+    const grain = materialCellHash(x, y, seed ^ 0x3c6ef372) % 100;
+    level = 3.4 + (broad - 0.5) * 1.2 + (fine - 0.5) * 0.8 + brightness;
+    if (grain < 20) level += 0.9;        // dry crumb, dirtPatch's light tone
+    else if (grain < 26) level -= 1.2;   // dark pore
+    else if (grain === 99) level += 2.4; // rare pebble chip
   } else if (material === 'brick') {
     // Pavers: 4 courses across v, 2 bricks along u, odd courses offset half a brick.
     const course = Math.floor((v + 1) * 2);

@@ -7,6 +7,12 @@ const palettes = {
 };
 
 const materialPalettes = {
+  dirt: {
+    meadow: { name: 'Loam', detail: 'Packed garden soil', ramp: [[56, 40, 26], [70, 50, 31], [85, 62, 38], [101, 73, 44], [118, 85, 52], [136, 100, 62], [152, 113, 70], [170, 128, 82]] },
+    emerald: { name: 'Peat', detail: 'Wet dark soil', ramp: [[30, 24, 18], [40, 32, 24], [52, 42, 31], [66, 54, 40], [82, 68, 50], [100, 84, 62], [118, 100, 76], [138, 118, 92]] },
+    moss: { name: 'Clay', detail: 'Warm red clay', ramp: [[74, 36, 24], [96, 47, 31], [118, 60, 40], [138, 75, 51], [155, 92, 64], [172, 110, 80], [188, 128, 97], [204, 148, 115]] },
+    autumn: { name: 'Dust', detail: 'Pale dry earth', ramp: [[104, 84, 58], [122, 100, 70], [140, 117, 84], [157, 134, 98], [173, 150, 112], [188, 166, 126], [203, 182, 141], [218, 198, 157]] },
+  },
   planks: {
     meadow: { name: 'Oak', detail: 'Warm oak', ramp: [[48, 27, 15], [77, 43, 22], [108, 61, 29], [139, 81, 38], [169, 105, 54], [194, 133, 77], [218, 164, 106], [239, 198, 143]] },
     emerald: { name: 'Walnut', detail: 'Dark walnut', ramp: [[30, 19, 17], [52, 31, 25], [74, 42, 32], [98, 56, 38], [124, 74, 48], [151, 97, 63], [181, 126, 86], [211, 160, 115]] },
@@ -47,6 +53,7 @@ const materialPalettes = {
 
 const GAME_SHEETS = {
   grass: { folder: 'grass', variants: 'grass_x4.png', sides: 'grass_side_x4.png', cliffSides: 'grass_cliff_side_x4.png' },
+  dirt: { folder: 'floor', variants: 'dirt_x4.png', sides: 'dirt_side_x4.png' },
   planks: { folder: 'floor', variants: 'planks_x4.png', sides: 'planks_side_x4.png' },
   cobblestone: { folder: 'floor', variants: 'stone_x4.png', sides: 'stone_side_x4.png' },
   concrete: { folder: 'floor', variants: 'concrete_x4.png', sides: 'concrete_side_x4.png' },

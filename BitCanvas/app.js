@@ -121,6 +121,7 @@ function drawPreview() {
 function updateMaterialControls() {
   const materials = {
     grass: { title: 'Grass texture', subtitle: 'Isometric surface', corner: 'GRASS FIELD', description: 'Seeded grass with variation, clean edges, and seamless tiling.' },
+    dirt: { title: 'Dirt texture', subtitle: 'Packed earth', corner: 'BARE GROUND', description: 'Packed earth with moisture blotches, crumb speckle and scattered pebbles.' },
     planks: { title: 'Planks texture', subtitle: 'Wooden boards', corner: 'WOODEN DECK', description: 'Grained planks with staggered joints and wood palettes.' },
     cobblestone: { title: 'Cobblestone texture', subtitle: 'Stone paving', corner: 'STONE PATH', description: 'Irregular stones with mortar joints and tonal variation.' },
     concrete: { title: 'Concrete texture', subtitle: 'Smoothed concrete', corner: 'CAST CONCRETE', description: 'Pixel-textured concrete with fine aggregate and mineral variation.' },
@@ -206,14 +207,16 @@ function randomSeed() {
 function randomMaterialPalette() {
   const woodTones = state.material === 'planks' || state.material === 'furniture';
   const hueRange = woodTones ? [18, 42]
-    : state.material === 'cobblestone' ? [185, 245]
-      : state.material === 'concrete' ? [175, 215]
-        : state.material === 'asphalt' ? [195, 235]
-          : state.material === 'roofing' ? [200, 230]
-            : state.material === 'brick' ? [5, 25]
-              : [72, 147];
+    : state.material === 'dirt' ? [20, 40]
+      : state.material === 'cobblestone' ? [185, 245]
+        : state.material === 'concrete' ? [175, 215]
+          : state.material === 'asphalt' ? [195, 235]
+            : state.material === 'roofing' ? [200, 230]
+              : state.material === 'brick' ? [5, 25]
+                : [72, 147];
   const saturationRange = woodTones ? [30, 56]
-    : state.material === 'cobblestone' ? [5, 20]
+    : state.material === 'dirt' ? [25, 50]
+      : state.material === 'cobblestone' ? [5, 20]
       : state.material === 'concrete' ? [2, 12]
         : state.material === 'asphalt' ? [2, 10]
           : state.material === 'roofing' ? [3, 12]

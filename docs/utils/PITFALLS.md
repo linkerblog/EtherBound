@@ -120,8 +120,15 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
 - **A chunk's mesh depends on its four neighbours and on every roof flag.** `ChunkMesher` reads one
   cell past the chunk on each side (edge faces `x+1`/`y+1`, wall corners `x-1`/`y-1`), and
   `RoofBands` spans all loaded chunks. `WorldClient.RebuildChunks` rebuilds new or changed chunks
-  plus their 4-neighbours, and everything when the roof bands change. A full rebuild costs
-  47–99 ms, an incremental border crossing 23–37 ms (Fix18).
+  plus their 4-neighbours, and everything when the roof bands change. Fix18 measured a full rebuild
+  at 47–99 ms and a 10-chunk border rebuild at 23–37 ms. The terrain renderer splits this into
+  `BuildGeometry` (CPU-only lists over one read-only world snapshot) and `ToMeshes` (`ArrayMesh` on
+  the main thread); only geometry runs in parallel, while meshes/nodes are created in `frame.Chunks`
+  order. The roof-band set is ready in the mesher constructor, never lazily shared between workers.
+  Serial/parallel vertex data matched exactly on test (25 full, 15 rebuilt) and lab (16 full, 16
+  rebuilt). A temporary one-column test-frame shift rebuilt 15 chunks in 50.5 ms (26.8 geometry,
+  15.4 mesh/node creation); this is not comparable to Fix18's 23–37 ms for 10 chunks and still
+  hitches. See `docs/PENDING.md`.
 
 - **VOID is a ground-volume flag, not a missing-floor flag.** `ChunkMesher` and `Cutaway` render
   and pick stored floors even when their band is VOID; suppress only a ground top whose own band
@@ -209,12 +216,19 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
 - **`cull_disabled` flips `NORMAL` on faces seen from behind.** A quad wound the other way loses
   the sun. The terrain shader passes the mesh normal through a varying (view space, via
   `MODEL_NORMAL_MATRIX`) and writes it in `fragment()`, so light never depends on winding.
-- **Assets load from the filesystem, not `res://`.** `WorldClient`/`ChunkMesher` read
-  `game/assets/sprites/` and `game/assets/furniture/` with plain `Path.Combine` and
-  `Image.LoadFromFile`/`File.ReadAllText`, bypassing Godot's resource importer entirely; this works
-  at runtime but means the headless `--import` check does not catch a missing or malformed asset
-  file, only script/scene errors. A GPU run (`--shots`) is still the only thing that proves a new
-  asset actually renders.
+- **Runtime sprite sheets and furniture JSON are filesystem sidecars.** `WorldClient` uses
+  `Image.LoadFromFile` for `assets/sprites/`, and `FurnitureLibrary` uses `File.ReadAllText` for
+  `assets/furniture/`; both paths are relative to `ProjectSettings.GlobalizePath("res://")`, so a
+  Windows export needs these two directories beside `EtherBound.exe`. The export preset excludes
+  those sidecars but keeps other resources (including the HUD font) in the PCK. `publish-game.mjs`
+  refuses an export missing either directory. `Image.LoadFromFile` and `Image.Convert` run in the
+  background; `Texture2DArray`, materials, `ArrayMesh` and nodes stay on the main thread. Godot's
+  headless `--import` check does not catch a missing or malformed sidecar, only script/scene errors;
+  a GPU run (`--shots`) is still the only thing that proves a new asset actually renders.
+- **Actor materials are shared resources.** All actor `MeshInstance3D`s share one `CapsuleMesh` and
+  use one of two fixed-color `StandardMaterial3D`s (Niko, Extras), both with the shared silhouette
+  `ShaderMaterial` as `NextPass`. Do not create or mutate a material per actor; per-instance changes
+  would reintroduce repeated shader compilation and violate this sharing.
 
 ## 6. BitCanvas
 

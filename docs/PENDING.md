@@ -77,9 +77,22 @@ gameplay change Dev-025 explicitly excluded from its port-only scope and still n
       starts fresh, walks up to the boundary inside the tile and snaps back again. Seen in the Fix19
       trace (X velocity alternating +0.79/-0.79 while Z stays 0.78). A `sim.engine` fix touches
       the parity goldens, so it needs its own doc.
-- [ ] **Chunk meshing still hitches on a border crossing.** Fix18 made the rebuild incremental
-      (75–99 ms down to 23–37 ms), but that is still 2 to 3 frames on the main thread. The next step
-      is meshing off the main thread, or spreading the builds over frames (`done/Fix18.md` [Sec. 8]).
+- [ ] **Host first frame and first-frame actor updates still exceed target.** Startup itself is
+      accepted (29/09/2026): five warm launches on 28/09 had a 3.37 s median to first frame and that
+      is the baseline, not the 2.1 s Fix20 assumed, which was an engine budget we do not control.
+      Still over budget: the host published its first frame 187–268 ms after `_Ready` (target
+      <=50 ms) and first-frame actor updates took 24–33 ms (target <=20 ms). Profile the client path
+      without changing the sim contract or hiding world content.
+- [ ] **Chunk meshing still hitches on a border crossing.** Fix18 measured 23–37 ms for a 10-chunk
+      incremental rebuild. A temporary one-column frame shift in the 28/09/2026 check rebuilt 15
+      chunks in 50.5 ms
+      (26.8 ms `BuildGeometry` on workers, 15.4 ms `ToMeshes`/nodes on the main thread). The
+      geometry matched the serial rebuild exactly, but this larger transition still exceeds the
+      40 ms target and is not directly comparable to Fix18's 10 chunks. Measure a like-for-like
+      natural crossing and reduce the main-thread mesh/node cost; record the result here.
+- [ ] **Optional system cleanup: stale NVIDIA Nsight layer.** A Vulkan startup check recorded
+      one harmless error from an obsolete NVIDIA Nsight 2019 layer registration. This is outside
+      the game/repository; remove or update that system registration only as separate cleanup.
 
 ## Manual checks not run
 

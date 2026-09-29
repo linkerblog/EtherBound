@@ -4,6 +4,7 @@
     <Nullable>enable</Nullable>
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <RootNamespace>EtherBound.Game</RootNamespace>
+    <PublishReadyToRun>true</PublishReadyToRun>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>

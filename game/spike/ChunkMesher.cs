@@ -26,6 +26,7 @@ public sealed class ChunkMesher
     private readonly Dictionary<int, int> _topLayers;
     private readonly Dictionary<int, int> _sideLayers;
     private readonly Dictionary<int, int> _cliffSideLayers;
+    private readonly HashSet<int> _roofBands;
     private readonly ShaderMaterial _terrainMaterial;
     private readonly ShaderMaterial _structureMaterial;
     private readonly ShaderMaterial _glassMaterial;
@@ -40,6 +41,7 @@ public sealed class ChunkMesher
         _topLayers = topLayers;
         _sideLayers = sideLayers;
         _cliffSideLayers = cliffSideLayers;
+        _roofBands = RoofBands(world);
         _terrainMaterial = terrainMaterial;
         _structureMaterial = structureMaterial;
         _glassMaterial = glassMaterial;
@@ -94,6 +96,15 @@ public sealed class ChunkMesher
         public readonly Builder Outline = new();
     }
 
+    internal sealed record BandGeometry(Builder Terrain, Builder Structure, Builder Glass, Builder Outline);
+
+    public sealed class ChunkGeometry
+    {
+        internal ChunkGeometry(SortedDictionary<int, BandGeometry> bands) => Bands = bands;
+
+        internal SortedDictionary<int, BandGeometry> Bands { get; }
+    }
+
     public sealed record ChunkMeshes(ArrayMesh? Mesh);
 
     private static float M(int halfMetres) => halfMetres * 0.5f;
@@ -104,7 +115,7 @@ public sealed class ChunkMesher
     private int TopLayer(int id) => _topLayers.GetValueOrDefault(id, -1);
     private int SideLayer(int id) => _sideLayers.GetValueOrDefault(id, -1);
 
-    public SortedDictionary<int, ChunkMeshes> Build(int cx, int cy)
+    public ChunkGeometry BuildGeometry(int cx, int cy)
     {
         var bands = new SortedDictionary<int, BandBuilder>();
         BandBuilder Band(int z)
@@ -139,8 +150,16 @@ public sealed class ChunkMesher
             if (o.Parent is not null || WorldDump.FloorDiv(o.X, 32) != cx || WorldDump.FloorDiv(o.Y, 32) != cy) continue;
             ObjectBox(Band(WorldDump.FloorDiv(o.H, WorldDump.LevelH)).Terrain, o);
         }
-        var result = new SortedDictionary<int, ChunkMeshes>();
+        var result = new SortedDictionary<int, BandGeometry>();
         foreach (var (z, band) in bands)
+            result[z] = new BandGeometry(band.Terrain, band.Structure, band.Glass, band.Outline);
+        return new ChunkGeometry(result);
+    }
+
+    public SortedDictionary<int, ChunkMeshes> ToMeshes(ChunkGeometry geometry)
+    {
+        var result = new SortedDictionary<int, ChunkMeshes>();
+        foreach (var (z, band) in geometry.Bands)
         {
             var mesh = new ArrayMesh();
             band.Terrain.AddSurface(mesh, _terrainMaterial);
@@ -305,9 +324,7 @@ public sealed class ChunkMesher
         Wall(b, glass, x, y, level, i, north: false);
     }
 
-    private HashSet<int>? _roofBands;
-
-    private bool IsRoofLevel(WorldDump.Level level) => (_roofBands ??= RoofBands(_world)).Contains(level.Z);
+    private bool IsRoofLevel(WorldDump.Level level) => _roofBands.Contains(level.Z);
 
     /// <summary>
     /// A band is a roof band if any chunk flags a roof in it; perimeter-only chunks carry no flag.

@@ -21,11 +21,11 @@ faster, at clock speed 10.
 | sim.engine | `sim/EtherBound.Sim/Engine/`, `sim/EtherBound.Sim/Clock/` | The only state writer: `WorldEngine` orchestration, action/target types, generated menus, every handler, deterministic SI physics, trajectory resolution, `Pick` (ray casting for the client) and `SimClock`. |
 | sim.minds | `sim/EtherBound.Sim/Minds/` | Decision sources that propose through the action API; today `ExtrasBrain`, the deterministic routine of an Extra. |
 | sim.host | `sim/EtherBound.Host/` | `SimulationHost`: the sim's single writer thread, a bounded command channel (move, clock, actions, menu/pick queries, new game) and detached, revisioned `WorldFrame`s the client reads without a lock. `ActorMotion` and `StepPlayout`: the client's presentational interpolation between frames. |
-| game.app | `game/app/`, `game/project.godot`, `game/EtherBound.Game.csproj` | `WorldClient`: Godot entry point, environment/light setup, chunk/actor sync from host frames, WASD input, the `--shots` GPU-capture script. |
-| game.render | `game/spike/` | `PixelView` (low-res `SubViewport`, orthographic camera, art-pixel snapping), `ChunkMesher` (exposed terrain/structure faces, `Terrain.gdshader`, furniture voxel meshes), `Cutaway` (occlusion-ray clip height), `FurnitureLibrary`, `WorldDump` (render-only projection). |
+| game.app | `game/app/`, `game/project.godot`, `game/EtherBound.Game.csproj`, `game/export_presets.cfg` | `WorldClient`: starts `SimulationHost` and sprite decoding before scene setup, shares actor render resources, and applies host frames; dispatches CPU chunk geometry builds while keeping Godot resource/node work on the main thread. Includes WASD input and `--shots`. |
+| game.render | `game/spike/` | `PixelView` (low-res `SubViewport`, orthographic camera, art-pixel snapping), `ChunkMesher.BuildGeometry` (parallel CPU vertex lists) / `ToMeshes` (main-thread `ArrayMesh`), `Terrain.gdshader`, furniture voxel meshes, `Cutaway`, `FurnitureLibrary`, `WorldDump`. |
 | game.ui | `game/ui/` | `GameHud` (`GAME`/`DEBUG`/`LLM` tabs, `CLOCK`/`FEED`/`CARRY`/`ACT` panels, input line, `NEW` popover), `ActionMenuOverlay` (right-click list, `V` radial menu), `GeneratorPanel` (`NEW`/`MAP` forms from `GeneratorSpec`), `TrajectoryAnimator`, `CompassOverlay` (iso north/east/south/west and `CAM` marker, to name cutaway faces). |
 | bitcanvas | `BitCanvas/` (`pixelart.js`, `gamesync.js`, `core.js`, `terrain.js`, `sides.js`, `furnitureData.js`, `furniture.js`, `app.js`) | Standalone seeded texture and furniture generator (classic deferred scripts, HTML/JS, no build); furniture exports to `game/assets/furniture/` via `scripts/export-furniture.mjs`, and "Send to game" targets `game/assets/sprites/`. |
-| tooling | root config: `package.json`, `global.json`, `.gitignore`; `scripts/` | Build and check scripts, pinned .NET SDK, `export-furniture.mjs`. |
+| tooling | root config: `package.json`, `global.json`, `.gitignore`; `scripts/` | Build and check scripts, pinned .NET SDK, `export-furniture.mjs`, and `publish-game.mjs` for ReadyToRun Windows exports. |
 
 ## Data model
 
@@ -206,6 +206,7 @@ dotnet build EtherBound.sln            # sim, host, tests, bench, game
 dotnet run --project sim/EtherBound.Bench -c Release   # 1,000/5,000/10,000-Extra tick benchmark
 "$GODOT_BIN" --path game -- [--seed N] [--generator test|lab] [--database PATH] [--shots DIR] [--trace-walk CSV]
 node scripts/trace-walk.mjs CSV        # walking smoothness from a --trace-walk run (Fix19)
+node scripts/publish-game.mjs [--export DIR] # ReadyToRun assemblies -> existing Windows export
 
 # Checks (COMMITS.md; hooks run check:fast on commit, check-versions on the message, check on push)
 npm run check                   # versions, docs, sizes, bitcanvas, furniture, sim, game

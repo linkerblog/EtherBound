@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -14,6 +15,8 @@ namespace EtherBound.Game.App;
 
 public partial class WorldClient : Node
 {
+    private sealed record DecodedSprites(Image Top, Image Side, Image? CliffSide);
+
     private static readonly (string Key, string Top, string Side, string? CliffSide)[] Sheets =
     {
         ("grass", "grass/grass_x4.png", "grass/grass_side_x4.png", "grass/grass_cliff_side_x4.png"),
@@ -30,6 +33,9 @@ public partial class WorldClient : Node
     private readonly Dictionary<string, MeshInstance3D> _actors = new(StringComparer.Ordinal);
     private readonly Dictionary<string, ActorMotion> _actorMotions = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _args = new(StringComparer.Ordinal);
+    private CapsuleMesh _actorMesh = null!;
+    private StandardMaterial3D _playerActorMaterial = null!, _extraActorMaterial = null!;
+    private Task<Dictionary<string, DecodedSprites>>? _spriteDecode;
     private SimulationHost? _host;
     private PixelView _view = null!;
     private Node3D _root = null!;
@@ -76,20 +82,24 @@ public partial class WorldClient : Node
         // Screenshots keep the project's fixed 1280x720 so every capture has the same size.
         if (!_args.ContainsKey("shots")) DisplayServer.WindowSetMode(DisplayServer.WindowMode.Maximized);
 
+        var seed = _args.TryGetValue("seed", out var rawSeed) && long.TryParse(rawSeed, out var parsedSeed) ? parsedSeed : 7;
+        var generator = _args.GetValueOrDefault("generator", "test");
+        var databasePath = _args.GetValueOrDefault("database", Path.Combine(OS.GetUserDataDir(), "etherbound.db"));
+        _host = new SimulationHost(databasePath, seed, generator);
+        GD.Print($"world client started: seed {seed}, generator {generator}");
+
+        var sprites = Path.Combine(ProjectSettings.GlobalizePath("res://"), "assets", "sprites");
+        _spriteDecode = Task.Run(() => DecodeSprites(sprites));
+
         _view = new PixelView();
         AddChild(_view);
         _root = new Node3D { Scale = new Vector3(1, PixelView.VerticalScale, 1) };
         _view.Viewport.AddChild(_root);
         _trajectoryAnimator = new TrajectoryAnimator();
         _root.AddChild(_trajectoryAnimator);
+        BuildActorMaterials();
         BuildEnvironment();
         BuildHud();
-
-        var seed = _args.TryGetValue("seed", out var rawSeed) && long.TryParse(rawSeed, out var parsedSeed) ? parsedSeed : 7;
-        var generator = _args.GetValueOrDefault("generator", "test");
-        var databasePath = _args.GetValueOrDefault("database", Path.Combine(OS.GetUserDataDir(), "etherbound.db"));
-        _host = new SimulationHost(databasePath, seed, generator);
-        GD.Print($"world client started: seed {seed}, generator {generator}");
     }
 
     private void BuildEnvironment()
@@ -201,29 +211,25 @@ public partial class WorldClient : Node
 
     private void BuildTerrainMaterials()
     {
+        var decoded = (_spriteDecode ?? throw new InvalidOperationException("sprite decode was not started"))
+            .GetAwaiter().GetResult();
         var shader = GD.Load<Shader>("res://spike/Terrain.gdshader");
         var tops = new Godot.Collections.Array<Image>();
         var sides = new Godot.Collections.Array<Image>();
         _topLayers = new Dictionary<int, int>();
         _sideLayers = new Dictionary<int, int>();
         _cliffSideLayers = new Dictionary<int, int>();
-        var sprites = Path.Combine(ProjectSettings.GlobalizePath("res://"), "assets", "sprites");
-        foreach (var (key, top, side, cliffSide) in Sheets)
+        foreach (var sheet in Sheets)
         {
-            var material = _world!.Materials.Values.FirstOrDefault(item => item.Key == key);
+            var material = _world!.Materials.Values.FirstOrDefault(item => item.Key == sheet.Key);
             if (material is null) continue;
-            var topImage = Image.LoadFromFile(Path.Combine(sprites, top));
-            var sideImage = Image.LoadFromFile(Path.Combine(sprites, side));
-            topImage.Convert(Image.Format.Rgba8);
-            sideImage.Convert(Image.Format.Rgba8);
+            var images = decoded[sheet.Key];
             _topLayers[material.Id] = tops.Count;
             _sideLayers[material.Id] = sides.Count;
-            tops.Add(topImage);
-            sides.Add(sideImage);
-            if (cliffSide is not null)
+            tops.Add(images.Top);
+            sides.Add(images.Side);
+            if (images.CliffSide is { } cliffImage)
             {
-                var cliffImage = Image.LoadFromFile(Path.Combine(sprites, cliffSide));
-                cliffImage.Convert(Image.Format.Rgba8);
                 _cliffSideLayers[material.Id] = sides.Count;
                 sides.Add(cliffImage);
             }
@@ -232,6 +238,7 @@ public partial class WorldClient : Node
         topArray.CreateFromImages(tops);
         var sideArray = new Texture2DArray();
         sideArray.CreateFromImages(sides);
+        _spriteDecode = null;
         _terrainMat = new ShaderMaterial { Shader = shader };
         _terrainMat.SetShaderParameter("tops", topArray);
         _terrainMat.SetShaderParameter("sides", sideArray);
@@ -293,6 +300,49 @@ public partial class WorldClient : Node
         };
     }
 
+    private static Dictionary<string, DecodedSprites> DecodeSprites(string sprites)
+    {
+        var result = new Dictionary<string, DecodedSprites>(StringComparer.Ordinal);
+        foreach (var (key, top, side, cliffSide) in Sheets)
+        {
+            var topImage = DecodeImage(Path.Combine(sprites, top));
+            var sideImage = DecodeImage(Path.Combine(sprites, side));
+            var cliffImage = cliffSide is null ? null : DecodeImage(Path.Combine(sprites, cliffSide));
+            result.Add(key, new DecodedSprites(topImage, sideImage, cliffImage));
+        }
+        return result;
+    }
+
+    private static Image DecodeImage(string path)
+    {
+        var image = Image.LoadFromFile(path);
+        image.Convert(Image.Format.Rgba8);
+        return image;
+    }
+
+    private void BuildActorMaterials()
+    {
+        var silhouette = new ShaderMaterial
+        {
+            Shader = new Shader
+            {
+                Code = "shader_type spatial; render_mode unshaded, depth_test_inverted, depth_draw_never, cull_back; void fragment() { ALBEDO = vec3(0.55, 0.75, 1.0); ALPHA = 0.7; }",
+            },
+            RenderPriority = 10,
+        };
+        _playerActorMaterial = new StandardMaterial3D
+        {
+            AlbedoColor = new Color("#2a7fff"),
+            NextPass = silhouette,
+        };
+        _extraActorMaterial = new StandardMaterial3D
+        {
+            AlbedoColor = new Color("#d48b55"),
+            NextPass = silhouette,
+        };
+        _actorMesh = new CapsuleMesh { Radius = Cutaway.BodyRadius, Height = Cutaway.BodyHeight };
+    }
+
     private void RebuildChunks(WorldFrame frame, Dictionary<(int Cx, int Cy), HostChunk> current)
     {
         var roofBands = ChunkMesher.RoofBands(_world!);
@@ -305,10 +355,12 @@ public partial class WorldClient : Node
         }
         var mesher = new ChunkMesher(_world!, _topLayers, _sideLayers, _cliffSideLayers, _terrainMat, _structureMat,
             _glassMat, _outlineMat);
+        var geometries = new ConcurrentDictionary<(int Cx, int Cy), ChunkMesher.ChunkGeometry>();
+        Parallel.ForEach(build, key => geometries[key] = mesher.BuildGeometry(key.Cx, key.Cy));
         foreach (var chunk in frame.Chunks)
         {
             if (!build.Contains((chunk.Cx, chunk.Cy))) continue;
-            foreach (var (z, result) in mesher.Build(chunk.Cx, chunk.Cy))
+            foreach (var (z, result) in mesher.ToMeshes(geometries[(chunk.Cx, chunk.Cy)]))
             {
                 if (result.Mesh is null) continue;
                 var node = new MeshInstance3D
@@ -355,24 +407,11 @@ public partial class WorldClient : Node
             var target = (actor.X, actor.H * 0.5 + 0.85, actor.Y);
             if (!_actors.TryGetValue(actor.Id, out var node))
             {
-                var isPlayer = actor.Id == Ids.Player;
-                var silhouette = new ShaderMaterial
-                {
-                    Shader = new Shader
-                    {
-                        Code = "shader_type spatial; render_mode unshaded, depth_test_inverted, depth_draw_never, cull_back; void fragment() { ALBEDO = vec3(0.55, 0.75, 1.0); ALPHA = 0.7; }",
-                    },
-                    RenderPriority = 10,
-                };
-                var material = new StandardMaterial3D
-                {
-                    AlbedoColor = new Color(isPlayer ? "#2a7fff" : "#d48b55"),
-                    NextPass = silhouette,
-                };
                 node = new MeshInstance3D
                 {
                     Name = actor.Id,
-                    Mesh = new CapsuleMesh { Radius = Cutaway.BodyRadius, Height = Cutaway.BodyHeight, Material = material },
+                    Mesh = _actorMesh,
+                    MaterialOverride = actor.Id == Ids.Player ? _playerActorMaterial : _extraActorMaterial,
                 };
                 _root.AddChild(node);
                 node.Position = ToVector(target);

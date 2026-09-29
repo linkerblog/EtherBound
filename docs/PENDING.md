@@ -108,6 +108,10 @@ carries the check forward. Dev-025 itself tracks what the new client still needs
       because both are visual/hands-on and were not run in this change — the seed-7 spawn, the lab
       bays, building cutaway and stubs, dig/push/throw/break a wall, both menus, `NEW`, `MAP` in a
       live Godot session; and a Windows export from a clean folder (new game, save, quit, reopen).
+      The mechanical half of the export passed on 28/09/2026: a fresh `--export-release` plus
+      `publish-game.mjs` (198 managed files, `EtherBound.Sim.dll` 848 KB ReadyToRun), the runtime
+      sidecars resolved from the repo-root `assets/`, and a windowed boot on an isolated copy
+      generated and saved the world. What is left is hands-on: quit, reopen and look at it.
 
 - [ ] **Walking feel** (`done/Fix19.md` [Sec. 4] manual 6, replacing `done/Fix18.md` manual 4–5):
       manual, because feel is the goal. Walk in all 8 directions at x2, tap, cross a chunk border.

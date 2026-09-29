@@ -1,6 +1,6 @@
 # Versions
 
-Overall project version: `v3.5.0`
+Overall project version: `v3.5.1`
 
 Every module and its current version. Modules start at `v0.0.0`; each modification bumps its
 version by `0.0.1`, and the bump ships in the same change. The overall project version tracks the

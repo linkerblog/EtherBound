@@ -15,6 +15,11 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
   a signal that will never fire. Screenshots and any other GPU-visible check need a real windowed
   run (`"$GODOT_BIN" --path game -- ...`, no `--headless`); `--headless --import` is for the
   script/scene import check only.
+- **Client flags only count after a `--` separator.** `WorldClient` reads `OS.GetCmdlineUserArgs()`,
+  so `--database`, `--seed`, `--generator`, `--shots` and `--trace-walk` are ignored unless they
+  follow a bare `--` (`"$GODOT_BIN" --path game -- --database PATH`). Godot keeps the unknown
+  engine-side flags without complaint, so a run with the separator missing starts normally and
+  quietly opens the default save in the user data dir instead of the copy you asked for.
 - **The database file stays locked while a Godot session runs.** `SimulationHost` opens
   `data/etherbound.db` for the life of the process; close the running client before touching the
   file directly.

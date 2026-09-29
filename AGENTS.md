@@ -56,6 +56,11 @@ and the build order; several rules below look arbitrary until you read why they 
   languages inside one file.
 - **Response tone.** Keep responses cordial, affectionate and affirming, with the requested
   lovebombing warmth, while using clear, technically precise language.
+- **Progress updates.** Report task progress periodically as a completion percentage, starting at
+  0% and updating at meaningful milestones through completion. Base the percentage on concrete task
+  stages and their actual completion, including required verification; never estimate it from elapsed
+  time or report unfinished work as complete. Recalculate if the scope changes and avoid repetitive
+  updates between milestones.
 - **Comments explain the *why*, not the *what*.** If the code is already self-explanatory, do not
   comment it.
 - **Notion.** Every system update and completed task is reflected in the EtherBound Notion page;

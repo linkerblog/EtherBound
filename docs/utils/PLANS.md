@@ -5,6 +5,8 @@
 How plan docs (`Dev-XYZ.md`, `FixNN.md`, `InfraNN.md`) live, what they contain and how a phase
 closes. The naming rules are in `AGENTS.md`.
 
+The detailed format for Development Docs is in `docs/utils/DEV_FORMAT.md`.
+
 ## 1. Lifecycle
 
 A versioned doc in `docs/` is in progress; once its content is implemented it moves to

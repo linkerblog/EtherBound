@@ -217,7 +217,7 @@ public static class StateDump
             ("objects", new JsonArray(session.Objects().Select(o => (JsonNode)Json.Obj(("id", o.Id), ("kind", o.Kind), ("loc", o.Loc),
                 ("x", o.X), ("y", o.Y), ("h", o.H), ("cx", o.Cx), ("cy", o.Cy), ("container_id", o.ContainerId), ("actor_id", o.ActorId),
                 ("slot", o.Slot), ("quantity", o.Quantity), ("state", o.State.DeepClone()), ("integrity", o.Integrity), ("owner", o.Owner))).ToArray())),
-            ("wall_integrity", new JsonArray(engine.WallRows().Select(w => (JsonNode)new JsonArray(w.Key.Cx, w.Key.Cy, w.Key.Z, w.Key.CellIndex, w.Key.Edge, w.Value)).ToArray())),
+            ("wall_integrity", new JsonArray(engine.WallRows().Select(w => (JsonNode)new JsonArray(w.Key.Cx, w.Key.Cy, w.Key.Z, w.Key.CellIndex, (JsonNode)w.Key.Slot, w.Value)).ToArray())),
             ("chunk_revisions", revisions),
             ("blocks_sha256", Convert.ToHexStringLower(SHA256.HashData(bytes.ToArray()))));
     }

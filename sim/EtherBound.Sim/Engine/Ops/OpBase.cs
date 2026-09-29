@@ -84,7 +84,7 @@ public static class OpCatalog
     public static readonly IReadOnlyList<OpSpec> Specs = Load();
 
     private static readonly Dictionary<string, OpHandler> Handlers = Register(
-        new MoveOp(), new ClimbOp(), new WaitOp(), new InspectOp(), new DigOp(),
+        new MoveOp(), new ClimbOp(), new WaitOp(), new InspectOp(), new DigOp(), new BuildOp(),
         new TakeOp(), new DropOp(), new PutOp(), new OpenOp(), new CloseOp(), new WearOp(), new RemoveOp(),
         new PhysicsOp("push"), new PhysicsOp("pull"), new PhysicsOp("drag"), new PhysicsOp("throw"),
         new PhysicsOp("hit"), new PhysicsOp("break"));

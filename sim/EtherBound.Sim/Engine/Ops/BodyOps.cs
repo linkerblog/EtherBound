@@ -196,6 +196,193 @@ public sealed class DigOp : OpHandler
     }
 }
 
+/// <summary>
+/// A wall on a tile edge and a floor on a tile (Dev-036 phase 1). The material is the surface the
+/// build stands on, so a tile whose surface has no <c>build_cost</c> is not a building material and
+/// the spot is refused; the cost and the length of the slot are the only inputs to the duration.
+/// </summary>
+public sealed class BuildOp : OpHandler
+{
+    // Bare hands are about four times slower than a tool, as in DigOp.
+    public const double BareHandTool = 0.25;
+    public const int MinutesPerCost = 30;
+    public const int WallCells = 6;
+
+    public override string Op => "build";
+
+    /// <summary>The best <c>tool.build</c> among the objects in the actor's hands, else bare hands.</summary>
+    private static double ToolFactor(ActionContext ctx)
+    {
+        var best = BareHandTool;
+        foreach (var row in Held(ctx.Session, ctx.Actor.Id))
+            if (ctx.Grid.Catalog.Get(row.Kind)?.Tool?.Build is { } build) best = Math.Max(best, build);
+        return best;
+    }
+
+    public override bool Applies(ActionContext ctx, Target target) => target switch
+    {
+        // A bare edge is addressable, so the op shows wherever a wall could stand.
+        EdgeTarget e => Loaded(ctx, Edges.Canonical(e)),
+        TileTarget t => ctx.Grid.GroundAt(t.X, t.Y) is not null,
+        _ => false,
+    };
+
+    private static bool Loaded(ActionContext ctx, EdgeTarget edge)
+    {
+        var (cx, cy, _, _) = WorldGrid.ChunkCoords(edge.X, edge.Y);
+        return ctx.Grid.Chunk(cx, cy) is not null;
+    }
+
+    public override IReadOnlyList<GameAction> Builds(ActionContext ctx, Target target) => new[] { GameAction.On("build", target) };
+
+    public override string? Subject(ActionContext ctx, GameAction action) => action.Target switch
+    {
+        EdgeTarget e => Build(ctx, e) is { } material ? $"{material.Name} wall" : "wall",
+        TileTarget t => Build(ctx, t) is { } material ? $"{material.Name} floor" : "floor",
+        _ => null,
+    };
+
+    /// <summary>The material a build at this spot would use: the surface it stands on.</summary>
+    private static Material? SiteMaterial(ActionContext ctx, int x, int y) =>
+        ctx.Grid.GroundAt(x, y) is { } ground ? ctx.Grid.Registry.Get(ground.SurfaceMat) : null;
+
+    private static Material? Build(ActionContext ctx, EdgeTarget target) => SiteMaterial(ctx, Edges.Canonical(target).X, Edges.Canonical(target).Y);
+
+    private static Material? Build(ActionContext ctx, TileTarget target) => SiteMaterial(ctx, target.X, target.Y);
+
+    /// <summary>The cells the new wall would fill: the six half-metres above the edge's bottom.</summary>
+    private static IEnumerable<int> WallBody(int bottom) => Enumerable.Range(bottom + 1, WallCells);
+
+    public override string? Validate(ActionContext ctx, GameAction action) => action.Target switch
+    {
+        EdgeTarget e => ValidateEdge(ctx, e),
+        TileTarget t => ValidateTile(ctx, t),
+        _ => "nothing there",
+    };
+
+    private static string? ValidateEdge(ActionContext ctx, EdgeTarget target)
+    {
+        var edge = Edges.Canonical(target);
+        var (cx, cy, lx, ly) = WorldGrid.ChunkCoords(edge.X, edge.Y);
+        if (ctx.Grid.Chunk(cx, cy) is null) return "out of reach";
+        if (Build(ctx, edge) is not { Buildable: true }) return "no building material";
+        var index = Chunk.Index(lx, ly);
+        var level = ctx.Grid.Level(cx, cy, edge.Z);
+        if (level is not null && (edge.Direction == "north" ? level.WallN[index] : level.WallW[index]) != 0) return "already built";
+        var (ax, ay) = ctx.ActorTile;
+        var sides = edge.Direction == "north"
+            ? new[] { (edge.X, edge.Y), (edge.X, edge.Y - 1) }
+            : new[] { (edge.X, edge.Y), (edge.X - 1, edge.Y) };
+        if (!sides.Contains((ax, ay))) return "out of reach";
+        int bottom = level is null ? WallBottomWithoutLevel(ctx, cx, cy, edge.Z, index) : Edges.WallBottom(ctx, level, index);
+        // The wall is raised from its base, so only the base has to be within reach.
+        if (bottom < ctx.Actor.H - Reach.DownH) return "out of reach";
+        var cells = WallBody(bottom).ToList();
+        foreach (var (sx, sy) in sides)
+            if (cells.Any(h => ctx.Grid.SolidAt(sx, sy, h))) return "no headroom";
+        if (ctx.Session.Actors().Any(o => o.Id != ctx.Actor.Id && sides.Contains((o.TileX, o.TileY)) &&
+            cells.Any(h => o.H < h && h <= o.H + Reach.UpH))) return "someone is in the way";
+        return null;
+    }
+
+    /// <summary>The bottom a first wall on a bare edge would stand on: the highest support under it.</summary>
+    private static int WallBottomWithoutLevel(ActionContext ctx, int cx, int cy, int z, int index)
+    {
+        var chunk = ctx.Grid.Chunk(cx, cy)!;
+        var limit = (z + 1) * ChunkConst.LevelH;
+        var supports = ctx.Grid.Levels.Values
+            .Where(l => l.Cx == cx && l.Cy == cy && l.Z < z && l.FloorH[index] != ChunkConst.NoFloor)
+            .Select(l => (int)l.FloorH[index]).ToList();
+        supports.Add(chunk.GroundH[index]);
+        var below = supports.Where(s => s < limit).ToList();
+        return below.Count > 0 ? below.Max() : z * ChunkConst.LevelH;
+    }
+
+    private static string? ValidateTile(ActionContext ctx, TileTarget target)
+    {
+        if (ctx.Grid.GroundAt(target.X, target.Y) is null) return "out of reach";
+        if (Build(ctx, target) is not { Buildable: true }) return "no building material";
+        var (cx, cy, lx, ly) = WorldGrid.ChunkCoords(target.X, target.Y);
+        var level = ctx.Grid.Level(cx, cy, PyMath.FloorDiv(target.H, ChunkConst.LevelH));
+        if (level is not null && level.FloorH[Chunk.Index(lx, ly)] != ChunkConst.NoFloor) return "already built";
+        if (!Reach.InCloseReach(ctx, target.X, target.Y) || !Reach.WithinHeight(ctx, target.H)) return "out of reach";
+        if (ctx.Grid.SolidAt(target.X, target.Y, target.H) || ctx.Grid.IsVoid(target.X, target.Y, target.H)) return "no headroom";
+        if (ctx.Session.Actors().Any(o => o.Id != ctx.Actor.Id && (o.TileX, o.TileY) == (target.X, target.Y) &&
+            o.H < target.H && target.H <= o.H + Reach.UpH)) return "someone is in the way";
+        return null;
+    }
+
+    public override int Duration(ActionContext ctx, GameAction action)
+    {
+        var (material, length) = action.Target switch
+        {
+            EdgeTarget e => (Build(ctx, e), WallSlots.LengthM(Edges.Canonical(e).Direction)),
+            TileTarget t => (Build(ctx, t), 1.0),
+            _ => (null, 1.0),
+        };
+        var cost = material?.BuildCost ?? 0.0;
+        return (int)Math.Ceiling(MinutesPerCost * cost * length / ToolFactor(ctx));
+    }
+
+    public override List<SimEvent> Complete(ActionContext ctx, GameAction action)
+    {
+        return action.Target switch
+        {
+            EdgeTarget e => CompleteEdge(ctx, e),
+            TileTarget t => CompleteTile(ctx, t),
+            _ => new List<SimEvent>(),
+        };
+    }
+
+    private static List<SimEvent> CompleteEdge(ActionContext ctx, EdgeTarget target)
+    {
+        var edge = Edges.Canonical(target);
+        var (cx, cy, lx, ly) = WorldGrid.ChunkCoords(edge.X, edge.Y);
+        var index = Chunk.Index(lx, ly);
+        var level = ctx.Grid.Level(cx, cy, edge.Z) ?? ChunkLevel.Empty(cx, cy, edge.Z);
+        int materialId = Build(ctx, edge)!.Id;
+        var walls = (ushort[])(edge.Direction == "north" ? level.WallN : level.WallW).Clone();
+        walls[index] = (ushort)materialId;
+        var mask = (byte[])level.SlotMask.Clone();
+        mask[index] |= WallSlots.Bit(edge.Direction);
+        ctx.Grid.AddLevel(edge.Direction == "north"
+            ? level.With(wallN: walls, slotMask: mask)
+            : level.With(wallW: walls, slotMask: mask));
+        ctx.Session.MarkLevel(cx, cy, edge.Z);
+        var slot = ctx.Grid.Registry.Get(materialId)?.Key ?? "unknown";
+        return new List<SimEvent>
+        {
+            SimEvent.WallBuilt(ctx.Actor.Id, edge.ToJson(), "wall", slot, materialId, level.Z),
+            BumpChunk(ctx, cx, cy),
+        };
+    }
+
+    private static List<SimEvent> CompleteTile(ActionContext ctx, TileTarget target)
+    {
+        var (cx, cy, lx, ly) = WorldGrid.ChunkCoords(target.X, target.Y);
+        var index = Chunk.Index(lx, ly);
+        int z = PyMath.FloorDiv(target.H, ChunkConst.LevelH);
+        var level = ctx.Grid.Level(cx, cy, z) ?? ChunkLevel.Empty(cx, cy, z);
+        var material = Build(ctx, target)!;
+        ctx.Grid.AddLevel(level.With(floorH: At(level.FloorH, index, (short)target.H),
+            floorMat: At(level.FloorMat, index, (ushort)material.Id)));
+        ctx.Session.MarkLevel(cx, cy, z);
+        return new List<SimEvent>
+        {
+            SimEvent.WallBuilt(ctx.Actor.Id, target.ToJson(), "floor", material.Key, material.Id, z),
+            BumpChunk(ctx, cx, cy),
+        };
+    }
+
+    /// <summary>A copy of a level array with one cell replaced, so the rest of the band is untouched.</summary>
+    private static T[] At<T>(T[] values, int index, T value)
+    {
+        var copy = (T[])values.Clone();
+        copy[index] = value;
+        return copy;
+    }
+}
+
 public sealed class InspectOp : OpHandler
 {
     public const int RangeM = 30;

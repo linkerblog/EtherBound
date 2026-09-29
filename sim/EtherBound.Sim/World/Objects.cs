@@ -7,7 +7,7 @@ public sealed record Container(double Capacity);
 
 public sealed record Wearable(string Slot);
 
-public sealed record Tool(double? Dig = null, double? StrikeSpeedMS = null);
+public sealed record Tool(double? Dig = null, double? StrikeSpeedMS = null, double? Build = null);
 
 /// <summary>A data-defined object kind from <c>objects.toml</c>.</summary>
 public sealed record ObjectKind(
@@ -41,7 +41,7 @@ public sealed class ObjectCatalog
         ["container"] = new() { "capacity" },
         ["openable"] = new(),
         ["wearable"] = new() { "slot" },
-        ["tool"] = new() { "dig", "strike_speed_m_s" },
+        ["tool"] = new() { "dig", "strike_speed_m_s", "build" },
     };
 
     private readonly Dictionary<string, ObjectKind> _byKey;
@@ -118,8 +118,9 @@ public sealed class ObjectCatalog
         {
             var dig = OptionalPositive(toolTable, "dig", key, "tool");
             var strike = OptionalPositive(toolTable, "strike_speed_m_s", key, "tool");
-            if (dig is null && strike is null) throw new InvalidDataException($"object kind {key}: tool requires a capability");
-            tool = new Tool(dig, strike);
+            var build = OptionalPositive(toolTable, "build", key, "tool");
+            if (dig is null && strike is null && build is null) throw new InvalidDataException($"object kind {key}: tool requires a capability");
+            tool = new Tool(dig, strike, build);
         }
         return new ObjectKind(key, (string)raw["name"], material, DataFiles.Number(raw["mass"]), DataFiles.Number(raw["bulk"]),
             height, solid, surface, Flag("fixed"), stackable, container, openable, wearable, tool);

@@ -47,8 +47,23 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
   `feature` choices and bump the `lab` version.
 - **An unknown generator row falls back to `test`.** `EnsureWorld` logs a warning, resets
   `generator`/`gen_options` and regenerates, so an old or hand-edited save always opens.
+- **A migration file alone is not a migration.** `Database.EnsureSchema` is the runner: it creates a
+  missing save at `0008_extra`, then applies every pending step from the save's own `alembic_version`
+  in order, one transaction each, and only then writes the head. A version the runner does not know
+  is refused, because guessing either loses data or reads a schema the code does not expect. Adding a
+  `Db/SchemaNNNN_*.sql` means adding its entry to `Database.Migrations` and the file to the csproj's
+  `EmbeddedResource` items, or an old save silently stays where it was.
+- **`build_cost` is presence, not a value.** A material with a positive `build_cost` is a building
+  material and one without is not, so `build` refuses a grass tile with `no building material`. The
+  material a build uses is the surface it stands on, which is why the same tile can be a wall site
+  and a floor site with no inventory involved.
 - **Edge walls belong to the tile that owns the edge.** A wall west of tile (1,0) is `wall_w[1]`
   of the same chunk; chunk-border walls are stored by the neighbouring chunk's first column.
+- **A bare edge is addressable, and only where a wall could stand.** `Menu` adds a tile's two edges
+  as candidates on the actor's own tile at the band being read, and `Pick` returns a crossed seam as
+  an `EdgeTarget` only in a band that already carries a `chunk_level` row. Without the second
+  restriction a near-horizontal cursor ray would stop at every tile seam in open terrain and never
+  reach the wall, object or ground behind it.
 - **Walls stay thin planes on their edge for every system.** Physics, picking, occlusion and the
   cutaway treat a wall as its tile edge. `WALL_T` (1/4 m) and the top strip, end faces and corner
   post are render-only, drawn outward behind the visible face, so nothing moves on the plane.
@@ -139,6 +154,11 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
   and pick stored floors even when their band is VOID; suppress only a ground top whose own band
   is void. A slab resting on the solid ground still counts as ground for the cutaway ray, or
   clipping it opens a hole through an excavated column (`ChunkMesher.Build`'s `rests` check).
+- **A built wall is an ordinary wall to the renderer.** `build` writes the same `wall_n`/`wall_w` a
+  generator would, so `ChunkMesher.Wall` draws it, the chunk revision bump makes the client remesh
+  the dirty chunk and its neighbours, and the cutaway still cuts it to a stub. Nothing in `game/`
+  changed for Dev-036, and a built wall must be checked under the cutaway by hand, since only a
+  windowed `--shots` run proves the render.
 - **Touching voxels z-fight unless the shared face is culled.** Two adjacent furniture voxels each
   drawing a face on the exact same plane flicker under the ortho camera depending on draw order.
   `FurnitureMesh` looks up each of the piece's own 5 neighbour cells (`FurniturePiece.Occupied`) and
@@ -258,6 +278,9 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
   a source change without a re-export passes locally and only fails at the next check.
   `check:goldens` itself retired with the Python server; the committed golden JSON is now a frozen
   fixture the C# tests (`WorldGenerationGoldens.cs`, `RngParity.cs`, …) compare against directly.
+  A new op therefore breaks the menu fixture, and the fix is not to regenerate it: `MenuGoldens`
+  drops the entries of ops added after the cut-over (`AfterCutOver`) from both sides, so the rest of
+  every menu still has to match the Python output entry for entry.
 - **`check:game`'s headless import is a script/scene check, not a render check.** It catches a
   missing type or a broken `.tscn` reference, never a blank screenshot or a wrong colour; those need
   a windowed GPU run (`--shots`), which is manual or agent-launched outside `npm run check`.

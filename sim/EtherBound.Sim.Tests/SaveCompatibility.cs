@@ -6,8 +6,9 @@ using Microsoft.Data.Sqlite;
 namespace EtherBound.Sim.Tests;
 
 /// <summary>
-/// A save written by the Python server at <c>0008_extra</c> opens in the C# sim with no
-/// migration, reads back the same state and log, and survives a write and a reopen.
+/// A save written by the Python server at <c>0008_extra</c> opens in the C# sim, is upgraded in
+/// place to <c>0009_walls</c> by the migration runner, reads back the same state and log, and
+/// survives a write and a reopen.
 /// </summary>
 public sealed class SaveCompatibility : IDisposable
 {
@@ -39,6 +40,29 @@ public sealed class SaveCompatibility : IDisposable
         return Convert.ToString(command.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture)!;
     }
 
+    private List<(int Cx, int Cy, int Z, int Cell, string Slot, double Joules)> WallSlotRows() =>
+        Query("SELECT cx, cy, z, cell_index, slot, joules FROM wall_slot ORDER BY cx, cy, z, cell_index, slot");
+
+    private List<(int Cx, int Cy, int Z, int Cell, string Slot, double Joules)> Query(string sql)
+    {
+        using var connection = new SqliteConnection($"Data Source={_path}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        using var r = command.ExecuteReader();
+        var rows = new List<(int, int, int, int, string, double)>();
+        while (r.Read()) rows.Add((r.GetInt32(0), r.GetInt32(1), r.GetInt32(2), r.GetInt32(3), r.GetString(4), r.GetDouble(5)));
+        return rows;
+    }
+
+    /// <summary>The `0008` rows the fixture had, as `(cx, cy, z, cell, slot, joules)`.</summary>
+    private static List<(int Cx, int Cy, int Z, int Cell, string Slot, double Joules)> FixtureRows() =>
+        JsonNode.Parse(File.ReadAllText(Path.Combine(Fixtures, "python-0008.json")))!["state"]!["wall_integrity"]!.AsArray()
+            .Select(row => row!.AsArray())
+            .Select(row => (row[0]!.GetValue<int>(), row[1]!.GetValue<int>(), row[2]!.GetValue<int>(), row[3]!.GetValue<int>(),
+                row[4]!.GetValue<string>(), row[5]!.GetValue<double>()))
+            .ToList();
+
     [Fact]
     public void Python_save_opens_with_the_same_state_and_log()
     {
@@ -55,10 +79,73 @@ public sealed class SaveCompatibility : IDisposable
             var ours = Json.Obj(("seq", e.Seq), ("game_minute", e.GameMinute), ("type", e.Type), ("actor_id", e.ActorId), ("data", e.Data.DeepClone()));
             Assert.True(Json.Same(goldenEvents[i], ours), $"event {i}");
         }
-        Assert.Equal(Database0008, Scalar("SELECT version_num FROM alembic_version"));
+        Assert.Equal(Database0009, Scalar("SELECT version_num FROM alembic_version"));
+    }
+
+    private const string Database0009 = "0009_walls";
+
+    [Fact]
+    public void A_0008_save_is_upgraded_in_place_and_keeps_its_wall_rows()
+    {
+        Assert.Equal(Database0008, Database0008FixtureVersion());
+        using (var engine = new WorldEngine(_path))
+        {
+            engine.EnsureWorld(0);
+        }
+        Assert.Equal(Database0009, Scalar("SELECT version_num FROM alembic_version"));
+        Assert.Equal("sim-0009", Scalar("SELECT version FROM sim_schema"));
+        Assert.Equal("1", Scalar("SELECT COUNT(*) FROM pragma_table_info('chunk_level') WHERE name = 'slot_mask'"));
+        Assert.Equal("1", Scalar("SELECT COUNT(*) FROM pragma_table_info('chunk_level') WHERE name = 'slot_mat'"));
+        // Every wall_integrity row became a wall_slot row and the old table is gone.
+        Assert.Equal(FixtureRows(), WallSlotRows());
+        Assert.Equal("0", Scalar("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'wall_integrity'"));
     }
 
     private const string Database0008 = "0008_extra";
+
+    /// <summary>Reads the pristine fixture's version, before any other test upgrades the copy.</summary>
+    private static string Database0008FixtureVersion()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"etherbound-fixture-{Guid.NewGuid():N}.db");
+        try
+        {
+            File.Copy(Path.Combine(Fixtures, "python-0008.db"), path);
+            using var connection = new SqliteConnection($"Data Source={path}");
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT version_num FROM alembic_version";
+            return Convert.ToString(command.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture)!;
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void An_unknown_version_is_refused_instead_of_guessed()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"etherbound-future-{Guid.NewGuid():N}.db");
+        try
+        {
+            File.Copy(Path.Combine(Fixtures, "python-0008.db"), path);
+            using (var connection = new SqliteConnection($"Data Source={path}"))
+            {
+                connection.Open();
+                using var command = connection.CreateCommand();
+                command.CommandText = "UPDATE alembic_version SET version_num = '0010_future'";
+                command.ExecuteNonQuery();
+            }
+            var error = Assert.Throws<InvalidOperationException>(() => new WorldEngine(path));
+            Assert.Contains("0010_future", error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            File.Delete(path);
+        }
+    }
 
     [Fact]
     public void A_file_save_runs_in_wal_and_leaves_no_sidecar_after_dispose()
@@ -90,7 +177,7 @@ public sealed class SaveCompatibility : IDisposable
     }
 
     [Fact]
-    public void A_write_round_trips_and_leaves_alembic_alone()
+    public void A_write_round_trips_and_stays_at_the_head()
     {
         JsonObject before;
         using (var engine = new WorldEngine(_path))
@@ -106,7 +193,7 @@ public sealed class SaveCompatibility : IDisposable
             reopened.EnsureWorld(0);
             AssertSameState(before, StateDump.Of(reopened));
         }
-        Assert.Equal(Database0008, Scalar("SELECT version_num FROM alembic_version"));
-        Assert.Equal("sim-0008", Scalar("SELECT version FROM sim_schema"));
+        Assert.Equal(Database0009, Scalar("SELECT version_num FROM alembic_version"));
+        Assert.Equal("sim-0009", Scalar("SELECT version FROM sim_schema"));
     }
 }

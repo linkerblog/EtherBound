@@ -18,9 +18,10 @@ Open decisions and loose ends. When one is settled, record the decision where it
       build comes from utility (Extras, organizations) or the LLM (Agents). *What* to build: the
       LLM or a table writes a building program (use, rooms, floors, material, budget) and a
       seeded code generator turns it into tiles that obey `utils/VISION.md` [Sec. 5]; Jev may
-      only pick among generated candidates, and no model places tiles. *How*: a plan of ops
+      only pick among generated candidates, and no model places tiles.       *How*: a plan of ops
       (`buy`, `take`, `put`, `dig`, `build`) posted as a task or contract, with bought and carried
-      materials, ownership or a permit, and progress as an activity. Construction far from Niko
+      materials, ownership or a permit, and progress as an activity. The `build` op itself is
+      `docs/done/Dev-036.md` (phase 1 done); this item is who plans it. Construction far from Niko
       advances per day at lower detail. The same generator could answer City authoring. Needs
       needs, organizations, tasks and ownership first; Phase 4.
 - [ ] **Recipes and supply.** Leaning (23/09/2026): Zomboid-style items stay on the Matter
@@ -47,6 +48,13 @@ Open decisions and loose ends. When one is settled, record the decision where it
       (`server/scripts/bench_extras.py`, archived with it), averaged 5,645.461 ms/tick at the same
       1,000 Extras — the C# sim is ~87× faster per tick. Still open: the manual parity walk and
       Windows export (below).
+- [ ] **Construction system, phases 2 and 3** (`docs/done/Dev-036.md` [Sec. 11]): phase 1 shipped
+      the `build` op on tile edges and tile floors, `build_cost` as data, a bare edge addressable in
+      the menu and by pick, and the stepwise migration runner. Halves `H`/`V` and diagonals `D1`/`D2`
+      are the rest of the geometry: they fill `slot_mask`/`slot_mat` (already on `chunk_level` for
+      exactly this) and make the A* node `(spot, region)`, since a half can split one tile into
+      regions that do not connect. Phase 3 also brings the diagonal quads and the shader review in
+      `game.render`. Each is its own doc.
 - [ ] **Infra03 CI on GitHub Actions**: run the checks on push now that the remote exists. The
       number was earmarked as Infra02 by `Infra01`; Infra02 became the agent context diet. No doc yet.
 
@@ -54,9 +62,10 @@ Open decisions and loose ends. When one is settled, record the decision where it
 git keeps their history): Dev-014 (AI furniture as a primitive spec), Dev-016 (context menu
 polish), Dev-021 (wall lines and heights), Dev-023 (server kernel refactor), Dev-024 (baked AO).
 None needs a follow-up Dev for its *rendering* idea — real 3D geometry, real-time SSAO/shadows and
-the already-built radial/context menu (Dev-025 stages 4-5) absorbed all of them. One surviving idea
+the already-built radial/context menu (Dev-025 stages 4-5)   absorbed all of them. One surviving idea
 does not: Dev-021 also motivated a future `build` op (players/NPCs constructing walls), which is a
-gameplay change Dev-025 explicitly excluded from its port-only scope and still needs its own doc.
+gameplay change Dev-025 explicitly excluded from its port-only scope and now has its own doc
+(`docs/done/Dev-036.md`, phase 1 done).
 
 ## Deferred work
 
@@ -130,7 +139,8 @@ primitive by `done/Dev-012.md`. Dev-025 (all seven stages done) replaced the Pyt
 and Phaser/React client with a deterministic C# sim (~87× faster per tick at 1,000 Extras) and a
 Godot 4 client; `legacy-python-web-stack.zip` keeps the old source, and every manual acceptance
 that targeted it is dropped rather than carried forward. Dev-014/016/021/023/024 are deprecated: their
-rendering ideas were absorbed by the port itself, except a future `build` op for wall construction.
+rendering ideas were absorbed by the port itself, except a future `build` op for wall construction,
+now `docs/done/Dev-036.md` (phase 1 done).
 Two deferred items remain (input replay, events to the client) plus lost activity progress on
 interruption and actor pass-through. Dev-025's own manual gates (parity walk, Windows export) are
 open above; Dev-007 was fully accepted on 22/09/2026.

@@ -385,15 +385,30 @@ public sealed class WorldEngine : IEnginePort, IDisposable
                 continue;
             }
 
-            if (previousLoaded && (x, y) != (previousX, previousY) && Math.Abs(x - previousX) + Math.Abs(y - previousY) == 1 &&
-                Grid.WallBetween(previousX, previousY, x, y, halfHeight))
+            if (previousLoaded && (x, y) != (previousX, previousY) && Math.Abs(x - previousX) + Math.Abs(y - previousY) == 1)
             {
-                var verticalEdge = x != previousX;
-                var forward = verticalEdge ? x > previousX : y > previousY;
-                var direction = verticalEdge ? "west" : "north";
-                var (edgeX, edgeY) = forward ? (x, y) : (previousX, previousY);
-                var target = new EdgeTarget(edgeX, edgeY, PyMath.FloorDiv(halfHeight, ChunkConst.LevelH), direction);
-                return new WorldPickHit(target, edgeX, edgeY, halfHeight, px, py, height);
+                var z = PyMath.FloorDiv(halfHeight, ChunkConst.LevelH);
+                if (Grid.WallBetween(previousX, previousY, x, y, halfHeight))
+                {
+                    var verticalEdge = x != previousX;
+                    var forward = verticalEdge ? x > previousX : y > previousY;
+                    var direction = verticalEdge ? "west" : "north";
+                    var (edgeX, edgeY) = forward ? (x, y) : (previousX, previousY);
+                    var target = new EdgeTarget(edgeX, edgeY, z, direction);
+                    return new WorldPickHit(target, edgeX, edgeY, halfHeight, px, py, height);
+                }
+                // A bare edge is addressable so a wall can be built where there is none, but only in
+                // a band that already carries a level: otherwise a near-horizontal ray would stop at
+                // every tile seam and never reach anything.
+                var vertical = x != previousX;
+                var ahead = vertical ? x > previousX : y > previousY;
+                var (seamX, seamY) = ahead ? (x, y) : (previousX, previousY);
+                var (seamCx, seamCy, _, _) = WorldGrid.ChunkCoords(seamX, seamY);
+                if (Grid.Level(seamCx, seamCy, z) is not null)
+                {
+                    var seam = new EdgeTarget(seamX, seamY, z, vertical ? "west" : "north");
+                    return new WorldPickHit(seam, seamX, seamY, halfHeight, px, py, height);
+                }
             }
 
             if (actorBuckets.TryGetValue((x, y), out var actors))

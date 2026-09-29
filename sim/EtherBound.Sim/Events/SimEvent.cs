@@ -46,6 +46,10 @@ public sealed class SimEvent
     public static SimEvent TerrainDug(string actorId, TilePos tile, string removed, string exposed, int dug) =>
         new("terrain.dug", actorId, Json.Obj(("tile", tile.ToJson()), ("removed", removed), ("exposed", exposed), ("dug", dug)));
 
+    public static SimEvent WallBuilt(string actorId, JsonObject target, string kind, string material, int materialId, int z) =>
+        new("wall.built", actorId, Json.Obj(("target", target), ("kind", kind), ("material", material), ("material_id", materialId),
+            ("z", z)));
+
     public static SimEvent ObjectMoved(string actorId, int objectId, string kind, int quantity, string op, Location from,
         Location to, int? splitFrom = null, int? mergedInto = null) =>
         new("object.moved", actorId, Json.Obj(("object_id", objectId), ("kind", kind), ("quantity", quantity), ("op", op),

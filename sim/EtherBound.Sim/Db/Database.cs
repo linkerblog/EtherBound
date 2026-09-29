@@ -8,15 +8,28 @@ using Microsoft.Data.Sqlite;
 namespace EtherBound.Sim.Db;
 
 /// <summary>
-/// The SQLite save, same schema as the Python server at <c>0008_extra</c> (Dev-025 [Sec. 1]). A new
-/// save is created from the exact Alembic DDL with <c>alembic_version</c> set, so both runtimes
-/// open it; an existing save must already be at <c>0008_extra</c>. The sim records its own
-/// <c>sim_schema</c> row and never touches <c>alembic_version</c> until cut-over.
+/// The SQLite save, same schema as the Python server at <c>0008_extra</c> (Dev-025 [Sec. 1]) plus the
+/// sim's own migrations. A new save is created from the exact Alembic DDL with
+/// <c>alembic_version</c> set, so both runtimes open it; an older save is upgraded in place by the
+/// stepwise runner, one transaction per step. The sim also records its own <c>sim_schema</c> row.
 /// </summary>
 public sealed class Database : IDisposable
 {
-    public const string AlembicHead = "0008_extra";
-    public const string SimSchema = "sim-0008";
+    public const string AlembicHead = "0009_walls";
+    public const string SimSchema = "sim-0009";
+
+    /// <summary>
+    /// The sim's migration chain, oldest first: each entry moves a save one step up and is the whole
+    /// body of one transaction, so an interrupted upgrade leaves the save on the previous version
+    /// rather than half-migrated.
+    /// </summary>
+    private static readonly (string Version, string Resource)[] Migrations =
+    {
+        ("0009_walls", "EtherBound.Sim.Db.Schema0009_walls.sql"),
+    };
+
+    /// <summary>Every version the runner knows how to move through, oldest first.</summary>
+    private static readonly string[] Known = new[] { "0008_extra" }.Concat(Migrations.Select(m => m.Version)).ToArray();
 
     private readonly SqliteConnection _connection;
     private SqliteTransaction? _writeBatch;
@@ -33,11 +46,20 @@ public sealed class Database : IDisposable
             Pooling = memory,
         };
         _connection = new SqliteConnection(builder.ToString());
-        _connection.Open();
-        // Every WASD step is one commit; the default journal fsyncs each one (4.6 ms p50, Fix19 F5).
-        // WAL with NORMAL fsyncs only at checkpoints: a power cut may drop the last moments, never corrupt.
-        if (!memory) Pragma("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;");
-        EnsureSchema();
+        try
+        {
+            _connection.Open();
+            // Every WASD step is one commit; the default journal fsyncs each one (4.6 ms p50, Fix19 F5).
+            // WAL with NORMAL fsyncs only at checkpoints: a power cut may drop the last moments, never corrupt.
+            if (!memory) Pragma("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;");
+            EnsureSchema();
+        }
+        catch
+        {
+            // A refused schema would otherwise leave the file locked for the whole process.
+            _connection.Dispose();
+            throw;
+        }
     }
 
     private void Pragma(string sql)
@@ -101,20 +123,49 @@ public sealed class Database : IDisposable
             using (var create = Command(reader.ReadToEnd(), transaction)) create.ExecuteNonQuery();
             using (var version = Command("INSERT INTO alembic_version (version_num) VALUES ($v)", transaction))
             {
-                version.Parameters.AddWithValue("$v", AlembicHead);
+                version.Parameters.AddWithValue("$v", "0008_extra");
                 version.ExecuteNonQuery();
             }
             transaction.Commit();
         }
-        using (var head = Command("SELECT version_num FROM alembic_version"))
-        {
-            var found = head.ExecuteScalar() as string;
-            if (found != AlembicHead)
-                throw new InvalidOperationException($"save is at {found ?? "no version"}; open it once with the Python server to reach {AlembicHead}");
-        }
+        Migrate();
         using var sim = Command("CREATE TABLE IF NOT EXISTS sim_schema (id INTEGER NOT NULL PRIMARY KEY, version VARCHAR(32) NOT NULL);" +
-            $"INSERT OR IGNORE INTO sim_schema (id, version) VALUES (1, '{SimSchema}');");
+            $"INSERT OR REPLACE INTO sim_schema (id, version) VALUES (1, '{SimSchema}');");
         sim.ExecuteNonQuery();
+    }
+
+    private string CurrentVersion()
+    {
+        using var head = Command("SELECT version_num FROM alembic_version");
+        return head.ExecuteScalar() as string ?? "";
+    }
+
+    /// <summary>
+    /// Applies every pending step in order from the save's own <c>alembic_version</c> and then
+    /// writes the head (Dev-036 [Sec. 1]). A version the runner does not know is refused, since
+    /// guessing would either lose data or read a schema the code does not expect.
+    /// </summary>
+    private void Migrate()
+    {
+        var found = CurrentVersion();
+        var from = Array.IndexOf(Known, found);
+        if (from < 0)
+            throw new InvalidOperationException($"save is at {(found.Length == 0 ? "no version" : found)}; the runner only knows {string.Join(" -> ", Known)}");
+        for (var step = from; step < Known.Length - 1; step++)
+        {
+            using var stream = typeof(Database).Assembly.GetManifestResourceStream(Migrations[step - from].Resource)
+                ?? throw new InvalidOperationException($"embedded migration {Migrations[step - from].Resource} is missing");
+            using var reader = new StreamReader(stream);
+            using var transaction = _connection.BeginTransaction();
+            using (var apply = Command(reader.ReadToEnd(), transaction)) apply.ExecuteNonQuery();
+            // The step's own body already writes the version; this covers a body that does not.
+            using (var version = Command("UPDATE alembic_version SET version_num = $v WHERE version_num <> $v", transaction))
+            {
+                version.Parameters.AddWithValue("$v", Migrations[step - from].Version);
+                version.ExecuteNonQuery();
+            }
+            transaction.Commit();
+        }
     }
 
     // --- load --------------------------------------------------------------------------------
@@ -158,7 +209,7 @@ public sealed class Database : IDisposable
                 };
                 store.Objects[row.Id] = row;
             }
-        using (var command = Command("SELECT cx, cy, z, cell_index, edge, integrity FROM wall_integrity"))
+        using (var command = Command("SELECT cx, cy, z, cell_index, slot, joules FROM wall_slot"))
         using (var r = command.ExecuteReader())
             while (r.Read())
                 store.Walls[new WallKey(r.GetInt32(0), r.GetInt32(1), r.GetInt32(2), r.GetInt32(3), r.GetString(4))] = r.GetDouble(5);
@@ -180,11 +231,11 @@ public sealed class Database : IDisposable
                     r.GetInt32(6), Blob(r, 7)));
             }
         var levels = new List<ChunkLevel>();
-        using (var command = Command("SELECT cx, cy, z, floor_h, floor_mat, wall_n, wall_w, edge_flags, flags FROM chunk_level ORDER BY cx, cy, z"))
+        using (var command = Command("SELECT cx, cy, z, floor_h, floor_mat, wall_n, wall_w, edge_flags, flags, slot_mask, slot_mat FROM chunk_level ORDER BY cx, cy, z"))
         using (var r = command.ExecuteReader())
             while (r.Read())
                 levels.Add(ChunkLevel.FromBlobs(r.GetInt32(0), r.GetInt32(1), r.GetInt32(2), Blob(r, 3)!, Blob(r, 4)!, Blob(r, 5)!,
-                    Blob(r, 6)!, Blob(r, 7)!, Blob(r, 8)!));
+                    Blob(r, 6)!, Blob(r, 7)!, Blob(r, 8)!, Blob(r, 9), Blob(r, 10)));
         return (chunks, levels);
     }
 
@@ -280,7 +331,7 @@ public sealed class Database : IDisposable
     {
         if (changes.Wipe)
         {
-            Exec(t, "DELETE FROM wall_integrity");
+            Exec(t, "DELETE FROM wall_slot");
             Exec(t, "DELETE FROM chunk_level");
             Exec(t, "DELETE FROM chunk");
             Exec(t, "DELETE FROM object");
@@ -306,21 +357,22 @@ public sealed class Database : IDisposable
         foreach (var row in changes.InsertedActors.Concat(changes.UpdatedActors)) WriteActor(t, row);
         foreach (var row in changes.InsertedObjects.Concat(changes.UpdatedObjects).OrderBy(o => o.Id)) WriteObject(t, row);
         foreach (var key in changes.DeletedWalls)
-            Exec(t, "DELETE FROM wall_integrity WHERE cx = $cx AND cy = $cy AND z = $z AND cell_index = $i AND edge = $e",
-                ("$cx", key.Cx), ("$cy", key.Cy), ("$z", key.Z), ("$i", key.CellIndex), ("$e", key.Edge));
+            Exec(t, "DELETE FROM wall_slot WHERE cx = $cx AND cy = $cy AND z = $z AND cell_index = $i AND slot = $s",
+                ("$cx", key.Cx), ("$cy", key.Cy), ("$z", key.Z), ("$i", key.CellIndex), ("$s", key.Slot));
         foreach (var (key, value) in changes.Walls)
-            Exec(t, "INSERT OR REPLACE INTO wall_integrity (cx, cy, z, cell_index, edge, integrity) VALUES ($cx, $cy, $z, $i, $e, $v)",
-                ("$cx", key.Cx), ("$cy", key.Cy), ("$z", key.Z), ("$i", key.CellIndex), ("$e", key.Edge), ("$v", value));
+            Exec(t, "INSERT OR REPLACE INTO wall_slot (cx, cy, z, cell_index, slot, joules) VALUES ($cx, $cy, $z, $i, $s, $v)",
+                ("$cx", key.Cx), ("$cy", key.Cy), ("$z", key.Z), ("$i", key.CellIndex), ("$s", key.Slot), ("$v", value));
         foreach (var chunk in changes.Chunks)
             Exec(t, "INSERT OR REPLACE INTO chunk (cx, cy, ground_h, surface_mat, strata, revision, gen_version, dug) " +
                 "VALUES ($cx, $cy, $g, $s, $strata, $rev, $gv, $dug)",
                 ("$cx", chunk.Cx), ("$cy", chunk.Cy), ("$g", chunk.GroundBlob), ("$s", chunk.SurfaceBlob), ("$strata", chunk.StrataJson()),
                 ("$rev", chunk.Revision), ("$gv", chunk.GenVersion), ("$dug", chunk.DugBlob));
         foreach (var level in changes.Levels)
-            Exec(t, "INSERT OR REPLACE INTO chunk_level (cx, cy, z, floor_h, floor_mat, wall_n, wall_w, edge_flags, flags) " +
-                "VALUES ($cx, $cy, $z, $f, $fm, $wn, $ww, $ef, $fl)",
+            Exec(t, "INSERT OR REPLACE INTO chunk_level (cx, cy, z, floor_h, floor_mat, wall_n, wall_w, edge_flags, flags, slot_mask, slot_mat) " +
+                "VALUES ($cx, $cy, $z, $f, $fm, $wn, $ww, $ef, $fl, $sm, $smat)",
                 ("$cx", level.Cx), ("$cy", level.Cy), ("$z", level.Z), ("$f", level.FloorBlob), ("$fm", level.FloorMatBlob),
-                ("$wn", level.WallNBlob), ("$ww", level.WallWBlob), ("$ef", level.EdgeFlagsBlob), ("$fl", level.FlagsBlob));
+                ("$wn", level.WallNBlob), ("$ww", level.WallWBlob), ("$ef", level.EdgeFlagsBlob), ("$fl", level.FlagsBlob),
+                ("$sm", level.SlotMaskBlob), ("$smat", level.SlotMatBlob));
         foreach (var e in changes.Events)
             Exec(t, "INSERT INTO event (seq, game_minute, type, actor_id, data) VALUES ($seq, $minute, $type, $actor, $data)",
                 ("$seq", e.Seq), ("$minute", e.GameMinute), ("$type", e.Type), ("$actor", e.ActorId), ("$data", e.Data.ToJsonString()));

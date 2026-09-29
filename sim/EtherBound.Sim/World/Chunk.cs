@@ -17,6 +17,54 @@ public static class ChunkConst
     public const byte LevelVoid = 1;
     public const byte LevelClimbable = 2;
     public const byte LevelRoof = 4;
+
+    // The six wall slots of a tile (Dev-036 [Sec. 2]): two on the edges the world already owns and
+    // four through the interior. One byte per cell is the region graph's cache key from phase 2.
+    public const byte SlotNorth = 1;
+    public const byte SlotWest = 2;
+    public const byte SlotHalfH = 4;
+    public const byte SlotHalfV = 8;
+    public const byte SlotDiag1 = 16;
+    public const byte SlotDiag2 = 32;
+    public const byte SlotAll = SlotNorth | SlotWest | SlotHalfH | SlotHalfV | SlotDiag1 | SlotDiag2;
+}
+
+/// <summary>Slot letters, as stored in <c>wall_slot</c> and as the <see cref="ChunkConst"/> bitmask.</summary>
+public static class WallSlots
+{
+    public const string North = "north";
+    public const string West = "west";
+    public const string HalfH = "H";
+    public const string HalfV = "V";
+    public const string Diag1 = "D1";
+    public const string Diag2 = "D2";
+
+    public static readonly IReadOnlyList<string> All = new[] { North, West, HalfH, HalfV, Diag1, Diag2 };
+
+    public static byte Bit(string slot) => slot switch
+    {
+        North => ChunkConst.SlotNorth,
+        West => ChunkConst.SlotWest,
+        HalfH => ChunkConst.SlotHalfH,
+        HalfV => ChunkConst.SlotHalfV,
+        Diag1 => ChunkConst.SlotDiag1,
+        Diag2 => ChunkConst.SlotDiag2,
+        _ => 0,
+    };
+
+    public static string Name(byte bit) => bit switch
+    {
+        ChunkConst.SlotNorth => North,
+        ChunkConst.SlotWest => West,
+        ChunkConst.SlotHalfH => HalfH,
+        ChunkConst.SlotHalfV => HalfV,
+        ChunkConst.SlotDiag1 => Diag1,
+        ChunkConst.SlotDiag2 => Diag2,
+        _ => "",
+    };
+
+    /// <summary>Metres of wall the slot is: edges and halves are 1 m, diagonals √2 (Dev-036 [Sec. 2]).</summary>
+    public static double LengthM(string slot) => slot is Diag1 or Diag2 ? Math.Sqrt(2.0) : 1.0;
 }
 
 /// <summary>One stratum boundary: from <c>Depth</c> half-metres below the original ground down.</summary>
@@ -90,10 +138,12 @@ public sealed class Chunk
 public sealed class ChunkLevel
 {
     public ChunkLevel(int cx, int cy, int z, short[] floorH, ushort[] floorMat, ushort[] wallN, ushort[] wallW,
-        byte[] edgeFlags, byte[] flags)
+        byte[] edgeFlags, byte[] flags, byte[]? slotMask = null, ushort[]? slotMat = null)
     {
         foreach (var length in new[] { floorH.Length, floorMat.Length, wallN.Length, wallW.Length, edgeFlags.Length, flags.Length })
             if (length != ChunkConst.CellCount) throw new ArgumentException("level arrays must contain 1024 values");
+        if (slotMask is not null && slotMask.Length != ChunkConst.CellCount) throw new ArgumentException("slot_mask must contain 1024 values");
+        if (slotMat is not null && slotMat.Length != ChunkConst.CellCount) throw new ArgumentException("slot_mat must contain 1024 values");
         Cx = cx;
         Cy = cy;
         Z = z;
@@ -103,6 +153,8 @@ public sealed class ChunkLevel
         WallW = wallW;
         EdgeFlags = edgeFlags;
         Flags = flags;
+        SlotMask = slotMask ?? new byte[ChunkConst.CellCount];
+        SlotMat = slotMat ?? new ushort[ChunkConst.CellCount];
     }
 
     public int Cx { get; }
@@ -115,15 +167,22 @@ public sealed class ChunkLevel
     public byte[] EdgeFlags { get; }
     public byte[] Flags { get; }
 
+    /// <summary>Which of the six slots carry a wall; phases 2 and 3 fill the interior bits.</summary>
+    public byte[] SlotMask { get; }
+
+    /// <summary>Material of each interior slot, parallel to <see cref="SlotMask"/>.</summary>
+    public ushort[] SlotMat { get; }
+
     public static ChunkLevel Empty(int cx, int cy, int z) => new(cx, cy, z,
         Enumerable.Repeat(ChunkConst.NoFloor, ChunkConst.CellCount).ToArray(), new ushort[ChunkConst.CellCount],
         new ushort[ChunkConst.CellCount], new ushort[ChunkConst.CellCount], new byte[ChunkConst.CellCount],
         new byte[ChunkConst.CellCount]);
 
     public ChunkLevel With(short[]? floorH = null, ushort[]? floorMat = null, ushort[]? wallN = null,
-        ushort[]? wallW = null, byte[]? edgeFlags = null, byte[]? flags = null) =>
+        ushort[]? wallW = null, byte[]? edgeFlags = null, byte[]? flags = null, byte[]? slotMask = null,
+        ushort[]? slotMat = null) =>
         new(Cx, Cy, Z, floorH ?? FloorH, floorMat ?? FloorMat, wallN ?? WallN, wallW ?? WallW,
-            edgeFlags ?? EdgeFlags, flags ?? Flags);
+            edgeFlags ?? EdgeFlags, flags ?? Flags, slotMask ?? SlotMask, slotMat ?? SlotMat);
 
     public byte[] FloorBlob => Blobs.Encode(FloorH);
     public byte[] FloorMatBlob => Blobs.Encode(FloorMat);
@@ -131,11 +190,14 @@ public sealed class ChunkLevel
     public byte[] WallWBlob => Blobs.Encode(WallW);
     public byte[] EdgeFlagsBlob => (byte[])EdgeFlags.Clone();
     public byte[] FlagsBlob => (byte[])Flags.Clone();
+    public byte[] SlotMaskBlob => (byte[])SlotMask.Clone();
+    public byte[] SlotMatBlob => Blobs.Encode(SlotMat);
 
     public static ChunkLevel FromBlobs(int cx, int cy, int z, byte[] floor, byte[] floorMat, byte[] wallN, byte[] wallW,
-        byte[] edgeFlags, byte[] flags) =>
+        byte[] edgeFlags, byte[] flags, byte[]? slotMask = null, byte[]? slotMat = null) =>
         new(cx, cy, z, Blobs.DecodeInt16(floor), Blobs.DecodeUInt16(floorMat), Blobs.DecodeUInt16(wallN),
-            Blobs.DecodeUInt16(wallW), Blobs.DecodeUInt8(edgeFlags), Blobs.DecodeUInt8(flags));
+            Blobs.DecodeUInt16(wallW), Blobs.DecodeUInt8(edgeFlags), Blobs.DecodeUInt8(flags),
+            slotMask is null ? null : Blobs.DecodeUInt8(slotMask), slotMat is null ? null : Blobs.DecodeUInt16(slotMat));
 }
 
 /// <summary>Little-endian blob codecs (F5): the same bytes the Python server stores.</summary>

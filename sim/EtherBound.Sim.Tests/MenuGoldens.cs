@@ -7,12 +7,20 @@ using Xunit.Abstractions;
 
 namespace EtherBound.Sim.Tests;
 
-/// <summary>Menus are built by the sim: the Dev-016 tiles and every lab bay match Python entry for entry.</summary>
+/// <summary>
+/// Menus are built by the sim: the Dev-016 tiles and every lab bay match the Python output entry for
+/// entry. <c>build</c> is the one exception and is dropped from both sides of the comparison: the
+/// Python server never had a handler for it, so its entries are not in the frozen fixture and
+/// adding them would mean regenerating a golden that no longer has a producer.
+/// </summary>
 public class MenuGoldens
 {
     private readonly ITestOutputHelper _output;
 
     public MenuGoldens(ITestOutputHelper output) => _output = output;
+
+    /// <summary>Ops added after the cut-over, which the frozen Python fixture cannot contain.</summary>
+    private static readonly HashSet<string> AfterCutOver = new(StringComparer.Ordinal) { "build" };
 
     private static readonly (string Label, int Sx, int Sy, int? Sh, int Tx, int Ty)[] TestTiles =
     {
@@ -33,11 +41,21 @@ public class MenuGoldens
         session.Commit();
     }
 
+    private static JsonObject Comparable(MenuPayload menu)
+    {
+        var json = (JsonObject)menu.ToJson();
+        var entries = json["entries"]!.AsArray().Where(e => !AfterCutOver.Contains(e!.Str("op")))
+            .Select(e => (JsonNode?)e!.DeepClone()).ToArray();
+        json["entries"] = new JsonArray(entries);
+        return json;
+    }
+
     private void Check(JsonArray goldens, string world, string label, int radius, MenuPayload menu)
     {
         var golden = goldens.First(g => g!.Str("world") == world && g.Str("label") == label && g.Int("radius") == radius)!["menu"];
-        if (Json.Same(golden, menu.ToJson())) return;
-        _output.WriteLine($"expected: {golden!.ToJsonString()}\nactual:   {menu.ToJson().ToJsonString()}");
+        var actual = Comparable(menu);
+        if (Json.Same(golden, actual)) return;
+        _output.WriteLine($"expected: {golden!.ToJsonString()}\nactual:   {actual.ToJsonString()}");
         Assert.Fail($"menu {world}/{label}/r{radius} differs");
     }
 

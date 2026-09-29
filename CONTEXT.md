@@ -17,7 +17,7 @@ faster, at clock speed 10.
 | sim.rng | `sim/EtherBound.Sim/Rng/` | `PyRandom`, a bit-exact port of CPython's MT19937; `RngStream`/`RNGStreams` — one seeded stream per system. |
 | sim.world | `sim/EtherBound.Sim/World/` | Material registry, validated object kinds, chunk/grid geometry, A*, the generator registry and seeded generation (`test` and `lab`). |
 | sim.events | `sim/EtherBound.Sim/Events/`, `sim/EtherBound.Sim/Core/` | Typed committed events, FIFO subscriber bus, transactional sequence persistence, and core primitives (`Ids`, `GameAction`, target types). |
-| sim.db | `sim/EtherBound.Sim/Db/` | `Microsoft.Data.Sqlite` schema, load/save and the migration runner. |
+| sim.db | `sim/EtherBound.Sim/Db/` | `Microsoft.Data.Sqlite` schema, the stepwise migration runner, load/save. |
 | sim.engine | `sim/EtherBound.Sim/Engine/`, `sim/EtherBound.Sim/Clock/` | The only state writer: `WorldEngine` orchestration, action/target types, generated menus, every handler, deterministic SI physics, trajectory resolution, `Pick` (ray casting for the client) and `SimClock`. |
 | sim.minds | `sim/EtherBound.Sim/Minds/` | Decision sources that propose through the action API; today `ExtrasBrain`, the deterministic routine of an Extra. |
 | sim.host | `sim/EtherBound.Host/` | `SimulationHost`: the sim's single writer thread, a bounded command channel (move, clock, actions, menu/pick queries, new game) and detached, revisioned `WorldFrame`s the client reads without a lock. `ActorMotion` and `StepPlayout`: the client's presentational interpolation between frames. |
@@ -35,8 +35,11 @@ changes in one transaction. File saves run in WAL with `synchronous=NORMAL` and 
 pooling (Fix19): a step commits in about 0.7 ms, a power cut can drop the last moments but never
 corrupts, and the `-wal` file is folded back on close. Migrations `0001_initial`, `0002_world`, `0003_event`,
 `0004_dig_activity`, `0005_object`, `0006_physics`, `0007_generator` and `0008_extra` are unchanged
-from the retired Python server (`legacy-python-web-stack.zip`); the sim records its own
-`schema_version` and leaves the save's old `alembic_version` column alone:
+from the retired Python server (`legacy-python-web-stack.zip`); the sim's own chain starts at
+`0009_walls` (Dev-036). `Database.EnsureSchema` is a stepwise runner: a missing save is created from
+the embedded `Schema0008.sql` at `0008_extra`, then every pending step is applied in order from the
+save's own `alembic_version`, one transaction each, and the head is written; a version the runner
+does not know is refused instead of guessed. The sim also records its own `sim_schema` row.
 
 | Table | Columns |
 |---|---|
@@ -44,14 +47,16 @@ from the retired Python server (`legacy-python-web-stack.zip`); the sim records 
 | `actor` | `id` (pk), `kind` (`player` or `extra`), nullable `name`, `x`, `y`, `z` (derived `h // 6`), `h` (half-metres), `mass_kg` (default 80), nullable JSON `activity` (`op`, `action`, `started_minute`, `ends_minute`), nullable JSON `mind` (`anchor {x, y, h}`, `goal {kind: wander, x, y, h}` or null) |
 | `material` | append-only `id` ↔ `key` mapping plus rendering/physics properties |
 | `chunk` | pk `(cx, cy)`; blobs `ground_h` (int16×1024), `surface_mat` (uint16×1024), nullable `dug` (uint8×1024, NULL = all zeros), `strata` JSON, `revision`, `gen_version` |
-| `chunk_level` | pk `(cx, cy, z)`; blobs `floor_h`, `floor_mat`, `wall_n`, `wall_w`, `edge_flags`, `flags` |
+| `chunk_level` | pk `(cx, cy, z)`; blobs `floor_h`, `floor_mat`, `wall_n`, `wall_w`, `edge_flags`, `flags`, nullable `slot_mask` (uint8, NULL = all zeros) and `slot_mat` (uint16) for the six wall slots |
 | `object` | `id` (pk), `kind`, `loc` (`tile`/`in`/`held`/`worn`), nullable `x`/`y`/`h`/`cx`/`cy`, nullable `container_id` (self-FK), nullable `actor_id`, nullable `slot`, `quantity` (> 0), JSON `state`, nullable `integrity`, nullable `owner`; a CHECK pins the exact columns of each `loc` |
-| `wall_integrity` | sparse pk `(cx, cy, z, cell_index, edge)` for partly damaged north/west wall edges; stores remaining joules |
+| `wall_slot` | sparse pk `(cx, cy, z, cell_index, slot)` for partly damaged walls, edge and interior alike; stores remaining joules |
 | `event` | `seq` (global ordered pk), `game_minute`, `type`, nullable `actor_id`, JSON `data`; indexed by minute, type and actor |
 
 Spatial units: 1 m tiles in 32×32 chunks; `h` in half-metres; `z` is the absolute 3 m band
 `floor(h / 6)`; walls live on tile edges (each tile owns north/west) with doorway/window edge
-flags; below the surface everything is implicit strata until a `void` flag excavates it. Strata
+flags, and each cell also carries a `slot_mask` byte for the six wall slots `N`, `W` and the
+interior `H`, `V`, `D1`, `D2` (1, 2, 4, 8, 16, 32) that phases 2 and 3 of Dev-036 fill;
+below the surface everything is implicit strata until a `void` flag excavates it. Strata
 depth is measured from the original ground (`ground_h + dug`), so digging exposes deeper layers
 instead of dragging them down. The test
 world (`gen_version = 5`) is 8×8 chunks with hills, a road (spawn at 121.5, 128.5, h=2), a terrace
@@ -110,7 +115,10 @@ the feature bay. Every published `WorldFrame` carries `Generators` (`HostGenerat
   actions and `subject` names what an entry acts on. Handled: `move` (never in menus), `inspect`
   (instant, 30 m, tile, object or actor text, no event), `wait` (15 min), `dig` (ground surface only,
   `ceil(30 × dig_cost / tool)` min per 0.5 m with the best held `tool.dig` or 0.25 bare-handed,
-  `dig_cost ≤ 2`, refused when an object rests at the ground `h`), `climb`, the instant handling
+  `dig_cost ≤ 2`, refused when an object rests at the ground `h`), `climb`, `build` (a wall on a
+  tile edge or a floor on a tile, `ceil(30 × build_cost × slot length / tool)` min with the best
+  held `tool.build` or 0.25 bare-handed; the material is the surface the build stands on and a
+  material with no `build_cost` is not a building material, so the spot is refused), the instant handling
   ops, and `push`, `pull`, `drag`, `throw`, `hit`, `break`. Physics resolves a full tile path at
   submit time using SI energy and friction values; `physics.resolved` records the result and the
   action response carries its authoritative trajectory. `climb` still takes
@@ -123,10 +131,10 @@ the feature bay. Every published `WorldFrame` carries `Generators` (`HostGenerat
   supported object (something on its top) cannot be taken or opened. Carried mass slows movement
   (`load_multiplier`); `load_kg` recursively counts held and worn objects and their contents.
 - **Physics.** Shove uses reduced mass at 2 m/s; throw caps at 8 m/s and 100 J; hands use 2 kg at
-  5 m/s; horizontal loss per metre is `0.05 × mass × 9.81` J. `Object.integrity` is remaining J
+  5 m/s; horizontal loss per metre is `0.05 × mass × 9.81` J.   `Object.integrity` is remaining J
   (NULL means intact at material resistance × max(1, height) half-metre cells); wall edges span six
   cells and partial damage persists in
-  `wall_integrity`. Zero integrity turns objects into data-defined rubble (spilling container
+  `wall_slot`, keyed by slot so an edge and an interior slot share one namespace. Zero integrity turns objects into data-defined rubble (spilling container
   contents) or opens wall edges. Falls resolve in the same action; bodies over a 3 m fall emit
   potential energy as `impact`. Physics never mutates health. The client only animates the sim's
   trajectory (`TrajectoryAnimator`); it never resolves physics itself.
@@ -148,8 +156,9 @@ the feature bay. Every published `WorldFrame` carries `Generators` (`HostGenerat
   standing surface for `z`, `self` and the objects lying on it at that surface's band, plus the
   contents of its open or lidless containers; on the actor's own tile, also every held and worn
   object and the contents of worn open containers; it also offers actors standing on the clicked tile
-  at that surface's band and existing north/west wall edges as physics targets. Each handled op whose
-  targets allow a candidate
+  at that surface's band and existing north/west wall edges as physics targets, plus — on the actor's
+  own tile at the band being read — that tile's two bare edges, so a wall can be built where there is
+  none yet. Each handled op whose targets allow a candidate
   and whose `applies` holds becomes an entry with its `action`, `available`, `reason` and `subject`,
   in catalog order then candidate order. Each entry carries `tile_dx`/`tile_dy`, the offset from
   the origin tile of the tile whose candidate built it (self, held and worn are `0, 0`), and the
@@ -247,9 +256,9 @@ the areas you touch.
 
 ## Not yet present
 
-The other six primitives as data models, handlers for the 40 catalog ops that have none (`jump`,
+The other six primitives as data models, handlers for the 39 catalog ops that have none (`jump`,
 `sit`, `lie`, `sleep`, `hide`, `search`, `watch`, `give`, `lock`, `unlock`, `use`, `eat`,
-`drink`, `treat`, `fill`, `build`, `repair`, `ignite`, `extinguish`, `cook`, `craft`, `grab`,
+`drink`, `treat`, `fill`, `repair`, `ignite`, `extinguish`, `cook`, `craft`, `grab`,
 `shoot`, the social, communication and trade ops, and `work`), modifiers, rolls,
 witnesses/knowledge, water simulation, Agent brains and their needs, traits and utility (the
 deterministic Extras exist), LLM, Jev (its C# runtime is an open question, `docs/PENDING.md`), item

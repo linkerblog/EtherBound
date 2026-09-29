@@ -84,8 +84,8 @@ public sealed class ObjectRow
     public bool IsOpen => State["open"] is { } open && open.GetValue<bool>();
 }
 
-/// <summary>Remaining joules of a partly damaged north/west wall edge.</summary>
-public readonly record struct WallKey(int Cx, int Cy, int Z, int CellIndex, string Edge);
+/// <summary>Remaining joules of a partly damaged wall, keyed by the slot that holds it.</summary>
+public readonly record struct WallKey(int Cx, int Cy, int Z, int CellIndex, string Slot);
 
 /// <summary>One stored event log row.</summary>
 public sealed record EventRow(int Seq, int GameMinute, string Type, string? ActorId, JsonObject Data);

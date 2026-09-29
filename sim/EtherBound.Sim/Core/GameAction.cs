@@ -18,6 +18,7 @@ public sealed record GameAction
         ["inspect"] = new(new[] { "tile", "object", "actor" }),
         ["wait"] = new(new[] { "self" }, DefaultSelf: true),
         ["dig"] = new(new[] { "tile" }),
+        ["build"] = new(new[] { "tile", "edge" }),
         ["climb"] = new(new[] { "tile" }),
         ["take"] = new(new[] { "object" }),
         ["drop"] = new(new[] { "object" }),

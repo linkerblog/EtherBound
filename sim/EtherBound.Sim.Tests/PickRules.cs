@@ -88,6 +88,49 @@ public sealed class PickRules
     }
 
     [Fact]
+    public void Pick_returns_a_bare_edge_in_a_built_band_and_the_menu_offers_it()
+    {
+        using var engine = new WorldEngine();
+        engine.NewGame(7, "lab");
+        // A seam with no wall on it, inside a band that already carries a level: the walls bay.
+        var centre = Bay("walls");
+        var (level, index) = engine.Grid.Levels.Values
+            .Select(l => (Level: l, Index: Enumerable.Range(0, ChunkConst.CellCount).First(i => l.WallN[i] == 0 && l.WallW[i] == 0)))
+            .First(p => p.Level.Cx == centre.X / ChunkConst.Size && p.Level.Cy == centre.Y / ChunkConst.Size);
+        var x = level.Cx * ChunkConst.Size + index % ChunkConst.Size;
+        var y = level.Cy * ChunkConst.Size + index / ChunkConst.Size;
+        var height = level.FloorH[index] == ChunkConst.NoFloor
+            ? engine.Grid.GroundAt(x, y)!.Value.GroundH
+            : level.FloorH[index];
+        var z = PyMath.FloorDiv(height, ChunkConst.LevelH);
+        var session = engine.OpenSession();
+        foreach (var other in session.Actors().Where(a => a.Id != Ids.Player)) (other.X, other.Y, other.H, other.Z) = (100.5, 100.5, 0, 0);
+        var niko = session.GetActor(Ids.Player)!;
+        (niko.X, niko.Y) = (x + 0.5, y + 0.5);
+        (niko.H, niko.Z) = (height, z);
+        session.Commit();
+        var ray = new WorldRay(x + 0.5, y - 0.75, height * 0.5 + 1, 0, 1, 0);
+
+        var hit = engine.Pick(ray);
+
+        Assert.NotNull(hit);
+        Assert.Equal(new EdgeTarget(x, y, z, "north"), hit.Target);
+
+        // A bare edge is addressable, which is the whole point: there is no wall to point at yet.
+        var entries = Menu.Build(engine.OpenSession(), engine.Grid, engine.Registry, 0, Ids.Player, x + 0.5, y + 0.5, z)
+            .Entries.Where(e => e.Op == "build").ToList();
+        Assert.Contains(entries, entry => entry.Action.Target is EdgeTarget edge
+            && edge.X == x && edge.Y == y && edge.Direction == "north");
+    }
+
+    /// <summary>Centre tile of a named lab bay, the only place with a constructed level nearby.</summary>
+    private static (int X, int Y) Bay(string key)
+    {
+        var bay = World.Gen.Generators.All["lab"].Bays.Single(b => b.Key == key);
+        return (bay.X + bay.Width / 2, bay.Y + bay.Height / 2);
+    }
+
+    [Fact]
     public void Pick_returns_a_solid_object_volume()
     {
         using var engine = new WorldEngine();

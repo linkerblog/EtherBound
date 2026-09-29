@@ -5,8 +5,12 @@ namespace EtherBound.Sim.World;
 /// <summary>A registered material. <c>Resistance</c> is joules absorbed per half-metre segment.</summary>
 public sealed record Material(
     string Key, string Name, string Color, bool Walkable, double WalkCost, bool Solid, bool BlocksSight,
-    bool Diggable, double DigCost, bool Flammable, double Density, double Resistance, bool Liquid,
-    IReadOnlyList<string> Tags, int Id);
+    bool Diggable, double DigCost, double? BuildCost, bool Flammable, double Density, double Resistance, bool Liquid,
+    IReadOnlyList<string> Tags, int Id)
+{
+    /// <summary>A material `build` can place: it carries a positive <c>build_cost</c> (Dev-036 [Sec. 1]).</summary>
+    public bool Buildable => BuildCost is > 0;
+}
 
 /// <summary>Static material definitions with save-compatible, append-only ids.</summary>
 public sealed class MaterialRegistry
@@ -47,12 +51,16 @@ public sealed class MaterialRegistry
             values.Add(new Material(
                 key, (string)raw["name"], (string)raw["color"], (bool)raw["walkable"],
                 DataFiles.Number(raw["walk_cost"]), (bool)raw["solid"], (bool)raw["blocks_sight"],
-                (bool)raw["diggable"], DataFiles.Number(raw["dig_cost"]), (bool)raw["flammable"],
+                (bool)raw["diggable"], DataFiles.Number(raw["dig_cost"]), BuildCost(raw), (bool)raw["flammable"],
                 DataFiles.Number(raw["density"]), DataFiles.Number(raw["resistance"]), (bool)raw["liquid"],
                 tags, id));
         }
         return new MaterialRegistry(values);
     }
+
+    // Absent `build_cost` means the material is not a building material, so `build` refuses the spot.
+    private static double? BuildCost(TomlTable raw) =>
+        raw.TryGetValue("build_cost", out var cost) ? DataFiles.Number(cost) : null;
 
     public int Count => Materials.Count;
 

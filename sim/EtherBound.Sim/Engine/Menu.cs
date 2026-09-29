@@ -35,11 +35,20 @@ public static class Menu
         candidates.AddRange(tileRows.Select(o => new ObjectTarget(o.Id)));
         var (cx, cy, lx, ly) = WorldGrid.ChunkCoords(x, y);
         var cell = ly * ChunkConst.Size + lx;
+        var edges = new HashSet<(int, string)>();
         foreach (var level in grid.Levels.Values.OrderBy(l => l.Z))
         {
             if ((level.Cx, level.Cy) != (cx, cy)) continue;
-            if (level.WallN[cell] != 0) candidates.Add(new EdgeTarget(x, y, level.Z, "north"));
-            if (level.WallW[cell] != 0) candidates.Add(new EdgeTarget(x, y, level.Z, "west"));
+            if (level.WallN[cell] != 0 && edges.Add((level.Z, "north"))) candidates.Add(new EdgeTarget(x, y, level.Z, "north"));
+            if (level.WallW[cell] != 0 && edges.Add((level.Z, "west"))) candidates.Add(new EdgeTarget(x, y, level.Z, "west"));
+        }
+        // A bare edge has to be addressable or there is nowhere to build a wall (Dev-036 [Sec. 1]
+        // F4). Only the actor's own tile at the band being read, or every tile of a radius-1 menu
+        // would carry two dead edges.
+        if (onOwnTile)
+        {
+            if (edges.Add((z, "north"))) candidates.Add(new EdgeTarget(x, y, z, "north"));
+            if (edges.Add((z, "west"))) candidates.Add(new EdgeTarget(x, y, z, "west"));
         }
         var standH = chosen?.H ?? actor.H;
         candidates.AddRange(actors.Where(o => o.Id != actor.Id && (o.TileX, o.TileY, o.H) == (x, y, standH)).Select(o => new ActorTarget(o.Id)));

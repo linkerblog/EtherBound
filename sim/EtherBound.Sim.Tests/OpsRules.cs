@@ -68,9 +68,18 @@ public sealed class OpsRules : IDisposable
 
     private static List<EventRow> Stored(WorldEngine engine, string type) => engine.ReadEvents(0, 500, type);
 
-    private static Dictionary<string, (bool Available, string? Reason)> MenuOps(WorldEngine engine, int x, int y, int z = 0) =>
+    /// <summary>Menu entries by op; like Python's dict comprehension, the last one for an op wins.</summary>
+    private static Dictionary<string, (bool Available, string? Reason)> MenuOps(WorldEngine engine, int x, int y, int z = 0)
+    {
+        var menu = new Dictionary<string, (bool, string?)>();
+        foreach (var e in Menu.Build(engine.OpenSession(), engine.Grid, engine.Registry, engine.LoadKg(Ids.Player), Ids.Player, x + 0.5, y + 0.5, z).Entries)
+            menu[e.Op] = (e.Available, e.Reason);
+        return menu;
+    }
+
+    private static List<string> MenuOpOrder(WorldEngine engine, int x, int y, int z = 0) =>
         Menu.Build(engine.OpenSession(), engine.Grid, engine.Registry, engine.LoadKg(Ids.Player), Ids.Player, x + 0.5, y + 0.5, z).Entries
-            .ToDictionary(e => e.Op, e => (e.Available, e.Reason));
+            .Select(e => e.Op).ToList();
 
     [Fact]
     public void Carried_payload_cache_refreshes_after_drop_and_take()
@@ -99,10 +108,12 @@ public sealed class OpsRules : IDisposable
     }
 
     [Fact]
-    public void The_catalog_loads_58_unique_ops_and_rejects_bad_data()
+    public void The_catalog_loads_58_unique_ops_and_build_is_handled()
     {
         Assert.Equal(58, OpCatalog.Specs.Count);
         Assert.Equal(58, OpCatalog.Specs.Select(s => s.Key).Distinct().Count());
+        Assert.Equal("build", OpCatalog.HandlerFor("build").Op);
+        Assert.Equal(new[] { "tile", "edge" }, OpCatalog.Specs.Single(s => s.Key == "build").Targets);
     }
 
     [Fact]
@@ -127,17 +138,22 @@ public sealed class OpsRules : IDisposable
         using var engine = NewEngine();
         Place(engine, Road.X, Road.Y);
         var entries = Menu.Build(engine.OpenSession(), engine.Grid, engine.Registry, 0, Ids.Player, 124.5, 128.5, 0).Entries;
-        Assert.Equal(new[] { "inspect", "dig" }, entries.Select(e => e.Op));
-        Assert.All(entries, e => Assert.True(e.Available));
-        foreach (var entry in entries) Assert.True(engine.Submit(Ids.Player, entry.Action).Accepted, entry.Op);
+        Assert.Equal(new[] { "inspect", "dig", "build" }, entries.Select(e => e.Op));
+        // Grass carries no `build_cost`, so the neighbour tile's floor is shown with its reason.
+        var build = entries.Single(e => e.Op == "build");
+        Assert.Equal((false, "no building material"), (build.Available, build.Reason));
+        foreach (var entry in entries.Where(e => e.Op != "build")) Assert.True(engine.Submit(Ids.Player, entry.Action).Accepted, entry.Op);
     }
 
     [Fact]
-    public void The_menu_on_own_tile_adds_wait()
+    public void The_menu_on_own_tile_adds_wait_and_the_two_bare_edges()
     {
         using var engine = NewEngine();
         Place(engine, Grass.X, Grass.Y);
-        Assert.Equal(new[] { "wait", "inspect", "dig" }, MenuOps(engine, Grass.X, Grass.Y).Keys);
+        Assert.Equal(new[] { "wait", "inspect", "dig", "build", "build", "build" }, MenuOpOrder(engine, Grass.X, Grass.Y));
+        var build = Menu.Build(engine.OpenSession(), engine.Grid, engine.Registry, 0, Ids.Player, Grass.X + 0.5, Grass.Y + 0.5, 0).Entries
+            .Where(e => e.Op == "build").ToList();
+        Assert.Equal(new[] { "tile", "edge", "edge" }, build.Select(e => e.Action.Target!.Kind));
     }
 
     [Fact]

@@ -64,9 +64,23 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
   an `EdgeTarget` only in a band that already carries a `chunk_level` row. Without the second
   restriction a near-horizontal cursor ray would stop at every tile seam in open terrain and never
   reach the wall, object or ground behind it.
-- **Walls stay thin planes on their edge for every system.** Physics, picking, occlusion and the
-  cutaway treat a wall as its tile edge. `WALL_T` (1/4 m) and the top strip, end faces and corner
-  post are render-only, drawn outward behind the visible face, so nothing moves on the plane.
+- **Interior slots do not inherit edge ownership.** `H`/`V` are centered through the addressed tile,
+  so only that cell's slot bit is changed. The tile's four quadrants form connected regions; A* nodes
+  retain the region. Entry and exit must share the same north/south or west/east half-edge port;
+  testing each region against the whole edge admits impossible north-to-south jumps. Extras align its
+  waypoint to that port before crossing. Diagonal search steps touching a split tile (including an
+  L-route middle tile) are suppressed.
+- **Interior walls need body clearance on both approach and parallel motion.** Their centered 1/4 m
+  render box gives a 0.426 m body-centre clearance. `Movement` blocks perpendicular entry into that
+  zone and separates a body that enters exactly on the line before it can walk along the wall.
+  Changing only the tile-transition check lets center-aligned movement pass through `H`/`V`.
+- **An open interior line is not a pick target.** `Pick` returns `H`/`V` only when that slot has a
+  wall at the ray height; bare interior slots come from a reachable menu target. Returning every
+  center-line crossing would intercept open-room rays.
+- **Edge and interior walls use different geometry but the same wall face codes.** Edge walls remain
+  on the tile seam for physics, picking and occlusion. Interior `H`/`V` walls are centered inside the
+  tile and split navigation regions; both render with wall codes 3/4, so natural-terrain cutaway
+  never shreds them. Edge `WALL_T` and its top strip/end caps/corner post remain render-only.
   Wall-face masks hang from their draw height (the run top), like ground faces.
 - **Spawn must come from the generator's road.** A first-walkable-tile scan starts in the map
   corner, where radius-2 chunk streaming only finds 9 chunks instead of 25.
@@ -111,7 +125,10 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
 - **A cursor ray must agree with the sim's own geometry, not the render mesh.** `WorldClient`
   builds a `WorldRay` from `PixelView.RayFromScreen` and always resolves it through
   `WorldEngine.Pick` (sim thread), never against Godot physics or mesh collision shapes, so picking
-  a wall, an actor or an object top matches what the standing rule already knows.
+  an edge/interior wall, an actor or an object top matches what the standing rule already knows.
+- **Extras' waypoint must retain its tile region.** A tile-level spot alone loses which side of an
+  `H`/`V` wall the path reached; aiming at the tile centre would steer into the wall intersection.
+  The brain supplies the actor's actual start region and follows the node's point inside that region.
 - **`Godot.Vector3` and `WorldRay` do not share an axis order.** Godot's ray is `(x, y-up, z)`; the
   sim's is `(x, y, height)`. `WorldClient` maps `origin.X, origin.Z, origin.Y` (and the same for the
   direction) — swap two of those and picking silently offsets or inverts.
@@ -137,6 +154,10 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
 
 ## 5. Renderer, shaders and furniture meshes
 
+- **A registered world material still needs a sprite-sheet mapping.** `WorldClient.Sheets` keys
+  must match `materials.toml`; otherwise its texture layer is `-1` and `Terrain.gdshader` renders
+  only the material tint. Digging exposes `topsoil` first, so it shares the dirt sheets with `dirt`
+  until a dedicated topsoil sheet exists.
 - **A chunk's mesh depends on its four neighbours and on every roof flag.** `ChunkMesher` reads one
   cell past the chunk on each side (edge faces `x+1`/`y+1`, wall corners `x-1`/`y-1`), and
   `RoofBands` spans all loaded chunks. `WorldClient.RebuildChunks` rebuilds new or changed chunks
@@ -154,19 +175,20 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
   and pick stored floors even when their band is VOID; suppress only a ground top whose own band
   is void. A slab resting on the solid ground still counts as ground for the cutaway ray, or
   clipping it opens a hole through an excavated column (`ChunkMesher.Build`'s `rests` check).
-- **A built wall is an ordinary wall to the renderer.** `build` writes the same `wall_n`/`wall_w` a
-  generator would, so `ChunkMesher.Wall` draws it, the chunk revision bump makes the client remesh
-  the dirty chunk and its neighbours, and the cutaway still cuts it to a stub. Nothing in `game/`
-  changed for Dev-036, and a built wall must be checked under the cutaway by hand, since only a
-  windowed `--shots` run proves the render.
+- **A built wall is ordinary geometry to the renderer.** Edge `build` writes `wall_n`/`wall_w`; `H`/`V`
+  writes `slot_mask`/`slot_mat`, detached through `WorldFrame`. `ChunkMesher` draws interior boxes
+  centered on each slot and the chunk revision makes the client remesh the changed geometry. Both use
+  wall face codes, so the natural-terrain cutaway leaves them intact. Check a built interior wall from
+  both sides under the cutaway by hand; only a windowed `--shots` run proves the render.
 - **Touching voxels z-fight unless the shared face is culled.** Two adjacent furniture voxels each
   drawing a face on the exact same plane flicker under the ortho camera depending on draw order.
   `FurnitureMesh` looks up each of the piece's own 5 neighbour cells (`FurniturePiece.Occupied`) and
   skips a face when the neighbour is present; the bottom face is always skipped, matching the plain
   object box.
-- **A wall is a thin plane on its tile edge for every system.** Physics, picking, occlusion and the
-  cutaway all treat it that way. `WallT` (1/4 m) and the top strip, end faces and corner post are
-  render-only, drawn outward behind the visible face, so nothing moves on the plane.
+- **An edge wall is a thin plane on its tile seam for every system.** Physics, picking, occlusion and
+  the cutaway all treat it that way. `WallT` (1/4 m) and the top strip, end faces and corner post are
+  render-only, drawn outward behind the visible face. Interior `H`/`V` walls instead use centered
+  boxes and region-aware movement/navigation.
 - **The occlusion ray follows Niko's body, not a shortened feet ray**, and does the front-wall-stub
   job by itself. `Cutaway.ClipH` walks a ray from Niko toward the camera over the sim grid
   (`Occluded`) and separately checks what roofs or covers Niko's own tile (`Roofed`); there is no

@@ -30,7 +30,7 @@ public abstract record Target(string Kind)
     };
 
     private static string ParseDirection(string value) =>
-        value is "north" or "south" or "east" or "west" ? value : throw new ArgumentException($"bad direction {value}");
+        value is "north" or "south" or "east" or "west" or "H" or "V" ? value : throw new ArgumentException($"bad direction {value}");
 }
 
 public sealed record SelfTarget() : Target("self")

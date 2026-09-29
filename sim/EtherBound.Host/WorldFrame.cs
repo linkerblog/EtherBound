@@ -30,7 +30,7 @@ public sealed record HostStratum(int Depth, string Key);
 
 public sealed record HostLevel(int Z, ImmutableArray<short> FloorH, ImmutableArray<ushort> FloorMat,
     ImmutableArray<ushort> WallN, ImmutableArray<ushort> WallW, ImmutableArray<byte> EdgeFlags,
-    ImmutableArray<byte> Flags);
+    ImmutableArray<byte> Flags, ImmutableArray<byte> SlotMask, ImmutableArray<ushort> SlotMat);
 
 public sealed record HostChunk(int Cx, int Cy, int Revision, ImmutableArray<short> GroundH,
     ImmutableArray<ushort> SurfaceMat, ImmutableArray<byte> Dug, ImmutableArray<HostStratum> Strata,
@@ -47,7 +47,8 @@ public sealed record HostChunk(int Cx, int Cy, int Revision, ImmutableArray<shor
         ImmutableArray.CreateRange(payload.Levels.Select(level => new HostLevel(level.Z,
             ImmutableArray.CreateRange(level.FloorH), ImmutableArray.CreateRange(level.FloorMat),
             ImmutableArray.CreateRange(level.WallN), ImmutableArray.CreateRange(level.WallW),
-            ImmutableArray.CreateRange(level.EdgeFlags), ImmutableArray.CreateRange(level.Flags)))),
+            ImmutableArray.CreateRange(level.EdgeFlags), ImmutableArray.CreateRange(level.Flags),
+            ImmutableArray.CreateRange(level.SlotMask), ImmutableArray.CreateRange(level.SlotMat)))),
         ImmutableArray.CreateRange(payload.Objects.Select(o => new HostObject(o.Id, o.Kind, o.X, o.Y, o.H, o.Quantity, o.Open))));
 }
 

@@ -18,6 +18,7 @@ public sealed class WorldDump
     public const int LevelH = 6;
     public const short NoFloor = -32768;
     public const byte EdgeNDoorway = 1, EdgeNWindow = 2, EdgeWDoorway = 4, EdgeWWindow = 8;
+    public const byte SlotHalfH = 4, SlotHalfV = 8;
     public const byte LevelVoid = 1, LevelRoof = 4;
 
     public sealed record Material(int Id, string Key, string Color, bool Liquid);
@@ -37,6 +38,8 @@ public sealed class WorldDump
         public required short[] FloorH;
         public required ushort[] FloorMat, WallN, WallW;
         public required byte[] EdgeFlags, Flags;
+        public required byte[] SlotMask;
+        public required ushort[] SlotMat;
     }
 
     public string Generator = "";
@@ -95,6 +98,9 @@ public sealed class WorldDump
                 WallW = UInt16s(l, "wall_w"),
                 EdgeFlags = Convert.FromBase64String(l.GetProperty("edge_flags").GetString()!),
                 Flags = Convert.FromBase64String(l.GetProperty("flags").GetString()!),
+                SlotMask = l.TryGetProperty("slot_mask", out var slotMask)
+                    ? Convert.FromBase64String(slotMask.GetString()!) : new byte[CellCount],
+                SlotMat = l.TryGetProperty("slot_mat", out var slotMat) ? UInt16s(l, "slot_mat") : new ushort[CellCount],
             });
         }
         foreach (var o in root.GetProperty("objects").EnumerateArray())
@@ -145,6 +151,8 @@ public sealed class WorldDump
                     WallW = level.WallW.ToArray(),
                     EdgeFlags = level.EdgeFlags.ToArray(),
                     Flags = level.Flags.ToArray(),
+                    SlotMask = level.SlotMask.ToArray(),
+                    SlotMat = level.SlotMat.ToArray(),
                 });
             }
             dump.Objects.AddRange(chunk.Objects.Select(o => new WorldObject(o.Kind, o.X, o.Y, o.H, null)));

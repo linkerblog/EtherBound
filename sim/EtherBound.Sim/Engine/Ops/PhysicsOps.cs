@@ -26,7 +26,15 @@ internal static class Edges
         var (cx, cy, lx, ly) = WorldGrid.ChunkCoords(edge.X, edge.Y);
         if (ctx.Grid.Level(cx, cy, edge.Z) is not { } level) return null;
         var index = Chunk.Index(lx, ly);
-        int material = edge.Direction == "north" ? level.WallN[index] : level.WallW[index];
+        int material = edge.Direction switch
+        {
+            "north" => level.WallN[index],
+            "west" => level.WallW[index],
+            WallSlots.HalfH or WallSlots.HalfV => (level.SlotMask[index] & WallSlots.Bit(edge.Direction)) != 0
+                ? level.SlotMat[index]
+                : 0,
+            _ => 0,
+        };
         return material == 0 ? null : (level, index, material);
     }
 
@@ -49,6 +57,8 @@ internal static class Edges
         var edge = Canonical(target);
         if (Cell(ctx, edge) is not { } record) return false;
         var bottom = WallBottom(ctx, record.Level, record.Index);
+        if (edge.Direction is WallSlots.HalfH or WallSlots.HalfV)
+            return Reach.InCloseReach(ctx, edge.X, edge.Y) && bottom <= ctx.Actor.H + Reach.UpH && bottom + 6 >= ctx.Actor.H - Reach.DownH;
         var (ax, ay) = ctx.ActorTile;
         var sides = edge.Direction == "north"
             ? new[] { (edge.X, edge.Y), (edge.X, edge.Y - 1) }
@@ -171,9 +181,24 @@ internal static class Damage
         if (energy >= remaining)
         {
             if (stored is not null) ctx.Session.DeleteWall(key);
-            var walls = (ushort[])(edge.Direction == "north" ? level.WallN : level.WallW).Clone();
-            walls[index] = 0;
-            var updated = edge.Direction == "north" ? level.With(wallN: walls) : level.With(wallW: walls);
+            var mask = (byte[])level.SlotMask.Clone();
+            mask[index] &= (byte)~WallSlots.Bit(edge.Direction);
+            ChunkLevel updated;
+            if (edge.Direction is WallSlots.HalfH or WallSlots.HalfV)
+            {
+                var materials = (ushort[])level.SlotMat.Clone();
+                if ((mask[index] & (ChunkConst.SlotHalfH | ChunkConst.SlotHalfV | ChunkConst.SlotDiag1 | ChunkConst.SlotDiag2)) == 0)
+                    materials[index] = 0;
+                updated = level.With(slotMask: mask, slotMat: materials);
+            }
+            else
+            {
+                var walls = (ushort[])(edge.Direction == "north" ? level.WallN : level.WallW).Clone();
+                walls[index] = 0;
+                updated = edge.Direction == "north"
+                    ? level.With(wallN: walls, slotMask: mask)
+                    : level.With(wallW: walls, slotMask: mask);
+            }
             ctx.Grid.AddLevel(updated);
             ctx.Session.MarkLevel(level.Cx, level.Cy, level.Z);
             var broken = Json.Obj(("kind", "wall"));

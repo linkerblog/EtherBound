@@ -365,6 +365,8 @@ public sealed class WorldEngine : IEnginePort, IDisposable
 
         var previousX = PyMath.Floor(ray.X);
         var previousY = PyMath.Floor(ray.Y);
+        var previousPx = ray.X;
+        var previousPy = ray.Y;
         var previousHeight = ray.Height;
         var previousLoaded = Grid.GroundAt(previousX, previousY) is not null;
         const double step = 0.05;
@@ -380,6 +382,8 @@ public sealed class WorldEngine : IEnginePort, IDisposable
             {
                 previousX = x;
                 previousY = y;
+                previousPx = px;
+                previousPy = py;
                 previousHeight = height;
                 previousLoaded = false;
                 continue;
@@ -408,6 +412,19 @@ public sealed class WorldEngine : IEnginePort, IDisposable
                 {
                     var seam = new EdgeTarget(seamX, seamY, z, vertical ? "west" : "north");
                     return new WorldPickHit(seam, seamX, seamY, halfHeight, px, py, height);
+                }
+            }
+
+            if (previousLoaded && (x, y) == (previousX, previousY))
+            {
+                var crossedV = previousPx < x + 0.5 && px >= x + 0.5 || previousPx > x + 0.5 && px <= x + 0.5;
+                var crossedH = previousPy < y + 0.5 && py >= y + 0.5 || previousPy > y + 0.5 && py <= y + 0.5;
+                var slot = crossedV ? ChunkConst.SlotHalfV : crossedH ? ChunkConst.SlotHalfH : (byte)0;
+                var direction = crossedV ? WallSlots.HalfV : WallSlots.HalfH;
+                if (slot != 0 && Grid.InteriorWallLevelAtHeight(x, y, slot, halfHeight) is { } interiorZ)
+                {
+                    var target = new EdgeTarget(x, y, interiorZ, direction);
+                    return new WorldPickHit(target, x, y, halfHeight, px, py, height);
                 }
             }
 
@@ -451,6 +468,8 @@ public sealed class WorldEngine : IEnginePort, IDisposable
 
             previousX = x;
             previousY = y;
+            previousPx = px;
+            previousPy = py;
             previousHeight = height;
             previousLoaded = true;
         }

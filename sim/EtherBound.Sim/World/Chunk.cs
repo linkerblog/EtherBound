@@ -19,7 +19,7 @@ public static class ChunkConst
     public const byte LevelRoof = 4;
 
     // The six wall slots of a tile (Dev-036 [Sec. 2]): two on the edges the world already owns and
-    // four through the interior. One byte per cell is the region graph's cache key from phase 2.
+    // four through the interior. The slot byte is the region graph's compact input.
     public const byte SlotNorth = 1;
     public const byte SlotWest = 2;
     public const byte SlotHalfH = 4;
@@ -167,10 +167,10 @@ public sealed class ChunkLevel
     public byte[] EdgeFlags { get; }
     public byte[] Flags { get; }
 
-    /// <summary>Which of the six slots carry a wall; phases 2 and 3 fill the interior bits.</summary>
+    /// <summary>Which of the six slots carry a wall; `H`/`V` precede the diagonal interior bits.</summary>
     public byte[] SlotMask { get; }
 
-    /// <summary>Material of each interior slot, parallel to <see cref="SlotMask"/>.</summary>
+    /// <summary>Material shared by the interior slots of each cell, parallel to <see cref="SlotMask"/>.</summary>
     public ushort[] SlotMat { get; }
 
     public static ChunkLevel Empty(int cx, int cy, int z) => new(cx, cy, z,

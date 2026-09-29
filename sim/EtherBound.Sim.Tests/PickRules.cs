@@ -123,6 +123,49 @@ public sealed class PickRules
             && edge.X == x && edge.Y == y && edge.Direction == "north");
     }
 
+    [Fact]
+    public void Pick_hits_built_interior_slots_but_not_open_centre_lines()
+    {
+        using var engine = new WorldEngine();
+        engine.NewGame(7, "lab");
+        var bay = World.Gen.Generators.All["lab"].Bays.Single(candidate => candidate.Key == "walls");
+        var occupied = engine.GetState().Actors.Select(actor => (PyMath.Floor(actor.X), PyMath.Floor(actor.Y))).ToHashSet();
+        var tile = (X: 0, Y: 0, H: 0);
+        for (var y = bay.Y; y < bay.Y + bay.Height; y++)
+        for (var x = bay.X; x < bay.X + bay.Width; x++)
+        {
+            if (occupied.Contains((x, y)) || engine.Grid.GroundAt(x, y) is not { } ground ||
+                engine.Grid.ObjectsAt(x, y).Count != 0) continue;
+            tile = (x, y, ground.GroundH);
+            break;
+        }
+        Assert.NotEqual((0, 0, 0), tile);
+        var z = PyMath.FloorDiv(tile.H, ChunkConst.LevelH);
+        var (cx, cy, lx, ly) = WorldGrid.ChunkCoords(tile.X, tile.Y);
+        var index = Chunk.Index(lx, ly);
+        var level = engine.Grid.Level(cx, cy, z) ?? ChunkLevel.Empty(cx, cy, z);
+        var mask = (byte[])level.SlotMask.Clone();
+        var materials = (ushort[])level.SlotMat.Clone();
+        mask[index] |= ChunkConst.SlotHalfH | ChunkConst.SlotHalfV;
+        materials[index] = (ushort)engine.Registry["concrete"].Id;
+        engine.Grid.AddLevel(level.With(slotMask: mask, slotMat: materials));
+        var session = engine.OpenSession();
+        foreach (var actor in session.Actors()) (actor.X, actor.Y) = (100.5, 100.5);
+        session.Commit();
+
+        var wallHeight = tile.H + 2;
+        var vertical = engine.Pick(new WorldRay(tile.X + 0.25, tile.Y + 0.25, wallHeight * 0.5, 1, 0, 0), 0.6);
+        var horizontal = engine.Pick(new WorldRay(tile.X + 0.25, tile.Y + 0.25, wallHeight * 0.5, 0, 1, 0), 0.6);
+
+        Assert.Equal(new EdgeTarget(tile.X, tile.Y, z, WallSlots.HalfV), vertical?.Target);
+        Assert.Equal(new EdgeTarget(tile.X, tile.Y, z, WallSlots.HalfH), horizontal?.Target);
+
+        mask[index] &= unchecked((byte)~(ChunkConst.SlotHalfH | ChunkConst.SlotHalfV));
+        engine.Grid.AddLevel(level.With(slotMask: mask));
+        var open = engine.Pick(new WorldRay(tile.X + 0.25, tile.Y + 0.25, wallHeight * 0.5, 1, 0, 0), 0.6);
+        Assert.False(open?.Target is EdgeTarget { Direction: WallSlots.HalfH or WallSlots.HalfV });
+    }
+
     /// <summary>Centre tile of a named lab bay, the only place with a constructed level nearby.</summary>
     private static (int X, int Y) Bay(string key)
     {

@@ -48,13 +48,12 @@ Open decisions and loose ends. When one is settled, record the decision where it
       (`server/scripts/bench_extras.py`, archived with it), averaged 5,645.461 ms/tick at the same
       1,000 Extras — the C# sim is ~87× faster per tick. Still open: the manual parity walk and
       Windows export (below).
-- [ ] **Construction system, phases 2 and 3** (`docs/done/Dev-036.md` [Sec. 11]): phase 1 shipped
-      the `build` op on tile edges and tile floors, `build_cost` as data, a bare edge addressable in
-      the menu and by pick, and the stepwise migration runner. Halves `H`/`V` and diagonals `D1`/`D2`
-      are the rest of the geometry: they fill `slot_mask`/`slot_mat` (already on `chunk_level` for
-      exactly this) and make the A* node `(spot, region)`, since a half can split one tile into
-      regions that do not connect. Phase 3 also brings the diagonal quads and the shader review in
-      `game.render`. Each is its own doc.
+- [ ] **Construction system, phase 3: diagonal slots** (`docs/done/Dev-036.md` [Sec. 11]): phases 1
+      and 2 implement edge/floor construction and `H`/`V` interior halves (`docs/done/Dev-037.md`),
+      with region-aware movement/A* and rendering. Add `D1`/`D2` region geometry and diagonal wall
+      picking/build/break, render their quads and review the shader in `game.render`. `slot_mask`,
+      `slot_mat` and region-bearing A* already exist; generalize the eight-sector connectivity without
+      regressing H/V.
 - [ ] **Infra03 CI on GitHub Actions**: run the checks on push now that the remote exists. The
       number was earmarked as Infra02 by `Infra01`; Infra02 became the agent context diet. No doc yet.
 
@@ -63,9 +62,9 @@ git keeps their history): Dev-014 (AI furniture as a primitive spec), Dev-016 (c
 polish), Dev-021 (wall lines and heights), Dev-023 (server kernel refactor), Dev-024 (baked AO).
 None needs a follow-up Dev for its *rendering* idea — real 3D geometry, real-time SSAO/shadows and
 the already-built radial/context menu (Dev-025 stages 4-5)   absorbed all of them. One surviving idea
-does not: Dev-021 also motivated a future `build` op (players/NPCs constructing walls), which is a
-gameplay change Dev-025 explicitly excluded from its port-only scope and now has its own doc
-(`docs/done/Dev-036.md`, phase 1 done).
+  does not: Dev-021 also motivated a future `build` op (players/NPCs constructing walls), which is a
+  gameplay change Dev-025 explicitly excluded from its port-only scope and now has its own docs
+  (`docs/done/Dev-036.md` phase 1 and `docs/done/Dev-037.md` phase 2; diagonal phase 3 remains above).
 
 ## Deferred work
 

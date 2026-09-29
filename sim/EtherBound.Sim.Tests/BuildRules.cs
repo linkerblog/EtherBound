@@ -7,7 +7,7 @@ using Microsoft.Data.Sqlite;
 namespace EtherBound.Sim.Tests;
 
 /// <summary>
-/// `build`: a wall on a tile edge and a floor on a tile (Dev-036 phase 1). Niko builds out of the
+/// `build`: edge and interior walls plus tile floors (Dev-037 phase 2). Niko builds out of the
 /// surface the build stands on, so a tile whose material carries no `build_cost` is refused.
 /// </summary>
 public sealed class BuildRules : IDisposable
@@ -117,9 +117,10 @@ public sealed class BuildRules : IDisposable
 
         var entries = Builds(engine, TileX, TileY);
 
-        Assert.Equal(new[] { "tile", "edge", "edge" }, entries.Select(e => e.Action.Target!.Kind));
-        Assert.Equal(new[] { "Concrete floor", "Concrete wall", "Concrete wall" }, entries.Select(e => e.Subject));
-        Assert.All(entries, e => Assert.True(e.Available, e.Reason));
+        Assert.Equal(new[] { "tile", "edge", "edge", "edge", "edge" }, entries.Select(e => e.Action.Target!.Kind));
+        Assert.Equal(new[] { "Concrete floor", "Concrete wall", "Concrete wall", "Concrete wall", "Concrete wall" }, entries.Select(e => e.Subject));
+        Assert.All(entries.Take(3), e => Assert.True(e.Available, e.Reason));
+        Assert.All(entries.Skip(3), e => Assert.Equal((false, "someone is in the way"), (e.Available, e.Reason)));
     }
 
     [Fact]
@@ -331,6 +332,82 @@ public sealed class BuildRules : IDisposable
         Assert.True(engine.Grid.Chunk(3, 4)!.Revision > revision);
         var resolved = engine.ReadEvents(0, 500, "physics.resolved");
         Assert.All(resolved, e => Assert.Contains("absorbed_j", e.Data["damage"]!.ToJsonString()));
+    }
+
+    [Fact]
+    public void Interior_half_walls_build_damage_and_break_independently()
+    {
+        using var engine = NewEngine();
+        Place(engine, TileX, TileY, Build);
+        var position = engine.OpenSession();
+        var niko = position.GetActor(Ids.Player)!;
+        (niko.X, niko.Y) = (TileX + 0.05, TileY + 0.05);
+        position.Commit();
+        var horizontal = new EdgeTarget(TileX, TileY, 0, WallSlots.HalfH);
+        var vertical = new EdgeTarget(TileX, TileY, 0, WallSlots.HalfV);
+        Assert.Equal(horizontal, Target.Parse(horizontal.ToJson()));
+        Assert.Equal(vertical, Target.Parse(vertical.ToJson()));
+
+        Assert.True(engine.Submit(Ids.Player, GameAction.On("build", horizontal)).Accepted);
+        Ticks(engine, Minutes());
+        Assert.Equal((false, "already built"), Reject(engine, horizontal));
+        Assert.True(engine.Submit(Ids.Player, GameAction.On("build", vertical)).Accepted);
+        Ticks(engine, Minutes());
+
+        var (cx, cy, lx, ly) = WorldGrid.ChunkCoords(TileX, TileY);
+        var index = Chunk.Index(lx, ly);
+        var level = engine.Grid.Level(cx, cy, 0)!;
+        Assert.Equal(ChunkConst.SlotHalfH | ChunkConst.SlotHalfV, level.SlotMask[index]);
+        Assert.Equal(engine.Registry[Build].Id, level.SlotMat[index]);
+
+        var session = engine.OpenSession();
+        var hammer = session.Objects().Single(o => o.Kind == "sledgehammer");
+        ObjectHelpers.SetHeld(hammer, Ids.Player, "right");
+        session.Commit();
+        engine.Reindex();
+        Assert.True(engine.Submit(Ids.Player, GameAction.Strike("break", horizontal, null)).Accepted);
+        Assert.Contains(engine.WallRows(), row => row.Key.Slot == WallSlots.HalfH);
+        var tool = new ObjectTarget(hammer.Id);
+        var strikes = 0;
+        while ((engine.Grid.Level(cx, cy, 0)!.SlotMask[index] & ChunkConst.SlotHalfH) != 0 && strikes++ < 20)
+            Assert.True(engine.Submit(Ids.Player, GameAction.Strike("break", horizontal, tool)).Accepted);
+
+        level = engine.Grid.Level(cx, cy, 0)!;
+        Assert.Equal(ChunkConst.SlotHalfV, level.SlotMask[index]);
+        Assert.Equal(engine.Registry[Build].Id, level.SlotMat[index]);
+        strikes = 0;
+        while ((engine.Grid.Level(cx, cy, 0)!.SlotMask[index] & ChunkConst.SlotHalfV) != 0 && strikes++ < 20)
+            Assert.True(engine.Submit(Ids.Player, GameAction.Strike("break", vertical, tool)).Accepted);
+
+        level = engine.Grid.Level(cx, cy, 0)!;
+        Assert.Equal((byte)0, level.SlotMask[index]);
+        Assert.Equal((ushort)0, level.SlotMat[index]);
+        Assert.Empty(engine.WallRows());
+    }
+
+    [Fact]
+    public void Interior_slot_mask_and_material_survive_reopening_the_save()
+    {
+        var engine = NewEngine();
+        Place(engine, TileX, TileY, Build);
+        var position = engine.OpenSession();
+        var niko = position.GetActor(Ids.Player)!;
+        (niko.X, niko.Y) = (TileX + 0.05, TileY + 0.05);
+        position.Commit();
+        var target = new EdgeTarget(TileX, TileY, 0, WallSlots.HalfH);
+        Assert.True(engine.Submit(Ids.Player, GameAction.On("build", target)).Accepted);
+        Ticks(engine, Minutes());
+        Assert.True(engine.Submit(Ids.Player, GameAction.Strike("break", target, null)).Accepted);
+        Assert.Contains(engine.WallRows(), row => row.Key.Slot == WallSlots.HalfH);
+        engine.Dispose();
+
+        using var reopened = NewEngine();
+        var (cx, cy, lx, ly) = WorldGrid.ChunkCoords(TileX, TileY);
+        var level = reopened.Grid.Level(cx, cy, 0)!;
+        var index = Chunk.Index(lx, ly);
+        Assert.Equal(ChunkConst.SlotHalfH, level.SlotMask[index]);
+        Assert.Equal(reopened.Registry[Build].Id, level.SlotMat[index]);
+        Assert.Contains(reopened.WallRows(), row => row.Key.Slot == WallSlots.HalfH);
     }
 
     [Fact]

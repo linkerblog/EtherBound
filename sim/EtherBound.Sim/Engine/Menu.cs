@@ -41,6 +41,10 @@ public static class Menu
             if ((level.Cx, level.Cy) != (cx, cy)) continue;
             if (level.WallN[cell] != 0 && edges.Add((level.Z, "north"))) candidates.Add(new EdgeTarget(x, y, level.Z, "north"));
             if (level.WallW[cell] != 0 && edges.Add((level.Z, "west"))) candidates.Add(new EdgeTarget(x, y, level.Z, "west"));
+            if ((level.SlotMask[cell] & ChunkConst.SlotHalfH) != 0 && edges.Add((level.Z, WallSlots.HalfH)))
+                candidates.Add(new EdgeTarget(x, y, level.Z, WallSlots.HalfH));
+            if ((level.SlotMask[cell] & ChunkConst.SlotHalfV) != 0 && edges.Add((level.Z, WallSlots.HalfV)))
+                candidates.Add(new EdgeTarget(x, y, level.Z, WallSlots.HalfV));
         }
         // A bare edge has to be addressable or there is nowhere to build a wall (Dev-036 [Sec. 1]
         // F4). Only the actor's own tile at the band being read, or every tile of a radius-1 menu
@@ -49,6 +53,15 @@ public static class Menu
         {
             if (edges.Add((z, "north"))) candidates.Add(new EdgeTarget(x, y, z, "north"));
             if (edges.Add((z, "west"))) candidates.Add(new EdgeTarget(x, y, z, "west"));
+        }
+        var (actorX, actorY) = actor.TileX == x && actor.TileY == y ? (0, 0) : (x - actor.TileX, y - actor.TileY);
+        var closeInterior = Math.Abs(actorX) + Math.Abs(actorY) == 0 ||
+                            Math.Abs(actorX) + Math.Abs(actorY) == 1 &&
+                            !grid.WallBetween(actor.TileX, actor.TileY, x, y, actor.H);
+        if (closeInterior)
+        {
+            if (edges.Add((z, WallSlots.HalfH))) candidates.Add(new EdgeTarget(x, y, z, WallSlots.HalfH));
+            if (edges.Add((z, WallSlots.HalfV))) candidates.Add(new EdgeTarget(x, y, z, WallSlots.HalfV));
         }
         var standH = chosen?.H ?? actor.H;
         candidates.AddRange(actors.Where(o => o.Id != actor.Id && (o.TileX, o.TileY, o.H) == (x, y, standH)).Select(o => new ActorTarget(o.Id)));

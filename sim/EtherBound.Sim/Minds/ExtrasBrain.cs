@@ -26,7 +26,7 @@ public sealed class ExtrasBrain : ISystem
     private sealed class Plan
     {
         public required GoalSpot Goal { get; init; }
-        public required List<Spot> Path { get; init; }
+        public required List<NavNode> Path { get; init; }
         public required long GridRevision { get; init; }
         public int Index { get; set; }
     }
@@ -137,7 +137,8 @@ public sealed class ExtrasBrain : ISystem
             if (surfaces.Count == 0) continue;
             var surface = surfaces.OrderBy(s => Math.Abs(s.H - mind.Anchor.H)).ThenBy(s => s.H).First();
             var goal = new GoalSpot(x, y, surface.H);
-            if (Nav.FindPath(grid, start, new Spot(x, y, surface.H), MaxExpansions, _pathSearch) is { } path)
+            var startRegion = grid.RegionAt(start.X, start.Y, start.H, actor.X, actor.Y);
+            if (Nav.FindPathNodes(grid, start, new Spot(x, y, surface.H), startRegion, MaxExpansions, _pathSearch) is { } path)
                 return new Plan { Goal = goal, Path = path, GridRevision = grid.NavigationRevision };
         }
         return null;
@@ -146,27 +147,55 @@ public sealed class ExtrasBrain : ISystem
     private Plan? PlanFor(ActorState actor, GoalSpot goal)
     {
         var grid = _engine.Grid;
-        if (_plans.TryGetValue(actor.Id, out var plan) && plan.Goal == goal && plan.GridRevision == grid.NavigationRevision && Locate(plan, actor)) return plan;
+        if (_plans.TryGetValue(actor.Id, out var plan) && plan.Goal == goal && plan.GridRevision == grid.NavigationRevision && Locate(plan, actor, grid)) return plan;
         return Recompute(actor.Id, actor.X, actor.Y, actor.H, goal) ? _plans[actor.Id] : null;
     }
 
     private bool Recompute(string actorId, double x, double y, int h, GoalSpot goal)
     {
         var grid = _engine.Grid;
-        var path = Nav.FindPath(grid, new Spot(PyMath.Floor(x), PyMath.Floor(y), h), new Spot(goal.X, goal.Y, goal.H), MaxExpansions, _pathSearch);
+        var start = new Spot(PyMath.Floor(x), PyMath.Floor(y), h);
+        var startRegion = grid.RegionAt(start.X, start.Y, h, x, y);
+        var path = Nav.FindPathNodes(grid, start, new Spot(goal.X, goal.Y, goal.H), startRegion, MaxExpansions, _pathSearch);
         if (path is null) return false;
         _plans[actorId] = new Plan { Goal = goal, Path = path, GridRevision = grid.NavigationRevision };
         return true;
     }
 
     /// <summary>Point the plan at the actor's tile; false when the actor is off the cached path.</summary>
-    private static bool Locate(Plan plan, ActorState actor)
+    private static bool Locate(Plan plan, ActorState actor, WorldGrid grid)
     {
         var here = new Spot(PyMath.Floor(actor.X), PyMath.Floor(actor.Y), actor.H);
-        var index = plan.Path.IndexOf(here);
+        var region = grid.RegionAt(here.X, here.Y, here.H, actor.X, actor.Y);
+        var index = plan.Path.FindIndex(node => node.Spot == here && node.Region == region);
         if (index < 0) return false;
         plan.Index = index;
         return true;
+    }
+
+    private static (double X, double Y) Waypoint(WorldGrid grid, IReadOnlyList<NavNode> path, int index)
+    {
+        var node = path[index];
+        var spot = node.Spot;
+        var mask = grid.InteriorWallMaskAt(spot.X, spot.Y, spot.H);
+        var point = WallRegions.Waypoint(mask, node.Region);
+        if (index >= path.Count - 1) return point;
+
+        var next = path[index + 1];
+        int dx = next.Spot.X - spot.X, dy = next.Spot.Y - spot.Y;
+        if (Math.Abs(dx) + Math.Abs(dy) != 1) return point;
+        var nextMask = grid.InteriorWallMaskAt(next.Spot.X, next.Spot.Y, next.Spot.H);
+        var ports = WallRegions.SharedPorts(mask, node.Region, nextMask, next.Region, dx, dy);
+        if (ports == 0) return point;
+        if (dx != 0 && ((mask | nextMask) & ChunkConst.SlotHalfH) != 0)
+            point.Y = (ports & WallRegions.FirstPort) != 0
+                ? 0.5 - WallRegions.BodyClearance
+                : 0.5 + WallRegions.BodyClearance;
+        if (dy != 0 && ((mask | nextMask) & ChunkConst.SlotHalfV) != 0)
+            point.X = (ports & WallRegions.FirstPort) != 0
+                ? 0.5 - WallRegions.BodyClearance
+                : 0.5 + WallRegions.BodyClearance;
+        return point;
     }
 
     private (double X, double Y, int H) Walk(ActorState actor, Plan plan, double tickSeconds)
@@ -180,12 +209,14 @@ public sealed class ExtrasBrain : ISystem
             Advance(plan, x, y, h);
             if (plan.Index >= plan.Path.Count) break;
             var target = plan.Path[plan.Index];
-            double dx = target.X + 0.5 - x, dy = target.Y + 0.5 - y;
+            var spot = target.Spot;
+            var local = Waypoint(_engine.Grid, plan.Path, plan.Index);
+            double dx = spot.X + local.X - x, dy = spot.Y + local.Y - y;
             var distance = PyMath.Hypot(dx, dy);
             double stepTime, ux, uy;
             if (distance < 1e-6)
             {
-                if (h == target.H)
+                if (h == spot.H)
                 {
                     plan.Index += 1;
                     continue;
@@ -206,17 +237,21 @@ public sealed class ExtrasBrain : ISystem
         return (x, y, h);
     }
 
-    // Keep the last waypoint as the target so a body lands on the goal centre, not its edge.
-    private static void Advance(Plan plan, double x, double y, int h)
+    // Retain the region even when several path nodes share the same tile at different heights.
+    private void Advance(Plan plan, double x, double y, int h)
     {
         while (plan.Index < plan.Path.Count - 1)
         {
-            var spot = plan.Path[plan.Index];
-            if ((PyMath.Floor(x), PyMath.Floor(y), h) == (spot.X, spot.Y, spot.H)) plan.Index += 1;
+            var node = plan.Path[plan.Index];
+            var spot = node.Spot;
+            if ((PyMath.Floor(x), PyMath.Floor(y), h) == (spot.X, spot.Y, spot.H) &&
+                _engine.Grid.RegionAt(spot.X, spot.Y, h, x, y) == node.Region) plan.Index += 1;
             else return;
         }
     }
 
-    private static bool Arrived(ActorState actor, GoalSpot goal) =>
-        actor.H == goal.H && PyMath.Hypot(actor.X - (goal.X + 0.5), actor.Y - (goal.Y + 0.5)) <= ArriveMetres;
+    private bool Arrived(ActorState actor, GoalSpot goal) => actor.H == goal.H &&
+        (_engine.Grid.InteriorWallMaskAt(goal.X, goal.Y, goal.H) != 0
+            ? (PyMath.Floor(actor.X), PyMath.Floor(actor.Y)) == (goal.X, goal.Y)
+            : PyMath.Hypot(actor.X - (goal.X + 0.5), actor.Y - (goal.Y + 0.5)) <= ArriveMetres);
 }

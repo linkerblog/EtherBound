@@ -138,9 +138,9 @@ public sealed class OpsRules : IDisposable
         using var engine = NewEngine();
         Place(engine, Road.X, Road.Y);
         var entries = Menu.Build(engine.OpenSession(), engine.Grid, engine.Registry, 0, Ids.Player, 124.5, 128.5, 0).Entries;
-        Assert.Equal(new[] { "inspect", "dig", "build" }, entries.Select(e => e.Op));
+        Assert.Equal(new[] { "inspect", "dig", "build", "build", "build" }, entries.Select(e => e.Op));
         // Grass carries no `build_cost`, so the neighbour tile's floor is shown with its reason.
-        var build = entries.Single(e => e.Op == "build");
+        var build = entries.Single(e => e.Op == "build" && e.Action.Target is TileTarget);
         Assert.Equal((false, "no building material"), (build.Available, build.Reason));
         foreach (var entry in entries.Where(e => e.Op != "build")) Assert.True(engine.Submit(Ids.Player, entry.Action).Accepted, entry.Op);
     }
@@ -150,10 +150,10 @@ public sealed class OpsRules : IDisposable
     {
         using var engine = NewEngine();
         Place(engine, Grass.X, Grass.Y);
-        Assert.Equal(new[] { "wait", "inspect", "dig", "build", "build", "build" }, MenuOpOrder(engine, Grass.X, Grass.Y));
+        Assert.Equal(new[] { "wait", "inspect", "dig", "build", "build", "build", "build", "build" }, MenuOpOrder(engine, Grass.X, Grass.Y));
         var build = Menu.Build(engine.OpenSession(), engine.Grid, engine.Registry, 0, Ids.Player, Grass.X + 0.5, Grass.Y + 0.5, 0).Entries
             .Where(e => e.Op == "build").ToList();
-        Assert.Equal(new[] { "tile", "edge", "edge" }, build.Select(e => e.Action.Target!.Kind));
+        Assert.Equal(new[] { "tile", "edge", "edge", "edge", "edge" }, build.Select(e => e.Action.Target!.Kind));
     }
 
     [Fact]

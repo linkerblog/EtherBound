@@ -322,6 +322,8 @@ public sealed class ChunkMesher
         }
         Wall(b, glass, x, y, level, i, north: true);
         Wall(b, glass, x, y, level, i, north: false);
+        InteriorWall(b, x, y, level, i, horizontal: true);
+        InteriorWall(b, x, y, level, i, horizontal: false);
     }
 
     private bool IsRoofLevel(WorldDump.Level level) => _roofBands.Contains(level.Z);
@@ -383,6 +385,30 @@ public sealed class ChunkMesher
         Box(glass, x0 + 0.08f * (north ? 0 : 1), x1, y0 + 0.08f * (north ? 1 : 0), y1, M(sill + 2), M(sill + 4),
             new Color(0.847f, 0.902f, 0.941f, 0.45f), owner, Vector2.Zero, -1);
     }
+
+    private void InteriorWall(Builder b, int x, int y, WorldDump.Level level, int i, bool horizontal)
+    {
+        var slot = horizontal ? WorldDump.SlotHalfH : WorldDump.SlotHalfV;
+        if ((level.SlotMask[i] & slot) == 0) return;
+        var mat = level.SlotMat[i];
+        if (mat == 0) return;
+        var z = level.Z;
+        var baseH = HasInteriorWall(x, y, z - 1, slot)
+            ? z * WorldDump.LevelH
+            : _world.WallBaseH(x, y, z, level.FloorH[i]);
+        var top = IsRoofLevel(level) ? baseH + 2 : (z + 1) * WorldDump.LevelH;
+        float half = WallT * 0.5f;
+        var x0 = horizontal ? (float)x : x + 0.5f - half;
+        var x1 = horizontal ? x + 1f : x + 0.5f + half;
+        var y0 = horizontal ? y + 0.5f - half : (float)y;
+        var y1 = horizontal ? y + 0.5f + half : y + 1f;
+        var code = horizontal ? WallNorth : WallWest;
+        Box(b, x0, x1, y0, y1, M(baseH), M(top), MaterialColor(mat, code), new Vector2(x, y),
+            new Vector2(top, SideLayer(mat)), TopLayer(mat));
+    }
+
+    private bool HasInteriorWall(int x, int y, int z, byte slot) =>
+        _world.LevelCell(x, y, z) is { } cell && (cell.Level.SlotMask[cell.Index] & slot) != 0;
 
     private void ObjectBox(Builder b, WorldDump.WorldObject o)
     {

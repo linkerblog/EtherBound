@@ -346,6 +346,63 @@ public sealed class WorldGrid
         _ => throw new ArgumentException("wall_between requires orthogonally adjacent tiles"),
     };
 
+    /// <summary>Interior H/V walls whose vertical span intersects a standing body at <paramref name="h"/>.</summary>
+    public byte InteriorWallMaskAt(int x, int y, int h)
+    {
+        if (Cell(x, y) is not { } cell) return 0;
+        var (chunk, index) = cell;
+        var zMin = PyMath.FloorDiv(h, ChunkConst.LevelH) - 1;
+        var zMax = PyMath.FloorDiv(h + 4, ChunkConst.LevelH) + 1;
+        byte result = 0;
+        for (var z = zMin; z <= zMax; z++)
+        {
+            var level = Level(chunk.Cx, chunk.Cy, z);
+            if (level is null || level.SlotMat[index] == 0) continue;
+            var slots = (byte)(level.SlotMask[index] & (ChunkConst.SlotHalfH | ChunkConst.SlotHalfV));
+            if (slots == 0) continue;
+            int bottom = level.FloorH[index];
+            if (bottom == ChunkConst.NoFloor) bottom = WallBase(chunk, index, level);
+            if (bottom < h + 4 && bottom + ChunkConst.LevelH > h) result |= slots;
+        }
+        return result;
+    }
+
+    /// <summary>Whether a specific interior slot occupies an exact half-metre height.</summary>
+    public int? InteriorWallLevelAtHeight(int x, int y, byte slot, int h)
+    {
+        if (slot is not (ChunkConst.SlotHalfH or ChunkConst.SlotHalfV) || Cell(x, y) is not { } cell) return null;
+        var (chunk, index) = cell;
+        foreach (var level in ChunkLevels(chunk.Cx, chunk.Cy))
+        {
+            if (level.SlotMat[index] == 0 || (level.SlotMask[index] & slot) == 0) continue;
+            int bottom = level.FloorH[index];
+            if (bottom == ChunkConst.NoFloor) bottom = WallBase(chunk, index, level);
+            if (bottom <= h && h < bottom + ChunkConst.LevelH) return level.Z;
+        }
+        return null;
+    }
+
+    /// <summary>Region occupied by a continuous world position in a tile at body height <paramref name="h"/>.</summary>
+    public byte RegionAt(int x, int y, int h, double worldX, double worldY)
+    {
+        var mask = InteriorWallMaskAt(x, y, h);
+        return WallRegions.At(mask, worldX - x, worldY - y);
+    }
+
+    /// <summary>Regions in a tile that can be entered from the direction of travel.</summary>
+    public IReadOnlyList<byte> EntryRegions(int x, int y, int h, int dx, int dy)
+    {
+        var edge = (dx, dy) switch
+        {
+            (0, -1) => WallRegions.SouthEdge,
+            (0, 1) => WallRegions.NorthEdge,
+            (-1, 0) => WallRegions.EastEdge,
+            (1, 0) => WallRegions.WestEdge,
+            _ => throw new ArgumentException("region entry requires an orthogonal direction"),
+        };
+        return WallRegions.AtEdge(InteriorWallMaskAt(x, y, h), edge).ToArray();
+    }
+
     private HashSet<(int, int)> StepPairs(int x1, int y1, int x2, int y2, int? h = null)
     {
         var source = StandingSurfaces(x1, y1).Where(s => h is null || s.H == h);

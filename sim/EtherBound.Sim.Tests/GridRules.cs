@@ -64,6 +64,79 @@ public class GridRules
     }
 
     [Fact]
+    public void Half_wall_slots_split_tiles_into_the_expected_regions()
+    {
+        var horizontal = ChunkConst.SlotHalfH;
+        var vertical = ChunkConst.SlotHalfV;
+        Assert.Equal(2, WallRegions.For(horizontal).Count);
+        Assert.Equal(1, WallRegions.At(horizontal, 0.2, 0.2));
+        Assert.Equal(2, WallRegions.At(horizontal, 0.2, 0.8));
+        Assert.False(WallRegions.Touches(horizontal, 1, WallRegions.SouthEdge));
+        Assert.True(WallRegions.Touches(horizontal, 1, WallRegions.WestEdge));
+        Assert.Equal(WallRegions.FirstPort, WallRegions.SharedPorts(horizontal, 1, horizontal, 1, 1, 0));
+        Assert.Equal((byte)0, WallRegions.SharedPorts(horizontal, 1, horizontal, 2, 1, 0));
+        Assert.Equal(WallRegions.SecondPort, WallRegions.SharedPorts(horizontal, 2, horizontal, 2, 1, 0));
+        Assert.Equal(1, WallRegions.At(vertical, 0.2, 0.8));
+        Assert.Equal(2, WallRegions.At(vertical, 0.8, 0.2));
+        Assert.False(WallRegions.Touches(vertical, 1, WallRegions.EastEdge));
+        var crossed = (byte)(horizontal | vertical);
+        Assert.Equal(4, WallRegions.For(crossed).Count);
+        Assert.Equal(3, WallRegions.At(crossed, 0.2, 0.8));
+    }
+
+    [Fact]
+    public void Region_aware_navigation_enters_the_matching_half_and_does_not_cross_the_wall()
+    {
+        var materials = Mats("water_deep");
+        var startNorth = Chunk.Index(1, 0);
+        var middle = Chunk.Index(1, 1);
+        var startSouth = Chunk.Index(1, 2);
+        materials[startNorth] = materials[middle] = materials[startSouth] = (ushort)Id("grass");
+        var grid = new WorldGrid(new[] { new Chunk(0, 0, Heights(), materials) }, registry: Registry);
+        grid.AddLevel(Level(0, 0, level =>
+        {
+            level.SlotMask[middle] = ChunkConst.SlotHalfH;
+            level.SlotMat[middle] = (ushort)Id("brick");
+        }));
+
+        var northPath = Nav.FindPathNodes(grid, new Spot(1, 0, 0), new Spot(1, 1, 0));
+        var southPath = Nav.FindPathNodes(grid, new Spot(1, 2, 0), new Spot(1, 1, 0));
+
+        Assert.Equal((byte)1, northPath![^1].Region);
+        Assert.Equal((byte)2, southPath![^1].Region);
+        Assert.Null(Nav.FindPathNodes(grid, new Spot(1, 2, 0), new Spot(1, 0, 0)));
+    }
+
+    [Fact]
+    public void Movement_blocks_crossing_and_separates_a_body_already_on_a_half_wall()
+    {
+        var grid = new WorldGrid(new[] { Chunk.Flat(0, 0, 0, Id("grass")) }, registry: Registry);
+        var index = Chunk.Index(1, 1);
+        grid.AddLevel(Level(0, 0, level =>
+        {
+            level.SlotMask[index] = ChunkConst.SlotHalfH;
+            level.SlotMat[index] = (ushort)Id("brick");
+            var vertical = Chunk.Index(2, 1);
+            level.SlotMask[vertical] = ChunkConst.SlotHalfV;
+            level.SlotMat[vertical] = (ushort)Id("brick");
+        }));
+
+        var (crossX, crossY, _) = Movement.MoveInWorld(1.5, 1.1, 0, 0, 1, 1, grid);
+        var (alongX, alongY, _) = Movement.MoveInWorld(1.1, 1.5, 0, 1, 0, 0.4, grid);
+        var (verticalCrossX, verticalCrossY, _) = Movement.MoveInWorld(2.1, 1.5, 0, 1, 0, 1, grid);
+        var (verticalAlongX, verticalAlongY, _) = Movement.MoveInWorld(2.5, 1.1, 0, 0, 1, 0.4, grid);
+
+        Assert.Equal(1.5, crossX);
+        Assert.Equal(1.5 - WallRegions.BodyClearance, crossY, 6);
+        Assert.Equal(1.5, alongX, 6);
+        Assert.Equal(1.5 + WallRegions.BodyClearance, alongY, 6);
+        Assert.Equal(2.5 - WallRegions.BodyClearance, verticalCrossX, 6);
+        Assert.Equal(1.5, verticalCrossY);
+        Assert.Equal(2.5 + WallRegions.BodyClearance, verticalAlongX, 6);
+        Assert.Equal(1.5, verticalAlongY, 6);
+    }
+
+    [Fact]
     public void Blobs_round_trip()
     {
         var values = Enumerable.Range(0, ChunkConst.CellCount).Select(i => (short)(i - 512)).ToArray();

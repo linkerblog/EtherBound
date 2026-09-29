@@ -197,9 +197,9 @@ public sealed class DigOp : OpHandler
 }
 
 /// <summary>
-/// A wall on a tile edge and a floor on a tile (Dev-036 phase 1). The material is the surface the
-/// build stands on, so a tile whose surface has no <c>build_cost</c> is not a building material and
-/// the spot is refused; the cost and the length of the slot are the only inputs to the duration.
+/// A wall on a tile edge or through its interior, and a floor on a tile (Dev-037 phase 2). The
+/// material is the surface the build stands on, so a tile whose surface has no <c>build_cost</c> is
+/// not a building material and the spot is refused.
 /// </summary>
 public sealed class BuildOp : OpHandler
 {
@@ -222,10 +222,15 @@ public sealed class BuildOp : OpHandler
     public override bool Applies(ActionContext ctx, Target target) => target switch
     {
         // A bare edge is addressable, so the op shows wherever a wall could stand.
-        EdgeTarget e => Loaded(ctx, Edges.Canonical(e)),
+        EdgeTarget e => IsWallSlot(e.Direction) && Loaded(ctx, Edges.Canonical(e)),
         TileTarget t => ctx.Grid.GroundAt(t.X, t.Y) is not null,
         _ => false,
     };
+
+    private static bool IsWallSlot(string direction) =>
+        direction is "north" or "south" or "east" or "west" or "H" or "V";
+
+    private static bool IsInterior(EdgeTarget edge) => edge.Direction is WallSlots.HalfH or WallSlots.HalfV;
 
     private static bool Loaded(ActionContext ctx, EdgeTarget edge)
     {
@@ -262,6 +267,7 @@ public sealed class BuildOp : OpHandler
 
     private static string? ValidateEdge(ActionContext ctx, EdgeTarget target)
     {
+        if (IsInterior(target)) return ValidateInterior(ctx, target);
         var edge = Edges.Canonical(target);
         var (cx, cy, lx, ly) = WorldGrid.ChunkCoords(edge.X, edge.Y);
         if (ctx.Grid.Chunk(cx, cy) is null) return "out of reach";
@@ -283,6 +289,44 @@ public sealed class BuildOp : OpHandler
         if (ctx.Session.Actors().Any(o => o.Id != ctx.Actor.Id && sides.Contains((o.TileX, o.TileY)) &&
             cells.Any(h => o.H < h && h <= o.H + Reach.UpH))) return "someone is in the way";
         return null;
+    }
+
+    private static string? ValidateInterior(ActionContext ctx, EdgeTarget target)
+    {
+        var (cx, cy, lx, ly) = WorldGrid.ChunkCoords(target.X, target.Y);
+        if (ctx.Grid.Chunk(cx, cy) is null) return "out of reach";
+        var site = Build(ctx, target);
+        if (site is not { Buildable: true }) return "no building material";
+        var index = Chunk.Index(lx, ly);
+        var level = ctx.Grid.Level(cx, cy, target.Z);
+        var bit = WallSlots.Bit(target.Direction);
+        if (level is not null && (level.SlotMask[index] & bit) != 0) return "already built";
+        if (level is not null && (level.SlotMask[index] &
+            (ChunkConst.SlotHalfH | ChunkConst.SlotHalfV | ChunkConst.SlotDiag1 | ChunkConst.SlotDiag2)) != 0 &&
+            level.SlotMat[index] != site.Id) return "interior slots must share a material";
+        if (!Reach.InCloseReach(ctx, target.X, target.Y)) return "out of reach";
+        int bottom = level is null
+            ? WallBottomWithoutLevel(ctx, cx, cy, target.Z, index)
+            : Edges.WallBottom(ctx, level, index);
+        if (bottom < ctx.Actor.H - Reach.DownH) return "out of reach";
+        var cells = WallBody(bottom).ToList();
+        if (cells.Any(h => ctx.Grid.SolidAt(target.X, target.Y, h))) return "no headroom";
+        if (ctx.Session.Actors().Any(actor =>
+                cells.Any(h => actor.H < h && h <= actor.H + Reach.UpH) &&
+                DistanceToInteriorWall(target, actor.X, actor.Y) <= WallRegions.BodyClearance))
+            return "someone is in the way";
+        return null;
+    }
+
+    private static double DistanceToInteriorWall(EdgeTarget target, double x, double y)
+    {
+        if (target.Direction == WallSlots.HalfH)
+        {
+            var dx = Math.Max(Math.Max(target.X - x, 0), x - (target.X + 1));
+            return PyMath.Hypot(dx, y - (target.Y + 0.5));
+        }
+        var dy = Math.Max(Math.Max(target.Y - y, 0), y - (target.Y + 1));
+        return PyMath.Hypot(x - (target.X + 0.5), dy);
     }
 
     /// <summary>The bottom a first wall on a bare edge would stand on: the highest support under it.</summary>
@@ -336,6 +380,7 @@ public sealed class BuildOp : OpHandler
 
     private static List<SimEvent> CompleteEdge(ActionContext ctx, EdgeTarget target)
     {
+        if (IsInterior(target)) return CompleteInterior(ctx, target);
         var edge = Edges.Canonical(target);
         var (cx, cy, lx, ly) = WorldGrid.ChunkCoords(edge.X, edge.Y);
         var index = Chunk.Index(lx, ly);
@@ -353,6 +398,26 @@ public sealed class BuildOp : OpHandler
         return new List<SimEvent>
         {
             SimEvent.WallBuilt(ctx.Actor.Id, edge.ToJson(), "wall", slot, materialId, level.Z),
+            BumpChunk(ctx, cx, cy),
+        };
+    }
+
+    private static List<SimEvent> CompleteInterior(ActionContext ctx, EdgeTarget target)
+    {
+        var (cx, cy, lx, ly) = WorldGrid.ChunkCoords(target.X, target.Y);
+        var index = Chunk.Index(lx, ly);
+        var level = ctx.Grid.Level(cx, cy, target.Z) ?? ChunkLevel.Empty(cx, cy, target.Z);
+        int materialId = Build(ctx, target)!.Id;
+        var mask = (byte[])level.SlotMask.Clone();
+        var materials = (ushort[])level.SlotMat.Clone();
+        mask[index] |= WallSlots.Bit(target.Direction);
+        materials[index] = (ushort)materialId;
+        ctx.Grid.AddLevel(level.With(slotMask: mask, slotMat: materials));
+        ctx.Session.MarkLevel(cx, cy, target.Z);
+        var materialKey = ctx.Grid.Registry.Get(materialId)?.Key ?? "unknown";
+        return new List<SimEvent>
+        {
+            SimEvent.WallBuilt(ctx.Actor.Id, target.ToJson(), "wall", materialKey, materialId, level.Z),
             BumpChunk(ctx, cx, cy),
         };
     }

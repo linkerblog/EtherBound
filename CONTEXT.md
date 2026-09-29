@@ -21,8 +21,8 @@ faster, at clock speed 10.
 | sim.engine | `sim/EtherBound.Sim/Engine/`, `sim/EtherBound.Sim/Clock/` | The only state writer: `WorldEngine` orchestration, action/target types, generated menus, every handler, deterministic SI physics, trajectory resolution, `Pick` (ray casting for the client) and `SimClock`. |
 | sim.minds | `sim/EtherBound.Sim/Minds/` | Decision sources that propose through the action API; today `ExtrasBrain`, the deterministic routine of an Extra. |
 | sim.host | `sim/EtherBound.Host/` | `SimulationHost`: the sim's single writer thread, a bounded command channel (move, clock, actions, menu/pick queries, new game) and detached, revisioned `WorldFrame`s the client reads without a lock. `ActorMotion` and `StepPlayout`: the client's presentational interpolation between frames. |
-| game.app | `game/app/`, `game/project.godot`, `game/EtherBound.Game.csproj`, `game/export_presets.cfg` | `WorldClient`: starts `SimulationHost` and sprite decoding before scene setup, shares actor render resources, and applies host frames; dispatches CPU chunk geometry builds while keeping Godot resource/node work on the main thread. Includes WASD input and `--shots`. |
-| game.render | `game/spike/` | `PixelView` (low-res `SubViewport`, orthographic camera, art-pixel snapping), `ChunkMesher.BuildGeometry` (parallel CPU vertex lists) / `ToMeshes` (main-thread `ArrayMesh`), `Terrain.gdshader`, furniture voxel meshes, `Cutaway`, `FurnitureLibrary`, `WorldDump`. |
+| game.app | `game/app/`, `game/project.godot`, `game/EtherBound.Game.csproj`, `game/export_presets.cfg` | `WorldClient`: starts `SimulationHost` and sprite decoding before scene setup, maps world materials to sprite sheets, shares actor render resources, and applies host frames; dispatches CPU chunk geometry builds while keeping Godot resource/node work on the main thread. Includes WASD input and `--shots`. |
+| game.render | `game/spike/` | `PixelView` (low-res `SubViewport`, orthographic camera, art-pixel snapping), `ChunkMesher.BuildGeometry` (parallel CPU) / `ToMeshes` (main-thread `ArrayMesh`), `Terrain.gdshader`, furniture voxel meshes, `Cutaway`, `FurnitureLibrary`, `WorldDump`. |
 | game.ui | `game/ui/` | `GameHud` (`GAME`/`DEBUG`/`LLM` tabs, `CLOCK`/`FEED`/`CARRY`/`ACT` panels, input line, `NEW` popover), `ActionMenuOverlay` (right-click list, `V` radial menu), `GeneratorPanel` (`NEW`/`MAP` forms from `GeneratorSpec`), `TrajectoryAnimator`, `CompassOverlay` (iso north/east/south/west and `CAM` marker, to name cutaway faces). |
 | bitcanvas | `BitCanvas/` (`pixelart.js`, `gamesync.js`, `core.js`, `terrain.js`, `sides.js`, `furnitureData.js`, `furniture.js`, `app.js`) | Standalone seeded texture and furniture generator (classic deferred scripts, HTML/JS, no build); furniture exports to `game/assets/furniture/` via `scripts/export-furniture.mjs`, and "Send to game" targets `game/assets/sprites/`. |
 | tooling | root config: `package.json`, `global.json`, `.gitignore`; `scripts/` | Build and check scripts, pinned .NET SDK, `export-furniture.mjs`, and `publish-game.mjs` for ReadyToRun Windows exports. |
@@ -55,7 +55,8 @@ does not know is refused instead of guessed. The sim also records its own `sim_s
 Spatial units: 1 m tiles in 32×32 chunks; `h` in half-metres; `z` is the absolute 3 m band
 `floor(h / 6)`; walls live on tile edges (each tile owns north/west) with doorway/window edge
 flags, and each cell also carries a `slot_mask` byte for the six wall slots `N`, `W` and the
-interior `H`, `V`, `D1`, `D2` (1, 2, 4, 8, 16, 32) that phases 2 and 3 of Dev-036 fill;
+interior `H`, `V`, `D1`, `D2` (1, 2, 4, 8, 16, 32). Dev-037 fills `H`/`V`, splitting walkable
+regions for movement/A* and rendering centered walls; `D1`/`D2` remain phase 3;
 below the surface everything is implicit strata until a `void` flag excavates it. Strata
 depth is measured from the original ground (`ground_h + dug`), so digging exposes deeper layers
 instead of dragging them down. The test
@@ -108,7 +109,7 @@ the feature bay. Every published `WorldFrame` carries `Generators` (`HostGenerat
   durative one stores an activity and emits `activity.started` → transactional commit and event
   enqueue → FIFO dispatch on the sim thread. Actions are a union discriminated by `op`;
   targets are `self`, `tile {x, y, h}`, `object {id}`, `actor {id}` or
-  `edge {x, y, z, direction}`; `put` carries a second `into` target.
+  `edge {x, y, z, direction}`; `H`/`V` address interior halves; `put` carries a second `into` target.
 - **Ops.** `Data/ops.toml` is the vocabulary (key, label, group, target kinds, tags); a handler
   (`Applies`, `Builds`, `Subject`, `Validate`, `Duration`, `Resolve`, `Complete`) gives an op
   behaviour, and registration refuses a key missing from the catalog. One target can `Builds` several
@@ -116,7 +117,7 @@ the feature bay. Every published `WorldFrame` carries `Generators` (`HostGenerat
   (instant, 30 m, tile, object or actor text, no event), `wait` (15 min), `dig` (ground surface only,
   `ceil(30 × dig_cost / tool)` min per 0.5 m with the best held `tool.dig` or 0.25 bare-handed,
   `dig_cost ≤ 2`, refused when an object rests at the ground `h`), `climb`, `build` (a wall on a
-  tile edge or a floor on a tile, `ceil(30 × build_cost × slot length / tool)` min with the best
+  tile edge/interior `H`/`V` slot or tile floor, `ceil(30 × build_cost × slot length / tool)` min with the best
   held `tool.build` or 0.25 bare-handed; the material is the surface the build stands on and a
   material with no `build_cost` is not a building material, so the spot is refused), the instant handling
   ops, and `push`, `pull`, `drag`, `throw`, `hit`, `break`. Physics resolves a full tile path at
@@ -132,10 +133,9 @@ the feature bay. Every published `WorldFrame` carries `Generators` (`HostGenerat
   (`load_multiplier`); `load_kg` recursively counts held and worn objects and their contents.
 - **Physics.** Shove uses reduced mass at 2 m/s; throw caps at 8 m/s and 100 J; hands use 2 kg at
   5 m/s; horizontal loss per metre is `0.05 × mass × 9.81` J.   `Object.integrity` is remaining J
-  (NULL means intact at material resistance × max(1, height) half-metre cells); wall edges span six
-  cells and partial damage persists in
-  `wall_slot`, keyed by slot so an edge and an interior slot share one namespace. Zero integrity turns objects into data-defined rubble (spilling container
-  contents) or opens wall edges. Falls resolve in the same action; bodies over a 3 m fall emit
+  (NULL means intact at material resistance × max(1, height) half-metre cells); `wall_slot` stores
+  partial damage by slot for edge and interior walls. Zero integrity turns objects into data-defined rubble (spilling container
+  contents) or opens wall slots. Falls resolve in the same action; bodies over a 3 m fall emit
   potential energy as `impact`. Physics never mutates health. The client only animates the sim's
   trajectory (`TrajectoryAnimator`); it never resolves physics itself.
 - **Activities.** One per actor, stored on the actor, advanced only by clock ticks. In
@@ -180,12 +180,13 @@ the feature bay. Every published `WorldFrame` carries `Generators` (`HostGenerat
   owns the sim on one dedicated thread; Godot enqueues commands on a bounded channel (`Move`,
   `Clock`, `NewGame`, `SubmitAction`, `MenuQuery`/`MenuRay`/`RadialMenu`, `PickRay`) and reads an
   immutable, atomically-published `WorldFrame` — sequence, clock, every actor, every chunk near the
-  player (radius 2, revisioned so an unchanged chunk is not resent), the material/object-kind
+  player (radius 2, revisioned so an unchanged chunk is not resent), including level slot blobs,
+  the material/object-kind
   catalog and the generator list — with no lock. Responses to request-carrying commands (actions,
   menus, picks, new game, errors) arrive on a separate unbounded channel, matched to the client's
   own request id (`HostResponse.RequestId`); `HostActivityNotice` for a finished player activity has
-  no request id and is pushed as it happens. `WorldEngine.Pick(ray)` (sim-space ray cast: tiles,
-  wall edges, actor bodies, object volumes) backs both picking and the menu-at-ray query, so the
+  no request id and is pushed as it happens. `WorldEngine.Pick(ray)` (tiles, edge/interior walls,
+  actors, objects) backs picking and menu-at-ray, so the
   Godot camera's cursor ray always agrees with the sim's own geometry. Movement is stepped at
   `SimulationHost.MoveHz` (20, unchanged from the old 20 Hz WS input), independent of the 1 Hz
   clock; there is no client-side prediction, since there is no network latency to hide. The client
@@ -194,7 +195,9 @@ the feature bay. Every published `WorldFrame` carries `Generators` (`HostGenerat
   `MovesApplied` (every `Move` the host has handled). Other player moves fall back to `ActorMotion`.
 - **Standing rule (shared).** Step at most 0.5 m (`Δh ≤ 1`), keep the three half-metre cells
   `h+1..h+3` clear (a slab at `h+4` touches but does not intersect a 2 m body), no wall on the shared
-  edge, and at least 0.3 m body-centre clearance from blocked edges. A solid object's cells count as
+  edge, 0.3 m clearance from blocked edges and 0.426 m from `H`/`V` walls. `Nav` searches
+  `(Spot, region)` on split tiles; Extras follow region waypoints, and A* suppresses diagonals when
+  an endpoint or L-route middle tile is split. A solid object's cells count as
   blocked and a covered surface loses its headroom; a surface object's top `h+height` is an
   additional standing surface. Diagonals validate both
   height-consistent L routes. Navigation adds same-column `LEVEL_CLIMBABLE` links; normal player

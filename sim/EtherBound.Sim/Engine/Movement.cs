@@ -38,6 +38,46 @@ public static class Movement
         return current == target || grid.CanStep(current.Item1, current.Item2, target.Item1, target.Item2, h);
     }
 
+    private static bool TryBlockInterior(WorldGrid grid, int tileX, int tileY, int h, bool vertical,
+        double current, double next, out double snapped)
+    {
+        var bit = vertical ? ChunkConst.SlotHalfV : ChunkConst.SlotHalfH;
+        if ((grid.InteriorWallMaskAt(tileX, tileY, h) & bit) == 0)
+        {
+            snapped = next;
+            return false;
+        }
+        var line = (vertical ? tileX : tileY) + 0.5;
+        var currentSide = current - line;
+        var nextSide = next - line;
+        if (Math.Abs(nextSide) >= WallRegions.BodyClearance && currentSide * nextSide > 0)
+        {
+            snapped = next;
+            return false;
+        }
+        var side = currentSide < 0 || currentSide == 0 && nextSide < 0 ? -1 : 1;
+        snapped = line + side * WallRegions.BodyClearance;
+        return true;
+    }
+
+    private static void SeparateFromInteriorWalls(WorldGrid grid, ref double x, ref double y, int h)
+    {
+        var (tileX, tileY) = Tile(x, y);
+        var walls = grid.InteriorWallMaskAt(tileX, tileY, h);
+        if ((walls & ChunkConst.SlotHalfV) != 0)
+        {
+            var line = tileX + 0.5;
+            if (Math.Abs(x - line) < WallRegions.BodyClearance)
+                x = line + (x < line ? -1 : 1) * WallRegions.BodyClearance;
+        }
+        if ((walls & ChunkConst.SlotHalfH) != 0)
+        {
+            var line = tileY + 0.5;
+            if (Math.Abs(y - line) < WallRegions.BodyClearance)
+                y = line + (y < line ? -1 : 1) * WallRegions.BodyClearance;
+        }
+    }
+
     private static double Multiplier(WorldGrid grid, int h, StandingSurface surface)
     {
         var cost = surface.H > h ? SlopeUpMultiplier : surface.H < h ? SlopeDownMultiplier : 1.0;
@@ -57,6 +97,7 @@ public static class Movement
         var blockedY = uy == 0;
         while (remaining > 0)
         {
+            SeparateFromInteriorWalls(grid, ref x, ref y, h);
             var step = Math.Min(SubstepMetres, remaining);
             var moved = false;
             var spent = 0.0;
@@ -64,13 +105,21 @@ public static class Movement
             {
                 var source = Tile(x, y);
                 var peekX = x + ux * step;
-                if (CanEnter(grid, x, y, h, peekX, y))
+                if (TryBlockInterior(grid, source.Item1, source.Item2, h, true, x, peekX, out var interiorX))
+                {
+                    x = interiorX;
+                    blockedX = true;
+                    moved = true;
+                    spent = Math.Max(spent, step);
+                }
+                else if (CanEnter(grid, x, y, h, peekX, y))
                 {
                     if (NearestSurface(grid, peekX, y, h) is { } surface)
                     {
                         var multiplier = Multiplier(grid, h, surface);
                         x += ux * step;
                         if (Tile(x, y) != source) h = surface.H;
+                        SeparateFromInteriorWalls(grid, ref x, ref y, h);
                         moved = true;
                         spent = Math.Max(spent, step / multiplier);
                     }
@@ -88,13 +137,21 @@ public static class Movement
             {
                 var source = Tile(x, y);
                 var peekY = y + uy * step;
-                if (CanEnter(grid, x, y, h, x, peekY))
+                if (TryBlockInterior(grid, source.Item1, source.Item2, h, false, y, peekY, out var interiorY))
+                {
+                    y = interiorY;
+                    blockedY = true;
+                    moved = true;
+                    spent = Math.Max(spent, step);
+                }
+                else if (CanEnter(grid, x, y, h, x, peekY))
                 {
                     if (NearestSurface(grid, x, peekY, h) is { } surface)
                     {
                         var multiplier = Multiplier(grid, h, surface);
                         y += uy * step;
                         if (Tile(x, y) != source) h = surface.H;
+                        SeparateFromInteriorWalls(grid, ref x, ref y, h);
                         moved = true;
                         spent = Math.Max(spent, step / multiplier);
                     }

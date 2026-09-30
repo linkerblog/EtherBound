@@ -35,7 +35,8 @@ public sealed record HostActionResult(int RequestId, bool Accepted, string Actor
 
 public sealed record HostTrajectoryPoint(string Kind, string? ActorId, int? ObjectId, double X, double Y, int H);
 
-public sealed record HostActionResponse(int RequestId, HostActionResult Result) : HostResponse(RequestId);
+public sealed record HostActionResponse(int RequestId, HostActionResult Result,
+    ImmutableArray<HostSimulationEvent> Events) : HostResponse(RequestId);
 
 public sealed record HostMenuEntry(string Op, string Label, ImmutableArray<string> Tags, bool Available, string? Reason,
     string? Subject, GameAction Action, int TileDx, int TileDy);
@@ -61,9 +62,11 @@ public sealed record HostMenuResponse(int RequestId, HostMenuPayload? Menu, Host
 
 public sealed record HostPickResponse(int RequestId, HostPick? Hit) : HostResponse(RequestId);
 
-public sealed record HostNewGameResponse(int RequestId, long Seed, string Generator) : HostResponse(RequestId);
+public sealed record HostNewGameResponse(int RequestId, long Seed, string Generator,
+    ImmutableArray<HostSimulationEvent> Events) : HostResponse(RequestId);
 
-public sealed record HostActivityNotice(int RequestId, string ActorId, string Op, string Outcome, string? Reason,
-    int GameMinute) : HostResponse(RequestId);
+public sealed record HostSimulationEvent(int Sequence, int GameMinute, string Type, string ActorId, string DataJson);
+
+public sealed record HostEventsResponse(int RequestId, ImmutableArray<HostSimulationEvent> Events) : HostResponse(RequestId);
 
 public sealed record HostErrorResponse(int RequestId, string Message) : HostResponse(RequestId);

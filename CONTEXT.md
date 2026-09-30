@@ -6,7 +6,7 @@ Design lives in `docs/utils/VISION.md`.
 ## Modules
 
 Ported from a Python/FastAPI server and a Phaser/React web client to a deterministic C# simulation
-and a Godot 4 client (`docs/done/Dev-025.md`, cut-over 26/09/2026); the earlier stack is archived at
+and a Godot 4 client (archive entry `Dev-025.md`, cut-over 26/09/2026); the earlier stack is archived at
 `legacy-python-web-stack.zip`, and every rule below carried over unchanged, proven by goldens
 exported from the old server before cut-over. The measured reason: 1,000 Extras averaged
 5,645 ms/tick in Python versus 64.864 ms/tick in the release C# sim (`EtherBound.Bench`), ~87×
@@ -17,11 +17,11 @@ faster, at clock speed 10.
 | sim.rng | `sim/EtherBound.Sim/Rng/` | `PyRandom`, a bit-exact port of CPython's MT19937; `RngStream`/`RNGStreams` — one seeded stream per system. |
 | sim.world | `sim/EtherBound.Sim/World/` | Material registry, validated object kinds, chunk/grid geometry, A*, the generator registry and seeded generation (`test` and `lab`). |
 | sim.events | `sim/EtherBound.Sim/Events/`, `sim/EtherBound.Sim/Core/` | Typed committed events, FIFO subscriber bus, transactional sequence persistence, and core primitives (`Ids`, `GameAction`, target types). |
-| sim.db | `sim/EtherBound.Sim/Db/` | `Microsoft.Data.Sqlite` schema, the stepwise migration runner, load/save. |
-| sim.engine | `sim/EtherBound.Sim/Engine/`, `sim/EtherBound.Sim/Clock/` | The only state writer: `WorldEngine` orchestration, action/target types, generated menus, every handler, deterministic SI physics, trajectory resolution, `Pick` (ray casting for the client) and `SimClock`. |
+| sim.db | `sim/EtherBound.Sim/Db/` | `Microsoft.Data.Sqlite` schema, the stepwise migration runner, ordered input journal, resumable-work persistence, load/save. |
+| sim.engine | `sim/EtherBound.Sim/Engine/`, `sim/EtherBound.Sim/Clock/` | The only state writer: `WorldEngine` orchestration, action/target types, generated menus, deterministic input replay, actor collision and resumable work, every handler, SI physics, `Pick` and `SimClock`. |
 | sim.minds | `sim/EtherBound.Sim/Minds/` | Decision sources that propose through the action API; today `ExtrasBrain`, the deterministic routine of an Extra. |
-| sim.host | `sim/EtherBound.Host/` | `SimulationHost`: the sim's single writer thread, a bounded command channel (move, clock, actions, menu/pick queries, new game) and detached, revisioned `WorldFrame`s the client reads without a lock. `ActorMotion` and `StepPlayout`: the client's presentational interpolation between frames. |
-| game.app | `game/app/`, `game/project.godot`, `game/EtherBound.Game.csproj`, `game/export_presets.cfg` | `WorldClient`: starts `SimulationHost` and sprite decoding before scene setup, maps world materials to sprite sheets, shares actor render resources, and applies host frames; dispatches CPU chunk geometry builds while keeping Godot resource/node work on the main thread. Includes WASD input and `--shots`. |
+| sim.host | `sim/EtherBound.Host/` | `SimulationHost`: the sim's single writer thread, a bounded command channel and detached, revisioned `WorldFrame`s. It forwards committed player events as immutable host responses. `ActorMotion` and `StepPlayout` are presentation-only interpolation. |
+| game.app | `game/app/`, `game/project.godot`, `game/EtherBound.Game.csproj`, `game/export_presets.cfg` | `SimulationBootstrap` preloads immutable catalogs; `WorldClient` starts `SimulationHost` and sprite decoding before scene setup, maps world materials to sprite sheets, renders batched Extras, dispatches CPU chunk geometry builds, and keeps Godot resources/nodes on the main thread. Includes event presentation, WASD input and `--shots`. |
 | game.render | `game/spike/` | `PixelView` (low-res `SubViewport`, orthographic camera, art-pixel snapping), `ChunkMesher.BuildGeometry` (parallel CPU) / `ToMeshes` (main-thread `ArrayMesh`), `Terrain.gdshader`, furniture voxel meshes, `Cutaway`, `FurnitureLibrary`, `WorldDump`. |
 | game.ui | `game/ui/` | `GameHud` (`GAME`/`DEBUG`/`LLM` tabs, `CLOCK`/`FEED`/`CARRY`/`ACT` panels, input line, `NEW` popover), `ActionMenuOverlay` (right-click list, `V` radial menu), `GeneratorPanel` (`NEW`/`MAP` forms from `GeneratorSpec`), `TrajectoryAnimator`, `CompassOverlay` (iso north/east/south/west and `CAM` marker, to name cutaway faces). |
 | bitcanvas | `BitCanvas/` (`pixelart.js`, `gamesync.js`, `core.js`, `terrain.js`, `sides.js`, `furnitureData.js`, `furniture.js`, `app.js`) | Standalone seeded texture and furniture generator (classic deferred scripts, HTML/JS, no build); furniture exports to `game/assets/furniture/` via `scripts/export-furniture.mjs`, and "Send to game" targets `game/assets/sprites/`. |
@@ -36,7 +36,8 @@ pooling (Fix19): a step commits in about 0.7 ms, a power cut can drop the last m
 corrupts, and the `-wal` file is folded back on close. Migrations `0001_initial`, `0002_world`, `0003_event`,
 `0004_dig_activity`, `0005_object`, `0006_physics`, `0007_generator` and `0008_extra` are unchanged
 from the retired Python server (`legacy-python-web-stack.zip`); the sim's own chain starts at
-`0009_walls` (Dev-036). `Database.EnsureSchema` is a stepwise runner: a missing save is created from
+`0009_walls` (archive entry `Dev-036.md`) and is currently at `0010_replay_work`.
+`Database.EnsureSchema` is a stepwise runner: a missing save is created from
 the embedded `Schema0008.sql` at `0008_extra`, then every pending step is applied in order from the
 save's own `alembic_version`, one transaction each, and the head is written; a version the runner
 does not know is refused instead of guessed. The sim also records its own `sim_schema` row.
@@ -51,6 +52,13 @@ does not know is refused instead of guessed. The sim also records its own `sim_s
 | `object` | `id` (pk), `kind`, `loc` (`tile`/`in`/`held`/`worn`), nullable `x`/`y`/`h`/`cx`/`cy`, nullable `container_id` (self-FK), nullable `actor_id`, nullable `slot`, `quantity` (> 0), JSON `state`, nullable `integrity`, nullable `owner`; a CHECK pins the exact columns of each `loc` |
 | `wall_slot` | sparse pk `(cx, cy, z, cell_index, slot)` for partly damaged walls, edge and interior alike; stores remaining joules |
 | `event` | `seq` (global ordered pk), `game_minute`, `type`, nullable `actor_id`, JSON `data`; indexed by minute, type and actor |
+| `input_journal` | ordered `seq`, command `kind`, JSON payload, `repeat_count` for adjacent identical commands; separate from gameplay events |
+| `activity_work` | pk `(actor_id, action_key)`, accumulated `progress_minutes` for interrupted `dig`/`build` work |
+
+The input journal is committed by `WorldEngine` with world changes, run-length encodes only adjacent
+identical commands, and replays by calling the same engine API in order. Rejected inputs are no-op
+journal entries, not gameplay events. Journal/event retention and compaction remain open in
+`docs/PENDING.md`.
 
 Spatial units: 1 m tiles in 32×32 chunks; `h` in half-metres; `z` is the absolute 3 m band
 `floor(h / 6)`; walls live on tile edges (each tile owns north/west) with doorway/window edge
@@ -104,10 +112,11 @@ the feature bay. Every published `WorldFrame` carries `Generators` (`HostGenerat
 
 - **Action API.** `WorldEngine.Submit(actorId, action, deltaSeconds)` is the single mutation entry
   point: pause check → a zero-length `move` returns accepted and does nothing → handler
-  `Validate` (a rejection changes nothing and emits nothing) → a running activity is cleared with
-  `activity.finished` (`interrupted`) → an instant op resolves (events and an optional `text`), a
-  durative one stores an activity and emits `activity.started` → transactional commit and event
-  enqueue → FIFO dispatch on the sim thread. Actions are a union discriminated by `op`;
+  `Validate` (a rejection changes no world state and emits no gameplay event; its input is still
+  journaled) → a running activity is cleared with `activity.finished` (`interrupted`) → an instant op
+  resolves (events and optional `text`), a durative one stores an activity and emits `activity.started`
+  → transactional commit and event enqueue → FIFO dispatch on the sim thread. Actions are a union
+  discriminated by `op`;
   targets are `self`, `tile {x, y, h}`, `object {id}`, `actor {id}` or
   `edge {x, y, z, direction}`; `H`/`V` address interior halves; `put` carries a second `into` target.
 - **Ops.** `Data/ops.toml` is the vocabulary (key, label, group, target kinds, tags); a handler
@@ -136,13 +145,19 @@ the feature bay. Every published `WorldFrame` carries `Generators` (`HostGenerat
   (NULL means intact at material resistance × max(1, height) half-metre cells); `wall_slot` stores
   partial damage by slot for edge and interior walls. Zero integrity turns objects into data-defined rubble (spilling container
   contents) or opens wall slots. Falls resolve in the same action; bodies over a 3 m fall emit
-  potential energy as `impact`. Physics never mutates health. The client only animates the sim's
-  trajectory (`TrajectoryAnimator`); it never resolves physics itself.
-- **Activities.** One per actor, stored on the actor, advanced only by clock ticks. In
-  `AdvanceTime`, actors whose `ends_minute` has come are completed in id order before
+  potential energy as `impact`. Physics never mutates health. Actor contact blocks movement at the
+  shared body radius but never pushes or damages; the engine permits an existing overlap to be
+  escaped without worsening it. The client only animates the sim's trajectory (`TrajectoryAnimator`);
+  it never resolves physics itself.
+- **Activities.** One active activity per actor, stored on the actor, advanced only by clock ticks.
+  Interrupted `dig`/`build` retains earned game minutes in `activity_work`, keyed by actor and canonical
+  action/target, and resumes only after normal validation; partial work does not mutate the world.
+  `wait` and travel restart normally. In `AdvanceTime`, actors whose `ends_minute` has come are
+  completed in id order before
   `clock.ticked`: the action is re-validated, and either `complete` applies its events then
   `activity.finished` (`completed`), or `activity.finished` (`failed`, reason). A paused clock
-  freezes them; progress is lost on interruption.
+  freezes them; accepted work is cleared on completion or when an active activity fails completion
+  revalidation.
 - **Minds.** `WorldEngine.SetGoal(actorId, goal, reason)` is the only writer of `mind.goal`: it
   refuses the player, an unknown actor and a goal tile without a standing surface, sets the goal
   (or clears it) and commits `actor.goal_set` (`reason` chosen/arrived/stuck/unreachable) in the same
@@ -184,8 +199,11 @@ the feature bay. Every published `WorldFrame` carries `Generators` (`HostGenerat
   the material/object-kind
   catalog and the generator list — with no lock. Responses to request-carrying commands (actions,
   menus, picks, new game, errors) arrive on a separate unbounded channel, matched to the client's
-  own request id (`HostResponse.RequestId`); `HostActivityNotice` for a finished player activity has
-  no request id and is pushed as it happens. `WorldEngine.Pick(ray)` (tiles, edge/interior walls,
+  own request id (`HostResponse.RequestId`). `HostActionResponse.Events` carries ordered committed
+  player events from that action; asynchronous tick events arrive in `HostEventsResponse`.
+  Replication excludes transient clock ticks and events outside Niko's observable actions/perception.
+  The Godot client summarizes each batch once and never uses it to write state. `WorldEngine.Pick(ray)`
+  (tiles, edge/interior walls,
   actors, objects) backs picking and menu-at-ray, so the
   Godot camera's cursor ray always agrees with the sim's own geometry. Movement is stepped at
   `SimulationHost.MoveHz` (20, unchanged from the old 20 Hz WS input), independent of the 1 Hz
@@ -195,7 +213,9 @@ the feature bay. Every published `WorldFrame` carries `Generators` (`HostGenerat
   `MovesApplied` (every `Move` the host has handled). Other player moves fall back to `ActorMotion`.
 - **Standing rule (shared).** Step at most 0.5 m (`Δh ≤ 1`), keep the three half-metre cells
   `h+1..h+3` clear (a slab at `h+4` touches but does not intersect a 2 m body), no wall on the shared
-  edge, 0.3 m clearance from blocked edges and 0.426 m from `H`/`V` walls. `Nav` searches
+  edge, 0.3 m clearance from blocked edges and 0.426 m from `H`/`V` walls. Other actor bodies also
+  block overlapping movement; contact never pushes or damages, and an existing overlap may only be
+  escaped without worsening it. `Nav` searches
   `(Spot, region)` on split tiles; Extras follow region waypoints, and A* suppresses diagonals when
   an endpoint or L-route middle tile is split. A solid object's cells count as
   blocked and a covered surface loses its headroom; a surface object's top `h+height` is an

@@ -9,6 +9,8 @@ public static class Movement
     public const double SlopeDownMultiplier = 0.85;
     public const double SubstepMetres = 0.05;
     public const double BodyRadiusMetres = 0.3;
+    private const int BodyHeightHalfCells = 4;
+    private const double OverlapTolerance = 1e-12;
     public const double FreeLoadKg = 10.0;
     public const double LoadSlowdownKg = 60.0;
     public const double MinLoadMultiplier = 0.5;
@@ -36,6 +38,60 @@ public static class Movement
         var current = Tile(x, y);
         var target = Tile(nx, ny);
         return current == target || grid.CanStep(current.Item1, current.Item2, target.Item1, target.Item2, h);
+    }
+
+    private static bool TryBlockEdge(WorldGrid grid, int tileX, int tileY, int h, bool vertical,
+        double current, double next, out double snapped)
+    {
+        var direction = Math.Sign(next - current);
+        var boundary = vertical
+            ? direction > 0 ? tileY + 1 : tileY
+            : direction > 0 ? tileX + 1 : tileX;
+        var limit = boundary - direction * BodyRadiusMetres;
+        if (direction == 0 || (direction > 0 ? next <= limit : next >= limit))
+        {
+            snapped = next;
+            return false;
+        }
+
+        var nextX = tileX + (vertical ? 0 : direction);
+        var nextY = tileY + (vertical ? direction : 0);
+        if (grid.CanStep(tileX, tileY, nextX, nextY, h))
+        {
+            snapped = next;
+            return false;
+        }
+
+        snapped = limit;
+        return true;
+    }
+
+    private static double BodyOverlap(double x, double y, int h, ActorRow second)
+    {
+        var verticalOverlap = Math.Max(0.0,
+            Math.Min(h + BodyHeightHalfCells, second.H + BodyHeightHalfCells) - Math.Max(h, second.H)) * 0.5;
+        if (verticalOverlap == 0) return 0;
+
+        var distance = PyMath.Hypot(x - second.X, y - second.Y);
+        var diameter = BodyRadiusMetres * 2;
+        if (distance >= diameter) return 0;
+        var area = distance == 0
+            ? Math.PI * BodyRadiusMetres * BodyRadiusMetres
+            : 2 * BodyRadiusMetres * BodyRadiusMetres * Math.Acos(distance / diameter) -
+              0.5 * distance * Math.Sqrt(diameter * diameter - distance * distance);
+        return area * verticalOverlap;
+    }
+
+    private static bool CanMoveBody(double currentX, double currentY, int currentH,
+        double nextX, double nextY, int nextH, IReadOnlyList<ActorRow> actors)
+    {
+        foreach (var actor in actors)
+        {
+            var before = BodyOverlap(currentX, currentY, currentH, actor);
+            var after = BodyOverlap(nextX, nextY, nextH, actor);
+            if (before == 0 ? after > 0 : after > before + OverlapTolerance) return false;
+        }
+        return true;
     }
 
     private static bool TryBlockInterior(WorldGrid grid, int tileX, int tileY, int h, bool vertical,
@@ -86,11 +142,12 @@ public static class Movement
     }
 
     public static (double X, double Y, int H) MoveInWorld(double x, double y, int h, double dx, double dy, double distance,
-        WorldGrid grid, double loadKg = 0.0)
+        WorldGrid grid, double loadKg = 0.0, IReadOnlyList<ActorRow>? otherActors = null)
     {
         var magnitude = PyMath.Hypot(dx, dy);
         if (magnitude == 0 || distance <= 0) return (x, y, h);
         distance *= LoadMultiplier(loadKg);
+        var actors = otherActors?.OrderBy(actor => actor.Id, StringComparer.Ordinal).ToArray() ?? Array.Empty<ActorRow>();
         double ux = dx / magnitude, uy = dy / magnitude;
         var remaining = distance;
         var blockedX = ux == 0;
@@ -112,16 +169,28 @@ public static class Movement
                     moved = true;
                     spent = Math.Max(spent, step);
                 }
+                else if (TryBlockEdge(grid, source.Item1, source.Item2, h, false, x, peekX, out var edgeX))
+                {
+                    x = edgeX;
+                    blockedX = true;
+                    moved = true;
+                    spent = Math.Max(spent, step);
+                }
                 else if (CanEnter(grid, x, y, h, peekX, y))
                 {
                     if (NearestSurface(grid, peekX, y, h) is { } surface)
                     {
                         var multiplier = Multiplier(grid, h, surface);
-                        x += ux * step;
-                        if (Tile(x, y) != source) h = surface.H;
-                        SeparateFromInteriorWalls(grid, ref x, ref y, h);
-                        moved = true;
-                        spent = Math.Max(spent, step / multiplier);
+                        var nextX = x + ux * step;
+                        var nextH = Tile(nextX, y) != source ? surface.H : h;
+                        if (CanMoveBody(x, y, h, nextX, y, nextH, actors))
+                        {
+                            x = nextX;
+                            h = nextH;
+                            SeparateFromInteriorWalls(grid, ref x, ref y, h);
+                            moved = true;
+                            spent = Math.Max(spent, step / multiplier);
+                        }
                     }
                 }
                 else if (Tile(peekX, y) != Tile(x, y))
@@ -144,16 +213,28 @@ public static class Movement
                     moved = true;
                     spent = Math.Max(spent, step);
                 }
+                else if (TryBlockEdge(grid, source.Item1, source.Item2, h, true, y, peekY, out var edgeY))
+                {
+                    y = edgeY;
+                    blockedY = true;
+                    moved = true;
+                    spent = Math.Max(spent, step);
+                }
                 else if (CanEnter(grid, x, y, h, x, peekY))
                 {
                     if (NearestSurface(grid, x, peekY, h) is { } surface)
                     {
                         var multiplier = Multiplier(grid, h, surface);
-                        y += uy * step;
-                        if (Tile(x, y) != source) h = surface.H;
-                        SeparateFromInteriorWalls(grid, ref x, ref y, h);
-                        moved = true;
-                        spent = Math.Max(spent, step / multiplier);
+                        var nextY = y + uy * step;
+                        var nextH = Tile(x, nextY) != source ? surface.H : h;
+                        if (CanMoveBody(x, y, h, x, nextY, nextH, actors))
+                        {
+                            y = nextY;
+                            h = nextH;
+                            SeparateFromInteriorWalls(grid, ref x, ref y, h);
+                            moved = true;
+                            spent = Math.Max(spent, step / multiplier);
+                        }
                     }
                 }
                 else if (Tile(x, peekY) != Tile(x, y))

@@ -33,6 +33,7 @@ public sealed class SimulationHost : IDisposable
     private readonly long _seed;
     private readonly string _generator;
     private readonly int _chunkRadius;
+    private readonly Func<WorldEngineCatalogs> _loadCatalogs;
     private readonly Channel<Command> _commands = Channel.CreateBounded<Command>(new BoundedChannelOptions(256)
     {
         SingleReader = true,
@@ -51,12 +52,18 @@ public sealed class SimulationHost : IDisposable
     private WorldFrame? _latestFrame;
     private Exception? _fault;
     private int _disposed;
+    private readonly long _startedAt;
+    private double _firstFrameMilliseconds, _engineInitializationMilliseconds, _worldSetupMilliseconds,
+        _framePreparationMilliseconds, _snapshotBuildMilliseconds;
     private long _frameSequence;
     private long _movesApplied;
 
-    public SimulationHost(string databasePath = ":memory:", long seed = 7, string generator = "test", int chunkRadius = 2)
+    public SimulationHost(string databasePath = ":memory:", long seed = 7, string generator = "test", int chunkRadius = 2,
+        Func<WorldEngineCatalogs>? loadCatalogs = null)
     {
         if (chunkRadius < 0) throw new ArgumentOutOfRangeException(nameof(chunkRadius));
+        _startedAt = Stopwatch.GetTimestamp();
+        _loadCatalogs = loadCatalogs ?? WorldEngine.LoadCatalogs;
         _databasePath = databasePath;
         _seed = seed;
         _generator = generator;
@@ -67,6 +74,11 @@ public sealed class SimulationHost : IDisposable
 
     public WorldFrame? LatestFrame => Volatile.Read(ref _latestFrame);
     public Exception? Fault => Volatile.Read(ref _fault);
+    public double FirstFrameMilliseconds => Volatile.Read(ref _firstFrameMilliseconds);
+    public double EngineInitializationMilliseconds => Volatile.Read(ref _engineInitializationMilliseconds);
+    public double WorldSetupMilliseconds => Volatile.Read(ref _worldSetupMilliseconds);
+    public double FramePreparationMilliseconds => Volatile.Read(ref _framePreparationMilliseconds);
+    public double SnapshotBuildMilliseconds => Volatile.Read(ref _snapshotBuildMilliseconds);
 
     internal int WorkerThreadId => _thread.ManagedThreadId;
 
@@ -145,8 +157,10 @@ public sealed class SimulationHost : IDisposable
         WorldEngine? engine = null;
         try
         {
+            var engineStarted = Stopwatch.GetTimestamp();
             var existed = _databasePath != ":memory:" && File.Exists(_databasePath);
-            engine = new WorldEngine(_databasePath);
+            engine = new WorldEngine(_databasePath, _loadCatalogs);
+            var engineReady = Stopwatch.GetTimestamp();
             WorldState state;
             if (existed)
             {
@@ -157,15 +171,27 @@ public sealed class SimulationHost : IDisposable
             {
                 state = engine.NewGame(_seed, _generator);
             }
+            var worldReady = Stopwatch.GetTimestamp();
             new ExtrasBrain(engine).Attach(engine.Bus);
-            engine.Bus.Subscribe("activity.finished", e =>
+            var pendingEvents = new List<HostSimulationEvent>();
+            engine.Bus.Subscribe("*", e =>
             {
-                if (e.ActorId != Ids.Player) return;
-                var op = e.Data["op"]?.GetValue<string>() ?? "";
-                var outcome = e.Data["outcome"]?.GetValue<string>() ?? "";
-                var reason = e.Data["reason"]?.GetValue<string>();
-                _responses.Writer.TryWrite(new HostActivityNotice(0, Ids.Player, op, outcome, reason, e.GameMinute));
-            }, "host.player-activity", Phase.Audit);
+                if (!e.Logged || e.ActorId != Ids.Player) return;
+                pendingEvents.Add(new HostSimulationEvent(e.Seq, e.GameMinute, e.Type, e.ActorId, e.Data.ToJsonString()));
+            }, "host.player-events", Phase.Replication);
+
+            ImmutableArray<HostSimulationEvent> TakeEvents()
+            {
+                var events = ImmutableArray.CreateRange(pendingEvents);
+                pendingEvents.Clear();
+                return events;
+            }
+
+            void QueueEvents()
+            {
+                var events = TakeEvents();
+                if (!events.IsEmpty) _responses.Writer.TryWrite(new HostEventsResponse(0, events));
+            }
 
             var clock = new SimClock();
             clock.Load(state.Speed, state.Paused);
@@ -175,10 +201,17 @@ public sealed class SimulationHost : IDisposable
                 ImmutableArray.CreateRange(spec.Fields.Select(field => new HostOptionField(field.Path, field.Label, field.Kind,
                     field.Default?.ToJsonString(), field.Minimum, field.Maximum, field.Step,
                     ImmutableArray.CreateRange(field.Choices ?? Array.Empty<string>()), field.Group))),
-                ImmutableArray.CreateRange(spec.Bays.Select(bay => new HostGeneratorBay(bay.Key, bay.X, bay.Y, bay.Width, bay.Height))))).ToArray();
+                 ImmutableArray.CreateRange(spec.Bays.Select(bay => new HostGeneratorBay(bay.Key, bay.X, bay.Y, bay.Width, bay.Height))))).ToArray();
             var chunks = new Dictionary<(int Cx, int Cy), HostChunk>();
+            var beforePublish = Stopwatch.GetTimestamp();
             var elapsed = Stopwatch.StartNew();
             var last = elapsed.Elapsed.TotalSeconds;
+            Volatile.Write(ref _engineInitializationMilliseconds,
+                Stopwatch.GetElapsedTime(engineStarted, engineReady).TotalMilliseconds);
+            Volatile.Write(ref _worldSetupMilliseconds,
+                Stopwatch.GetElapsedTime(engineReady, worldReady).TotalMilliseconds);
+            Volatile.Write(ref _framePreparationMilliseconds,
+                Stopwatch.GetElapsedTime(worldReady, beforePublish).TotalMilliseconds);
             Publish(engine, state, materials, objectKinds, generators, chunks);
             _ready.Set();
 
@@ -191,6 +224,7 @@ public sealed class SimulationHost : IDisposable
                 for (var i = 0; i < due; i++)
                 {
                     state = engine.AdvanceTime();
+                    QueueEvents();
                     changed = true;
                 }
 
@@ -202,12 +236,14 @@ public sealed class SimulationHost : IDisposable
                         {
                             case Move move:
                                 engine.Submit(Ids.Player, GameAction.Move(move.Dx, move.Dy), move.DeltaSeconds);
+                                QueueEvents();
                                 _movesApplied++;
                                 changed = true;
                                 break;
                             case Clock setClock:
                                 state = engine.SetClock(setClock.Paused, setClock.Speed);
                                 clock.Load(state.Speed, state.Paused);
+                                QueueEvents();
                                 changed = true;
                                 break;
                             case NewGame start:
@@ -216,12 +252,17 @@ public sealed class SimulationHost : IDisposable
                                 state = engine.NewGame(start.Seed, start.Generator, options, start.Paused);
                                 clock.Load(state.Speed, state.Paused);
                                 chunks.Clear();
-                                if (start.RequestId > 0) _responses.Writer.TryWrite(new HostNewGameResponse(start.RequestId, start.Seed, state.Generator));
+                                var newGameEvents = TakeEvents();
+                                if (start.RequestId > 0)
+                                    _responses.Writer.TryWrite(new HostNewGameResponse(start.RequestId, start.Seed, state.Generator, newGameEvents));
+                                else if (!newGameEvents.IsEmpty)
+                                    _responses.Writer.TryWrite(new HostEventsResponse(0, newGameEvents));
                                 changed = true;
                                 break;
                             case SubmitAction action:
                                 var result = engine.Submit(Ids.Player, action.Action);
-                                _responses.Writer.TryWrite(new HostActionResponse(action.RequestId, HostActionResult.Copy(action.RequestId, result)));
+                                _responses.Writer.TryWrite(new HostActionResponse(action.RequestId,
+                                    HostActionResult.Copy(action.RequestId, result), TakeEvents()));
                                 changed = true;
                                 break;
                             case MenuQuery menu:
@@ -275,6 +316,7 @@ public sealed class SimulationHost : IDisposable
     private void Publish(WorldEngine engine, WorldState state, HostMaterial[] materials, HostObjectKind[] objectKinds,
         HostGenerator[] generators, Dictionary<(int Cx, int Cy), HostChunk> chunks)
     {
+        var started = Stopwatch.GetTimestamp();
         var player = state.Actors.First(actor => actor.Id == Ids.Player);
         var cx = (int)Math.Floor(player.X / ChunkConst.Size);
         var cy = (int)Math.Floor(player.Y / ChunkConst.Size);
@@ -307,6 +349,11 @@ public sealed class SimulationHost : IDisposable
             System.Collections.Immutable.ImmutableArray.CreateRange(objectKinds),
             System.Collections.Immutable.ImmutableArray.CreateRange(payloads.Select(p => chunks[(p.Cx, p.Cy)])),
             _movesApplied);
+        if (frame.Sequence == 1)
+        {
+            Volatile.Write(ref _snapshotBuildMilliseconds, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+            Volatile.Write(ref _firstFrameMilliseconds, Stopwatch.GetElapsedTime(_startedAt).TotalMilliseconds);
+        }
         Volatile.Write(ref _latestFrame, frame);
         _frameChanged.Set();
     }

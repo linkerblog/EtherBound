@@ -144,8 +144,13 @@ neighbour takes the `climb` op; anything higher needs a ladder or another vertic
     responsibility.
   - **Body data.** Every actor has a positive mass in kilograms; existing actors receive an 80 kg
     default until character data supplies an individual value.
-  - **Replay.** The logged resolution event contains the complete deterministic path, impacts,
-    damage and break outcomes. Chunk changes are replication signals, not physics facts.
+  - **Actor contact.** Actors block movement when their standing bodies would overlap. Contact only
+    rejects movement; it does not push or damage either actor. The engine resolves it, never Godot.
+  - **Replay.** A separate input journal records mutating commands in engine-processing order,
+    including their simulation-time deltas; replay resubmits those commands through the same engine
+    API from the recorded seed and generator options. The event log continues to record resolved
+    outcomes, including complete deterministic paths, impacts, damage and break results. Chunk
+    changes are replication signals, not physics facts.
   - **Physics does not know health.** It emits `impact {target, energy}`; turning that into
     injury belongs to the body system.
   - Out of scope: structural collapse of buildings, fluids and fire. Hole collapse comes later,
@@ -176,6 +181,10 @@ is one submitted use of an op: the op, its target and its modifiers. Actors neve
 ops. The vocabulary is data (`server/src/etherbound/engine/ops.toml`); a code handler gives an op
 its behaviour, and an op without one is never offered. An op that takes game time runs as an
 **activity** on the actor, advanced by clock ticks and interrupted by the actor's next action.
+An op that performs productive work may retain its completed time against that actor and action
+target. Reissuing the same work resumes it after the engine revalidates it; partial work does not
+mutate the world until the action resolves. Waiting and travel are not productive work and restart
+normally when interrupted.
 
 - **Ops × properties.** No authored "burn Marco's shop": there is `ignite`, and wood is
   flammable.
@@ -217,6 +226,12 @@ Full text: `docs/utils/MINDS.md` [Sec. 10]
 ## 11. Determinism and replay
 
 - Seeded RNG, one stream per system, so the same seed and inputs give the same city.
+- The engine records every mutating input in a separate journal in processing order, including
+  movement and simulation-time deltas. Consecutive identical inputs may be run-length encoded
+  without changing their order or effect. Replay starts from the recorded seed and generator options
+  and resubmits the journal through the same action API; rejected inputs remain no-op inputs.
+- Input records are not gameplay events. Resolved state changes remain in the event log and retain
+  their transaction and FIFO-dispatch rules.
 - LLM and Jev are not deterministic: **every model decision is logged as an event.** A run can be
   replayed exactly, which is also the main debugging tool ("why did this law pass?").
 

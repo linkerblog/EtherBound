@@ -97,6 +97,9 @@ public sealed class HostRules
         var action = ReadResponse<HostActionResponse>(host, 3);
         Assert.True(action.Result.Accepted, action.Result.Reason);
         Assert.NotNull(action.Result.Activity);
+        Assert.Contains(action.Events, simulationEvent => simulationEvent.Type == "activity.started");
+        Assert.All(action.Events, simulationEvent => Assert.Equal(Ids.Player, simulationEvent.ActorId));
+        Assert.Equal(action.Events.OrderBy(simulationEvent => simulationEvent.Sequence), action.Events);
         Assert.True(SpinWait.SpinUntil(() => ReadAvailableNotice(host), TimeSpan.FromSeconds(5)));
 
         const string options = "{\"feature\":\"relief\",\"spawn_bay\":\"feature\",\"relief\":{\"amplitude\":4}}";
@@ -127,7 +130,10 @@ public sealed class HostRules
     private static bool ReadAvailableNotice(SimulationHost host)
     {
         while (host.TryReadResponse(out var response))
-            if (response is HostActivityNotice { Op: "wait", Outcome: "completed" }) return true;
+            if (response is HostEventsResponse events && events.Events.Any(simulationEvent =>
+                    simulationEvent.Type == "activity.finished" &&
+                    JsonNode.Parse(simulationEvent.DataJson)!["outcome"]!.GetValue<string>() == "completed"))
+                return true;
         return false;
     }
 }

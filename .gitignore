@@ -1,15 +1,17 @@
-data/
+/data/
 logs/*.log
 node_modules/
 .kilo/
 game/.godot/
 game/bin/
 game/obj/
+game.tests/bin/
+game.tests/obj/
 game/**/*.import
 game/spike/dumps/
 game/spike/out/
 sim/**/bin/
 sim/**/obj/
-legacy-python-web-stack.zip
 /EtherBound.exe
 /data_EtherBound.Game_*/
+EtherBound (Godot).lnk

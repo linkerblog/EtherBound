@@ -60,15 +60,32 @@ public sealed class ChunkMesher
         public void Quad(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 n, Color color, Vector2 owner, Vector2 extra)
         {
             var start = Verts.Count;
-            foreach (var v in new[] { a, b, c, d })
-            {
-                Verts.Add(v);
-                Normals.Add(n);
-                Colors.Add(color);
-                Uv.Add(owner);
-                Uv2.Add(extra);
-            }
-            Indices.AddRange(new[] { start, start + 1, start + 2, start, start + 2, start + 3 });
+            Verts.Add(a);
+            Verts.Add(b);
+            Verts.Add(c);
+            Verts.Add(d);
+            Normals.Add(n);
+            Normals.Add(n);
+            Normals.Add(n);
+            Normals.Add(n);
+            Colors.Add(color);
+            Colors.Add(color);
+            Colors.Add(color);
+            Colors.Add(color);
+            Uv.Add(owner);
+            Uv.Add(owner);
+            Uv.Add(owner);
+            Uv.Add(owner);
+            Uv2.Add(extra);
+            Uv2.Add(extra);
+            Uv2.Add(extra);
+            Uv2.Add(extra);
+            Indices.Add(start);
+            Indices.Add(start + 1);
+            Indices.Add(start + 2);
+            Indices.Add(start);
+            Indices.Add(start + 2);
+            Indices.Add(start + 3);
         }
 
         public void AddSurface(ArrayMesh mesh, Material material)
@@ -86,6 +103,9 @@ public sealed class ChunkMesher
             mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
             mesh.SurfaceSetMaterial(surface, material);
         }
+
+        internal MeshBuffers Freeze() => new(Verts.ToArray(), Normals.ToArray(), Colors.ToArray(), Uv.ToArray(), Uv2.ToArray(),
+            Indices.ToArray());
     }
 
     private sealed class BandBuilder
@@ -96,7 +116,34 @@ public sealed class ChunkMesher
         public readonly Builder Outline = new();
     }
 
-    internal sealed record BandGeometry(Builder Terrain, Builder Structure, Builder Glass, Builder Outline);
+    internal sealed record BandGeometry(MeshBuffers Terrain, MeshBuffers Structure, MeshBuffers Glass, MeshBuffers Outline);
+
+    internal sealed class MeshBuffers(Vector3[] verts, Vector3[] normals, Color[] colors, Vector2[] uv, Vector2[] uv2,
+        int[] indices)
+    {
+        public readonly Vector3[] Verts = verts;
+        public readonly Vector3[] Normals = normals;
+        public readonly Color[] Colors = colors;
+        public readonly Vector2[] Uv = uv;
+        public readonly Vector2[] Uv2 = uv2;
+        public readonly int[] Indices = indices;
+
+        public void AddSurface(ArrayMesh mesh, Material material)
+        {
+            if (Verts.Length == 0) return;
+            var arrays = new Godot.Collections.Array();
+            arrays.Resize((int)Mesh.ArrayType.Max);
+            arrays[(int)Mesh.ArrayType.Vertex] = Verts;
+            arrays[(int)Mesh.ArrayType.Normal] = Normals;
+            arrays[(int)Mesh.ArrayType.Color] = Colors;
+            arrays[(int)Mesh.ArrayType.TexUV] = Uv;
+            arrays[(int)Mesh.ArrayType.TexUV2] = Uv2;
+            arrays[(int)Mesh.ArrayType.Index] = Indices;
+            var surface = mesh.GetSurfaceCount();
+            mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+            mesh.SurfaceSetMaterial(surface, material);
+        }
+    }
 
     public sealed class ChunkGeometry
     {
@@ -152,7 +199,7 @@ public sealed class ChunkMesher
         }
         var result = new SortedDictionary<int, BandGeometry>();
         foreach (var (z, band) in bands)
-            result[z] = new BandGeometry(band.Terrain, band.Structure, band.Glass, band.Outline);
+            result[z] = new BandGeometry(band.Terrain.Freeze(), band.Structure.Freeze(), band.Glass.Freeze(), band.Outline.Freeze());
         return new ChunkGeometry(result);
     }
 

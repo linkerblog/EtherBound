@@ -30,6 +30,7 @@ public sealed class WorldDump
         public required short[] GroundH;
         public required ushort[] SurfaceMat;
         public required byte[] Dug;
+        public HostChunk? Source;
     }
 
     public sealed class Level
@@ -114,7 +115,7 @@ public sealed class WorldDump
     }
 
     /// <summary>Copies immutable host data into the renderer's query-friendly view model.</summary>
-    public static WorldDump FromFrame(WorldFrame frame)
+    public static WorldDump FromFrame(WorldFrame frame, WorldDump? previous = null)
     {
         var player = frame.Actors.First(actor => actor.Id == EtherBound.Sim.Core.Ids.Player);
         var dump = new WorldDump
@@ -128,33 +129,44 @@ public sealed class WorldDump
             dump.Kinds[kind.Key] = new Kind(kind.Material, kind.Height, kind.Solid, kind.Surface);
         foreach (var chunk in frame.Chunks)
         {
-            dump.Chunks[(chunk.Cx, chunk.Cy)] = new Chunk
+            var key = (chunk.Cx, chunk.Cy);
+            if (previous is not null && previous.Chunks.TryGetValue(key, out var previousChunk) &&
+                ReferenceEquals(previousChunk.Source, chunk))
             {
-                GroundH = chunk.GroundH.ToArray(),
-                SurfaceMat = chunk.SurfaceMat.ToArray(),
-                Dug = chunk.Dug.ToArray(),
-            };
+                dump.Chunks[key] = previousChunk;
+                if (previous.Levels.TryGetValue(key, out var previousLevels)) dump.Levels[key] = previousLevels;
+            }
+            else
+            {
+                dump.Chunks[key] = new Chunk
+                {
+                    GroundH = chunk.GroundH.ToArray(),
+                    SurfaceMat = chunk.SurfaceMat.ToArray(),
+                    Dug = chunk.Dug.ToArray(),
+                    Source = chunk,
+                };
+                foreach (var level in chunk.Levels)
+                {
+                    if (!dump.Levels.TryGetValue(key, out var levels))
+                        dump.Levels[key] = levels = new List<Level>();
+                    levels.Add(new Level
+                    {
+                        Z = level.Z,
+                        FloorH = level.FloorH.ToArray(),
+                        FloorMat = level.FloorMat.ToArray(),
+                        WallN = level.WallN.ToArray(),
+                        WallW = level.WallW.ToArray(),
+                        EdgeFlags = level.EdgeFlags.ToArray(),
+                        Flags = level.Flags.ToArray(),
+                        SlotMask = level.SlotMask.ToArray(),
+                        SlotMat = level.SlotMat.ToArray(),
+                    });
+                }
+            }
             dump.MinCx = Math.Min(dump.MinCx, chunk.Cx);
             dump.MinCy = Math.Min(dump.MinCy, chunk.Cy);
             dump.MaxCx = Math.Max(dump.MaxCx, chunk.Cx);
             dump.MaxCy = Math.Max(dump.MaxCy, chunk.Cy);
-            foreach (var level in chunk.Levels)
-            {
-                if (!dump.Levels.TryGetValue((chunk.Cx, chunk.Cy), out var levels))
-                    dump.Levels[(chunk.Cx, chunk.Cy)] = levels = new List<Level>();
-                levels.Add(new Level
-                {
-                    Z = level.Z,
-                    FloorH = level.FloorH.ToArray(),
-                    FloorMat = level.FloorMat.ToArray(),
-                    WallN = level.WallN.ToArray(),
-                    WallW = level.WallW.ToArray(),
-                    EdgeFlags = level.EdgeFlags.ToArray(),
-                    Flags = level.Flags.ToArray(),
-                    SlotMask = level.SlotMask.ToArray(),
-                    SlotMat = level.SlotMat.ToArray(),
-                });
-            }
             dump.Objects.AddRange(chunk.Objects.Select(o => new WorldObject(o.Kind, o.X, o.Y, o.H, null)));
         }
         return dump;

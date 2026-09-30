@@ -7,7 +7,7 @@ namespace EtherBound.Sim.Tests;
 
 /// <summary>
 /// A save written by the Python server at <c>0008_extra</c> opens in the C# sim, is upgraded in
-/// place to <c>0009_walls</c> by the migration runner, reads back the same state and log, and
+/// place to <c>0010_replay_work</c> by the migration runner, reads back the same state and log, and
 /// survives a write and a reopen.
 /// </summary>
 public sealed class SaveCompatibility : IDisposable
@@ -79,10 +79,10 @@ public sealed class SaveCompatibility : IDisposable
             var ours = Json.Obj(("seq", e.Seq), ("game_minute", e.GameMinute), ("type", e.Type), ("actor_id", e.ActorId), ("data", e.Data.DeepClone()));
             Assert.True(Json.Same(goldenEvents[i], ours), $"event {i}");
         }
-        Assert.Equal(Database0009, Scalar("SELECT version_num FROM alembic_version"));
+        Assert.Equal(DatabaseHead, Scalar("SELECT version_num FROM alembic_version"));
     }
 
-    private const string Database0009 = "0009_walls";
+    private const string DatabaseHead = "0010_replay_work";
 
     [Fact]
     public void A_0008_save_is_upgraded_in_place_and_keeps_its_wall_rows()
@@ -92,8 +92,10 @@ public sealed class SaveCompatibility : IDisposable
         {
             engine.EnsureWorld(0);
         }
-        Assert.Equal(Database0009, Scalar("SELECT version_num FROM alembic_version"));
-        Assert.Equal("sim-0009", Scalar("SELECT version FROM sim_schema"));
+        Assert.Equal(DatabaseHead, Scalar("SELECT version_num FROM alembic_version"));
+        Assert.Equal("sim-0010", Scalar("SELECT version FROM sim_schema"));
+        Assert.Equal("1", Scalar("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'input_journal'"));
+        Assert.Equal("1", Scalar("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'activity_work'"));
         Assert.Equal("1", Scalar("SELECT COUNT(*) FROM pragma_table_info('chunk_level') WHERE name = 'slot_mask'"));
         Assert.Equal("1", Scalar("SELECT COUNT(*) FROM pragma_table_info('chunk_level') WHERE name = 'slot_mat'"));
         // Every wall_integrity row became a wall_slot row and the old table is gone.
@@ -101,6 +103,40 @@ public sealed class SaveCompatibility : IDisposable
         Assert.Equal("0", Scalar("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'wall_integrity'"));
     }
 
+    /// <summary>
+    /// A save an older build already left at <c>0009_walls</c> must resume at the next step, not replay
+    /// the wall migration: replaying it would add <c>slot_mask</c> twice and refuse to open.
+    /// </summary>
+    [Fact]
+    public void A_save_already_at_0009_resumes_at_0010_without_replaying_the_walls_migration()
+    {
+        ApplyWallsMigration();
+        Assert.Equal(Database0009, Scalar("SELECT version_num FROM alembic_version"));
+        using (var engine = new WorldEngine(_path))
+        {
+            engine.EnsureWorld(0);
+        }
+        Assert.Equal(DatabaseHead, Scalar("SELECT version_num FROM alembic_version"));
+        Assert.Equal("1", Scalar("SELECT COUNT(*) FROM pragma_table_info('chunk_level') WHERE name = 'slot_mask'"));
+        Assert.Equal("1", Scalar("SELECT COUNT(*) FROM pragma_table_info('chunk_level') WHERE name = 'slot_mat'"));
+        Assert.Equal("1", Scalar("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'input_journal'"));
+        Assert.Equal(FixtureRows(), WallSlotRows());
+    }
+
+    /// <summary>Moves the fixture copy to <c>0009_walls</c>, the state an older build left behind.</summary>
+    private void ApplyWallsMigration()
+    {
+        using var stream = typeof(EtherBound.Sim.Db.Database).Assembly
+            .GetManifestResourceStream("EtherBound.Sim.Db.Schema0009_walls.sql")!;
+        using var reader = new StreamReader(stream);
+        using var connection = new SqliteConnection($"Data Source={_path}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = reader.ReadToEnd();
+        command.ExecuteNonQuery();
+    }
+
+    private const string Database0009 = "0009_walls";
     private const string Database0008 = "0008_extra";
 
     /// <summary>Reads the pristine fixture's version, before any other test upgrades the copy.</summary>
@@ -193,7 +229,7 @@ public sealed class SaveCompatibility : IDisposable
             reopened.EnsureWorld(0);
             AssertSameState(before, StateDump.Of(reopened));
         }
-        Assert.Equal(Database0009, Scalar("SELECT version_num FROM alembic_version"));
-        Assert.Equal("sim-0009", Scalar("SELECT version FROM sim_schema"));
+        Assert.Equal(DatabaseHead, Scalar("SELECT version_num FROM alembic_version"));
+        Assert.Equal("sim-0010", Scalar("SELECT version FROM sim_schema"));
     }
 }

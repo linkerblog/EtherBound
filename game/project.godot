@@ -9,6 +9,10 @@ config/name="EtherBound"
 run/main_scene="res://app/Main.tscn"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 
+[autoload]
+
+SimulationBootstrap="*res://app/SimulationBootstrap.cs"
+
 [display]
 
 window/size/viewport_width=1280

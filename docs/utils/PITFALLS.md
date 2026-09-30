@@ -48,7 +48,8 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
 - **An unknown generator row falls back to `test`.** `EnsureWorld` logs a warning, resets
   `generator`/`gen_options` and regenerates, so an old or hand-edited save always opens.
 - **A migration file alone is not a migration.** `Database.EnsureSchema` is the runner: it creates a
-  missing save at `0008_extra`, then applies every pending step from the save's own `alembic_version`
+  missing save at `0008_extra`, then applies every pending step through `0010_replay_work` from the
+  save's own `alembic_version`
   in order, one transaction each, and only then writes the head. A version the runner does not know
   is refused, because guessing either loses data or reads a schema the code does not expect. Adding a
   `Db/SchemaNNNN_*.sql` means adding its entry to `Database.Migrations` and the file to the csproj's
@@ -90,6 +91,10 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
   `kind = "extra"` rows; an existing Extra is settled like Niko, never moved home or renamed. So a
   population change (names, count, radius) does not touch an existing save, and a second open logs
   nothing.
+- **Body collision is resolved by the engine, never by Godot.** Every `Move` checks actor bodies in
+  stable ID order using the same 0.3 m radius and standing interval as terrain. Contact blocks motion
+  but never pushes or damages; an existing overlap may only be escaped without worsening it. Keep
+  the held-diagonal blocked-edge regression in `ActorMovementRules.cs`.
 
 ## 3. Movement and the host channel
 
@@ -110,7 +115,8 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
   two frames behind real time. It never rewinds: a stall holds on the newest committed position and
   the delay re-settles at ±2 %. Check changes with `--trace-walk` and `scripts/trace-walk.mjs`: on
   `lab` every walking frame is within 5 % of 4 m/s. On the `test` spawn, walking D runs into an
-  edge and the sim's own slide zigzags (`docs/PENDING.md`), which the trace shows faithfully.
+  edge and the sim clamps at the 0.3 m clearance; the trace shows a blocked simulation move rather
+  than a client-side slowdown.
 - **The first step leaves on the key-down frame.** `SendMovement` primes the accumulator with
   `Min(1 / MoveHz, time since the last step)`, so movement starts at once but tapping never beats
   holding.
@@ -118,6 +124,11 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
   `TryRequestRadialMenu`, `TrySubmitAction` and friends all return `bool`; a `RunShots`-style script
   that ignores the result can wait forever on a response that was never enqueued. Push a HUD warning
   (`SIM BUSY`) on `false`, as `WorldClient._UnhandledInput` does for the right-click and `V` paths.
+- **The input journal is not the gameplay event log.** `WorldEngine` records mutating commands in
+  processing order, including rejected commands as no-op inputs; adjacent identical inputs may have
+  a `repeat_count`. Replay applies each repetition through the same API. Use a fresh engine with no
+  decision subscribers during playback: `ExtrasBrain` actions are already journaled, so attaching
+  the brain would submit them twice. Neither stream uses wall-clock time.
 - **A held Godot input key is read every `_Process` frame, not on key-down.** `SendMovement`
   accumulates real time and steps `TryMove` at a fixed `1/MoveHz` interval, so frame-rate hitches
   neither skip nor double a step; a blocked axis simply returns `false` from the sim's own move
@@ -129,6 +140,9 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
 - **Extras' waypoint must retain its tile region.** A tile-level spot alone loses which side of an
   `H`/`V` wall the path reached; aiming at the tile centre would steer into the wall intersection.
   The brain supplies the actor's actual start region and follows the node's point inside that region.
+- **Only productive ops retain activity work.** `activity_work` stores earned game minutes by actor
+  and canonical action/target for `dig`/`build`; resumption still runs normal validation and world
+  changes wait until completion. `wait` and travel deliberately start over when interrupted.
 - **`Godot.Vector3` and `WorldRay` do not share an axis order.** Godot's ray is `(x, y-up, z)`; the
   sim's is `(x, y, height)`. `WorldClient` maps `origin.X, origin.Z, origin.Y` (and the same for the
   direction) — swap two of those and picking silently offsets or inverts.
@@ -166,10 +180,12 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
   `BuildGeometry` (CPU-only lists over one read-only world snapshot) and `ToMeshes` (`ArrayMesh` on
   the main thread); only geometry runs in parallel, while meshes/nodes are created in `frame.Chunks`
   order. The roof-band set is ready in the mesher constructor, never lazily shared between workers.
-  Serial/parallel vertex data matched exactly on test (25 full, 15 rebuilt) and lab (16 full, 16
-  rebuilt). A temporary one-column test-frame shift rebuilt 15 chunks in 50.5 ms (26.8 geometry,
-  15.4 mesh/node creation); this is not comparable to Fix18's 23–37 ms for 10 chunks and still
-  hitches. See `docs/PENDING.md`.
+  `WorldDump.FromFrame` reuses arrays only when the immutable `HostChunk` reference is unchanged;
+  rebuilt bands reuse their existing mesh node when the chunk key survives. Do not mutate projected
+  arrays or decide freshness by coordinates alone. Serial/parallel vertex buffers match exactly in
+  `game.tests/ChunkMesherTests.cs`. After moving buffer packing off the main thread, two windowed
+  Release traces rebuilt 15 chunks in 42.3 and 42.6 ms, still above the 40 ms budget. Resource/node
+  creation remains main-thread work; the unresolved cost is tracked in `docs/PENDING.md`.
 
 - **VOID is a ground-volume flag, not a missing-floor flag.** `ChunkMesher` and `Cutaway` render
   and pick stored floors even when their band is VOID; suppress only a ground top whose own band
@@ -272,10 +288,10 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
   background; `Texture2DArray`, materials, `ArrayMesh` and nodes stay on the main thread. Godot's
   headless `--import` check does not catch a missing or malformed sidecar, only script/scene errors;
   a GPU run (`--shots`) is still the only thing that proves a new asset actually renders.
-- **Actor materials are shared resources.** All actor `MeshInstance3D`s share one `CapsuleMesh` and
-  use one of two fixed-color `StandardMaterial3D`s (Niko, Extras), both with the shared silhouette
-  `ShaderMaterial` as `NextPass`. Do not create or mutate a material per actor; per-instance changes
-  would reintroduce repeated shader compilation and violate this sharing.
+- **Actor materials and Extra transforms are batched.** Niko uses one `MeshInstance3D`; Extras share a
+  `MultiMeshInstance3D` with stable actor-ID ordering, while each actor keeps independent
+  `ActorMotion` state. All use one `CapsuleMesh` and one of two fixed-color materials with the shared
+  silhouette pass. Do not put sim state or collision rules on these render instances.
 
 ## 6. BitCanvas
 

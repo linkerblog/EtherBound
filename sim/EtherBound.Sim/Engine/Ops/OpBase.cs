@@ -67,6 +67,9 @@ public abstract class OpHandler
     /// <summary>Game minutes; 0 makes the op instant.</summary>
     public virtual int Duration(ActionContext ctx, GameAction action) => 0;
 
+    /// <summary>Whether interrupted productive work can resume for the same action target.</summary>
+    public virtual bool RetainsWorkProgress => false;
+
     public virtual Resolution Resolve(ActionContext ctx, GameAction action) =>
         throw new InvalidOperationException($"{Op} is an activity; it completes, it never resolves");
 

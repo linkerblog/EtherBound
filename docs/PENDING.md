@@ -10,20 +10,22 @@ Open decisions and loose ends. When one is settled, record the decision where it
       procedural base.
 - [ ] **Carry-over from NikoStory.** Whether Halverton, the authored NPCs and the prompts come
       along. The roll formula already does (`utils/VISION.md` [Sec. 3]).
-- [ ] **Event log retention.** The `event` table grows without limit. Today that is one row per
-      tile walked; now that Extras walk it multiplies by their number. Decide on pruning or compaction
+- [ ] **Event and replay-log retention.** The `event` table and `input_journal` grow without limit.
+       Movement inputs run-length encode adjacent identical commands, but clock ticks and changed
+       inputs still accumulate. Decide on pruning/checkpoint compaction
       before the Phase 2 block with its ~20 Extras. It ties into memory compaction (`utils/VISION.md`
-      [Sec. 8], Life cycle). Deferred by `done/Dev-005.md` [Sec. 8].
+      [Sec. 8], Life cycle). Earlier deferred in `Dev-005.md`, section 8, in
+      `docs/deprecated/Docs-Archive.zip`.
 - [ ] **NPC construction.** Leaning (23/09/2026): the three questions go to three brains. *Why*
       build comes from utility (Extras, organizations) or the LLM (Agents). *What* to build: the
       LLM or a table writes a building program (use, rooms, floors, material, budget) and a
       seeded code generator turns it into tiles that obey `utils/VISION.md` [Sec. 5]; Jev may
-      only pick among generated candidates, and no model places tiles.       *How*: a plan of ops
+      only pick among generated candidates, and no model places tiles. *How*: a plan of ops
       (`buy`, `take`, `put`, `dig`, `build`) posted as a task or contract, with bought and carried
       materials, ownership or a permit, and progress as an activity. The `build` op itself is
-      `docs/done/Dev-036.md` (phase 1 done); this item is who plans it. Construction far from Niko
-      advances per day at lower detail. The same generator could answer City authoring. Needs
-      needs, organizations, tasks and ownership first; Phase 4.
+      implemented in phase 1 (archive entry `Dev-036.md`); this item is who plans it. Construction
+      far from Niko advances per day at lower detail. The same generator could answer City authoring.
+      This requires needs, organizations, tasks and ownership first; Phase 4.
 - [ ] **Recipes and supply.** Leaning (23/09/2026): Zomboid-style items stay on the Matter
       primitive. `cook` and `craft` read recipes as data rows (inputs, tools, station, skill,
       minutes, outputs). Inputs, tools and stations are asked for by tag or component
@@ -38,108 +40,55 @@ Open decisions and loose ends. When one is settled, record the decision where it
 
 ## Planned work
 
-- [ ] **Dev-025 C# sim and Godot client** (`docs/done/Dev-025.md`): port to a deterministic C# simulation
-      and a Godot 4 .NET client with a 3D orthographic pixel-art camera, in seven stages proven by
-      goldens from Python. Approved 25/09/2026; all seven stages (0-6) are done: `server/`, `web/`
-      and `launcher/` are archived to `legacy-python-web-stack.zip` and removed, docs are retargeted
-      to the C#/Godot stack, and Dev-014/016/021/023/024 are deprecated (below). The 26/09/2026
-      Release benchmark passes the 1,000-Extra x10 gate at 64.864 ms average over 100 measured
-      ticks; the Python server's own pre-cutover baseline, measured once immediately before deletion
-      (`server/scripts/bench_extras.py`, archived with it), averaged 5,645.461 ms/tick at the same
-      1,000 Extras — the C# sim is ~87× faster per tick. Still open: the manual parity walk and
-      Windows export (below).
-- [ ] **Construction system, phase 3: diagonal slots** (`docs/done/Dev-036.md` [Sec. 11]): phases 1
-      and 2 implement edge/floor construction and `H`/`V` interior halves (`docs/done/Dev-037.md`),
+- [ ] **Construction system, phase 3: diagonal slots.** Phases 1 and 2 implement edge/floor
+      construction and `H`/`V` interior halves (archive entries `Dev-036.md` and `Dev-037.md`),
       with region-aware movement/A* and rendering. Add `D1`/`D2` region geometry and diagonal wall
       picking/build/break, render their quads and review the shader in `game.render`. `slot_mask`,
       `slot_mat` and region-bearing A* already exist; generalize the eight-sector connectivity without
-      regressing H/V.
+      regressing H/V. The phase plan is in section 11 of archive entry `Dev-036.md`.
 - [ ] **Infra03 CI on GitHub Actions**: run the checks on push now that the remote exists. The
-      number was earmarked as Infra02 by `Infra01`; Infra02 became the agent context diet. No doc yet.
+      number was earmarked as Infra02 by archive entry `Infra01.md`; Infra02 became the agent
+      context diet. No plan exists yet.
 
-**Deprecated at cut-over** (`docs/done/Dev-025.md` [Sec. 3.7]; the files themselves are removed from `docs/`,
-git keeps their history): Dev-014 (AI furniture as a primitive spec), Dev-016 (context menu
-polish), Dev-021 (wall lines and heights), Dev-023 (server kernel refactor), Dev-024 (baked AO).
+**Deprecated at cut-over** (archive entry `Dev-025.md`, section 3.7): Dev-014 (AI furniture as a
+primitive spec), Dev-016 (context menu polish), Dev-021 (wall lines and heights), Dev-023 (server
+kernel refactor), Dev-024 (baked AO). Their documents are preserved in `docs/deprecated/Docs-Archive.zip`.
 None needs a follow-up Dev for its *rendering* idea — real 3D geometry, real-time SSAO/shadows and
-the already-built radial/context menu (Dev-025 stages 4-5)   absorbed all of them. One surviving idea
-  does not: Dev-021 also motivated a future `build` op (players/NPCs constructing walls), which is a
-  gameplay change Dev-025 explicitly excluded from its port-only scope and now has its own docs
-  (`docs/done/Dev-036.md` phase 1 and `docs/done/Dev-037.md` phase 2; diagonal phase 3 remains above).
+the already-built radial/context menu (Dev-025 stages 4-5) absorbed all of them. One surviving idea
+does not: Dev-021 also motivated a future `build` op (players/NPCs constructing walls), which is a
+gameplay change Dev-025 explicitly excluded from its port-only scope. It is tracked in construction
+phases 1 and 2 (archive entries `Dev-036.md` and `Dev-037.md`); diagonal phase 3 remains above.
 
 ## Deferred work
 
-- [ ] **Input replay.** The event log stores outcomes, not the 20 Hz inputs, so a run cannot
-      yet be replayed exactly (`utils/VISION.md` [Sec. 11]).
-- [ ] **Actors pass through each other.** Extras and Niko collide with terrain, never with bodies,
-      so they can overlap on a tile. Body collision, and knowing who is in the way, is a later
-      refinement (recorded by `done/Dev-018.md`).
-- [ ] **Events to the client.** Only one event reaches the Godot client: the `HostActivityNotice`
-      when one of Niko's activities finishes (`done/Dev-007.md`). Everything else stays sim-side
-      until there is something to narrate (witnesses).
-- [ ] **Activity progress is lost on interruption.** Walking away from a half-dug hole throws
-      the progress away; partial progress that survives is a later refinement
-      (`done/Dev-007.md` [Sec. 1]).
-- [ ] **Sliding along an edge zigzags.** Walking diagonally into a blocked edge (the `test` spawn,
-      holding D) makes the committed path flip ±0.2 m sideways on every step: on hitting the edge,
-      `Movement.MoveInWorld` snaps the body back to 0.3 m from the boundary, and the next step
-      starts fresh, walks up to the boundary inside the tile and snaps back again. Seen in the Fix19
-      trace (X velocity alternating +0.79/-0.79 while Z stays 0.78). A `sim.engine` fix touches
-      the parity goldens, so it needs its own doc.
-- [ ] **Host first frame and first-frame actor updates still exceed target.** Startup itself is
-      accepted (29/09/2026): five warm launches on 28/09 had a 3.37 s median to first frame and that
-      is the baseline, not the 2.1 s Fix20 assumed, which was an engine budget we do not control.
-      Still over budget: the host published its first frame 187–268 ms after `_Ready` (target
-      <=50 ms) and first-frame actor updates took 24–33 ms (target <=20 ms). Profile the client path
-      without changing the sim contract or hiding world content.
-- [ ] **Chunk meshing still hitches on a border crossing.** Fix18 measured 23–37 ms for a 10-chunk
-      incremental rebuild. A temporary one-column frame shift in the 28/09/2026 check rebuilt 15
-      chunks in 50.5 ms
-      (26.8 ms `BuildGeometry` on workers, 15.4 ms `ToMeshes`/nodes on the main thread). The
-      geometry matched the serial rebuild exactly, but this larger transition still exceeds the
-      40 ms target and is not directly comparable to Fix18's 10 chunks. Measure a like-for-like
-      natural crossing and reduce the main-thread mesh/node cost; record the result here.
-- [ ] **Optional system cleanup: stale NVIDIA Nsight layer.** A Vulkan startup check recorded
-      one harmless error from an obsolete NVIDIA Nsight 2019 layer registration. This is outside
-      the game/repository; remove or update that system registration only as separate cleanup.
-
-## Manual checks not run
-
-Every manual acceptance that targeted the Phaser/React web client or `EtherBound.exe` launcher
-(Dev-003, Dev-006, Dev-008 through Dev-012's GUI/BitCanvas/save-migration items, Dev-015, Dev-018's
-GUI acceptance, Dev-019, Fix03 through Fix11, Fix13 through Fix16, Infra02's launcher-port example)
-is dropped: that client and launcher no longer exist, replaced by Dev-025's Godot client. Their
-docs stay in `docs/done/` as a record of what was built and verified at the time; nothing here
-carries the check forward. Dev-025 itself tracks what the new client still needs approved
-(`docs/done/Dev-025.md` [Sec. 6]): the manual parity walk in Godot and the clean-folder Windows export.
-
-- [ ] **Dev-025 parity walk and Windows export** (`docs/done/Dev-025.md` [Sec. 6] acceptance 7, 9): manual,
-      because both are visual/hands-on and were not run in this change — the seed-7 spawn, the lab
-      bays, building cutaway and stubs, dig/push/throw/break a wall, both menus, `NEW`, `MAP` in a
-      live Godot session; and a Windows export from a clean folder (new game, save, quit, reopen).
-      The mechanical half of the export passed on 28/09/2026: a fresh `--export-release` plus
-      `publish-game.mjs` (198 managed files, `EtherBound.Sim.dll` 848 KB ReadyToRun), the runtime
-      sidecars resolved from the repo-root `assets/`, and a windowed boot on an isolated copy
-      generated and saved the world. What is left is hands-on: quit, reopen and look at it.
-
-- [ ] **Walking feel** (`done/Fix19.md` [Sec. 4] manual 6, replacing `done/Fix18.md` manual 4–5):
-      manual, because feel is the goal. Walk in all 8 directions at x2, tap, cross a chunk border.
-      Extras at x1 and x10 walk with no slide-and-freeze. Try 75 Hz and one other refresh rate. The
-      measured half is done: on `lab` every walking frame is within 5 % of 4 m/s (Fix19 [Sec. 0]).
-
-The Dev-005 GUI acceptance passed; details are recorded in `docs/done/Fix02.md`.
+- [ ] **Host first frame remains late.** Keep the accepted 3.37 s warm-launch baseline. The new
+       catalog preloader produced 44.1, 67.9 and 77.9 ms from `WorldClient._Ready` to first host frame
+       in isolated Debug runs (median 67.9 ms); a warm Release run measured 107.4 ms. First-frame
+       actor updates are now 6.1–8.5 ms and meet the 20 ms target. Do not send a blank/loading frame
+       to game the metric: publishing requires the restored world. The <=50 ms host target still
+       needs a safe world-restore optimization.
+- [ ] **Chunk crossing budget is not reliable yet.** The serial/parallel geometry parity test passes,
+       projection buffers and surviving mesh-band nodes are reused, and Extras use batched rendering.
+       After moving array packing to worker-built buffers, two current Release traces rebuilding 15
+       chunks measured 42.3 and 42.6 ms. Both remain above the 40 ms budget; earlier measurements
+       were from the pre-packing path and are not comparable. Further improvement must keep Godot
+       resource/node creation on the main thread and must not hide content.
+- [ ] **Nsight Systems 2019 Vulkan layer is blocked by permissions.** Its manifest is absent at
+       `C:\Program Files\NVIDIA Corporation\Nsight Systems 2019.5.2\Target-Windows\x86_64\VkLayers\VkLayer_nsight-sys_windows.json`, but its value remains in
+       `HKLM\SOFTWARE\Khronos\Vulkan\ExplicitLayers`. Removing only that value returned Access Denied;
+       cleanup requires an elevated Windows session. No other Vulkan layer was changed.
 
 ---
 
 ## TL;DR
 
-Six design questions (abilities, city authoring, carry-over, event log retention, NPC
-construction, recipes and supply); the op list is settled by `done/Dev-007.md` and the Matter
-primitive by `done/Dev-012.md`. Dev-025 (all seven stages done) replaced the Python/FastAPI server
-and Phaser/React client with a deterministic C# sim (~87× faster per tick at 1,000 Extras) and a
-Godot 4 client; `legacy-python-web-stack.zip` keeps the old source, and every manual acceptance
-that targeted it is dropped rather than carried forward. Dev-014/016/021/023/024 are deprecated: their
-rendering ideas were absorbed by the port itself, except a future `build` op for wall construction,
-now `docs/done/Dev-036.md` (phase 1 done).
-Two deferred items remain (input replay, events to the client) plus lost activity progress on
-interruption and actor pass-through. Dev-025's own manual gates (parity walk, Windows export) are
-open above; Dev-007 was fully accepted on 22/09/2026.
+Seven design questions (abilities, city authoring, carry-over, event log retention, NPC
+construction, recipes and supply, Jev runtime); the op list is settled in archive entry `Dev-007.md`
+and the Matter primitive in `Dev-012.md`. Dev-025's seven stages replaced the Python/FastAPI server
+and Phaser/React client with deterministic C# and Godot (~87× faster per tick at 1,000 Extras);
+`legacy-python-web-stack.zip` preserves the old source. The manual parity/export and walking-feel
+checks were verified and closed on 29/09/2026. Replay, actor collision, resumable work, event delivery
+and blocked-edge movement are implemented; first-frame actor updates are within budget. Dev-014/016/
+021/023/024 are deprecated: their rendering ideas were absorbed by the port, except the future `build`
+op, implemented in phase 1 (archive entry `Dev-036.md`). The remaining first-host-frame, worst-case
+chunk budget and elevated Nsight cleanup are listed above. Dev-007 was fully accepted on 22/09/2026.

@@ -9,12 +9,13 @@
     "check:bitcanvas": "node --check BitCanvas/pixelart.js && node --check BitCanvas/gamesync.js && node --check BitCanvas/core.js && node --check BitCanvas/terrain.js && node --check BitCanvas/sides.js && node --check BitCanvas/furnitureData.js && node --check BitCanvas/furniture.js && node --check BitCanvas/app.js",
     "check:sim": "dotnet test sim/EtherBound.Sim.Tests",
     "check:game": "node scripts/check-game.mjs",
+    "check:game-tests": "dotnet test game.tests/EtherBound.Game.Tests.csproj",
     "export:furniture": "node scripts/export-furniture.mjs",
     "check:furniture": "node scripts/export-furniture.mjs && git diff --exit-code -- game/assets/furniture",
     "check:versions": "node scripts/check-versions.mjs",
     "check:docs": "node scripts/check-docs.mjs",
     "check:sizes": "node scripts/check-sizes.mjs",
-    "check": "npm run check:versions && npm run check:docs && npm run check:sizes && npm run check:bitcanvas && npm run check:furniture && npm run check:sim && npm run check:game",
+    "check": "npm run check:versions && npm run check:docs && npm run check:sizes && npm run check:bitcanvas && npm run check:furniture && npm run check:sim && npm run check:game && npm run check:game-tests",
     "check:fast": "node scripts/check-versions.mjs --staged && npm run check:docs && npm run check:sizes && npm run check:bitcanvas"
   }
 }

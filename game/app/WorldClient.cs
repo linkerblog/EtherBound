@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -34,6 +35,9 @@ public partial class WorldClient : Node
     private HashSet<int> _roofBands = new();
     private readonly Dictionary<string, MeshInstance3D> _actors = new(StringComparer.Ordinal);
     private readonly Dictionary<string, ActorMotion> _actorMotions = new(StringComparer.Ordinal);
+    private string[] _extraActorIds = Array.Empty<string>();
+    private MultiMesh _extraActorMesh = null!;
+    private MultiMeshInstance3D _extraActors = null!;
     private readonly Dictionary<string, string> _args = new(StringComparer.Ordinal);
     private CapsuleMesh _actorMesh = null!;
     private StandardMaterial3D _playerActorMaterial = null!, _extraActorMaterial = null!;
@@ -61,6 +65,11 @@ public partial class WorldClient : Node
     private long _movesSent;
     private StreamWriter? _trace;
     private double _traceElapsed;
+    private long _readyAt, _hostStartedAt, _readyCompletedAt;
+    private double _applyFrameMs, _actorUpdateMs, _geometryBuildMs, _meshMainThreadMs;
+    private double _hostFirstFrameMs, _hostFirstFrameAfterReadyMs, _hostEngineInitializationMs, _hostWorldSetupMs;
+    private double _hostFramePreparationMs, _hostSnapshotBuildMs, _readyToRenderedFrameMs;
+    private int _chunksRebuilt;
     private bool _cutaway = true;
     private bool _levelOnlyView;
     private bool _scripted;
@@ -77,6 +86,7 @@ public partial class WorldClient : Node
 
     public override void _Ready()
     {
+        _readyAt = Stopwatch.GetTimestamp();
         var raw = OS.GetCmdlineUserArgs();
         for (var i = 0; i < raw.Length; i++)
             if (raw[i].StartsWith("--")) _args[raw[i][2..]] = i + 1 < raw.Length && !raw[i + 1].StartsWith("--") ? raw[++i] : "";
@@ -87,7 +97,10 @@ public partial class WorldClient : Node
         var seed = _args.TryGetValue("seed", out var rawSeed) && long.TryParse(rawSeed, out var parsedSeed) ? parsedSeed : 7;
         var generator = _args.GetValueOrDefault("generator", "test");
         var databasePath = _args.GetValueOrDefault("database", Path.Combine(OS.GetUserDataDir(), "etherbound.db"));
-        _host = new SimulationHost(databasePath, seed, generator);
+        var bootstrap = GetNode<SimulationBootstrap>("/root/SimulationBootstrap");
+        _hostStartedAt = Stopwatch.GetTimestamp();
+        _host = new SimulationHost(databasePath, seed, generator,
+            loadCatalogs: () => bootstrap.Catalogs.GetAwaiter().GetResult());
         GD.Print($"world client started: seed {seed}, generator {generator}");
 
         var sprites = Path.Combine(ProjectSettings.GlobalizePath("res://"), "assets", "sprites");
@@ -102,6 +115,7 @@ public partial class WorldClient : Node
         BuildActorMaterials();
         BuildEnvironment();
         BuildHud();
+        _readyCompletedAt = Stopwatch.GetTimestamp();
     }
 
     private void BuildEnvironment()
@@ -167,6 +181,14 @@ public partial class WorldClient : Node
     {
         var arrived = _host?.LatestFrame is { } latest && latest.Sequence != _lastSequence;
         if (arrived) ApplyFrame(_host!.LatestFrame!);
+        else
+        {
+            _applyFrameMs = 0;
+            _actorUpdateMs = 0;
+            _geometryBuildMs = 0;
+            _meshMainThreadMs = 0;
+            _chunksRebuilt = 0;
+        }
         DrainHostResponses();
         if (_host?.Fault is { } fault && _lastFault != fault.Message)
         {
@@ -175,12 +197,15 @@ public partial class WorldClient : Node
         }
 
         var now = Now;
-        foreach (var (id, actor) in _actors)
+        var actorSyncStarted = Stopwatch.GetTimestamp();
+        if (_actors.TryGetValue(Ids.Player, out var player))
         {
-            var playout = id == Ids.Player ? _playout.Sample(now, delta) : null;
-            if (playout is { } scheduled) actor.Position = ToVector(scheduled);
-            else if (_actorMotions.TryGetValue(id, out var motion)) actor.Position = ToVector(motion.Sample(now));
+            var playout = _playout.Sample(now, delta);
+            if (playout is { } scheduled) player.Position = ToVector(scheduled);
+            else if (_actorMotions.TryGetValue(Ids.Player, out var motion)) player.Position = ToVector(motion.Sample(now));
         }
+        UpdateExtraActorInstances(now);
+        if (arrived) _actorUpdateMs += Stopwatch.GetElapsedTime(actorSyncStarted).TotalMilliseconds;
         _trajectoryAnimator.Advance(delta);
         FollowPlayer();
         SendMovement(delta, now);
@@ -189,19 +214,41 @@ public partial class WorldClient : Node
 
     private void ApplyFrame(WorldFrame frame)
     {
+        var frameStarted = Stopwatch.GetTimestamp();
         _frame = frame;
         _gameHud.UpdateFrame(frame);
+        var actorUpdateStarted = Stopwatch.GetTimestamp();
         UpdateActors(frame);
+        _actorUpdateMs = Stopwatch.GetElapsedTime(actorUpdateStarted).TotalMilliseconds;
+        _geometryBuildMs = 0;
+        _meshMainThreadMs = 0;
+        _chunksRebuilt = 0;
         var current = frame.Chunks.ToDictionary(chunk => (chunk.Cx, chunk.Cy));
         var dirty = current.Count != _renderedChunks.Count || current.Any(pair =>
             !_renderedChunks.TryGetValue(pair.Key, out var old) || !ReferenceEquals(old, pair.Value));
         if (dirty)
         {
-            _world = WorldDump.FromFrame(frame);
+            _world = WorldDump.FromFrame(frame, _world);
             if (_terrainMat is null) BuildTerrainMaterials();
             RebuildChunks(frame, current);
         }
         _lastSequence = frame.Sequence;
+        _applyFrameMs = Stopwatch.GetElapsedTime(frameStarted).TotalMilliseconds;
+        if (_readyToRenderedFrameMs == 0)
+        {
+            if (_host is { } host)
+            {
+                _hostFirstFrameMs = host.FirstFrameMilliseconds;
+                _hostEngineInitializationMs = host.EngineInitializationMilliseconds;
+                _hostWorldSetupMs = host.WorldSetupMilliseconds;
+                _hostFramePreparationMs = host.FramePreparationMilliseconds;
+                _hostSnapshotBuildMs = host.SnapshotBuildMilliseconds;
+                var publishedAt = _hostStartedAt + (long)(_hostFirstFrameMs * Stopwatch.Frequency / 1000.0);
+                _hostFirstFrameAfterReadyMs = Math.Max(0,
+                    Stopwatch.GetElapsedTime(_readyCompletedAt, publishedAt).TotalMilliseconds);
+            }
+            _readyToRenderedFrameMs = Stopwatch.GetElapsedTime(_readyAt).TotalMilliseconds;
+        }
 
         if (!_shotsStarted && _args.TryGetValue("shots", out var directory))
         {
@@ -343,40 +390,72 @@ public partial class WorldClient : Node
             NextPass = silhouette,
         };
         _actorMesh = new CapsuleMesh { Radius = Cutaway.BodyRadius, Height = Cutaway.BodyHeight };
+        _extraActorMesh = new MultiMesh
+        {
+            Mesh = _actorMesh,
+            TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
+            InstanceCount = 0,
+        };
+        _extraActors = new MultiMeshInstance3D
+        {
+            Name = "ExtraActors",
+            Multimesh = _extraActorMesh,
+            MaterialOverride = _extraActorMaterial,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.DoubleSided,
+        };
+        _root.AddChild(_extraActors);
     }
 
     private void RebuildChunks(WorldFrame frame, Dictionary<(int Cx, int Cy), HostChunk> current)
     {
+        var mainSetupStarted = Stopwatch.GetTimestamp();
         var roofBands = ChunkMesher.RoofBands(_world!);
         var build = roofBands.SetEquals(_roofBands) ? ChunksToBuild(current) : current.Keys.ToHashSet();
         _roofBands = roofBands;
-        foreach (var key in _chunkMeshes.Keys.Where(key => build.Contains((key.Cx, key.Cy)) || !current.ContainsKey((key.Cx, key.Cy))).ToArray())
+        foreach (var key in _chunkMeshes.Keys.Where(key => !current.ContainsKey((key.Cx, key.Cy))).ToArray())
         {
             _chunkMeshes[key].QueueFree();
             _chunkMeshes.Remove(key);
         }
         var mesher = new ChunkMesher(_world!, _topLayers, _sideLayers, _cliffSideLayers, _terrainMat, _structureMat,
             _glassMat, _outlineMat);
+        var mainSetupMs = Stopwatch.GetElapsedTime(mainSetupStarted).TotalMilliseconds;
         var geometries = new ConcurrentDictionary<(int Cx, int Cy), ChunkMesher.ChunkGeometry>();
+        var geometryStarted = Stopwatch.GetTimestamp();
         Parallel.ForEach(build, key => geometries[key] = mesher.BuildGeometry(key.Cx, key.Cy));
+        _geometryBuildMs = Stopwatch.GetElapsedTime(geometryStarted).TotalMilliseconds;
+        var rebuiltBands = new HashSet<(int Cx, int Cy, int Z)>();
+        var mainMeshStarted = Stopwatch.GetTimestamp();
         foreach (var chunk in frame.Chunks)
         {
             if (!build.Contains((chunk.Cx, chunk.Cy))) continue;
             foreach (var (z, result) in mesher.ToMeshes(geometries[(chunk.Cx, chunk.Cy)]))
             {
                 if (result.Mesh is null) continue;
-                var node = new MeshInstance3D
+                var key = (chunk.Cx, chunk.Cy, z);
+                rebuiltBands.Add(key);
+                if (!_chunkMeshes.TryGetValue(key, out var node))
                 {
-                    Name = $"chunk_{chunk.Cx}_{chunk.Cy}_{z}",
-                    Mesh = result.Mesh,
-                    CastShadow = GeometryInstance3D.ShadowCastingSetting.DoubleSided,
-                };
-                _root.AddChild(node);
-                _chunkMeshes[(chunk.Cx, chunk.Cy, z)] = node;
+                    node = new MeshInstance3D
+                    {
+                        Name = $"chunk_{chunk.Cx}_{chunk.Cy}_{z}",
+                        CastShadow = GeometryInstance3D.ShadowCastingSetting.DoubleSided,
+                    };
+                    _root.AddChild(node);
+                    _chunkMeshes[key] = node;
+                }
+                node.Mesh = result.Mesh;
             }
+        }
+        foreach (var key in _chunkMeshes.Keys.Where(key => build.Contains((key.Cx, key.Cy)) && !rebuiltBands.Contains(key)).ToArray())
+        {
+            _chunkMeshes[key].QueueFree();
+            _chunkMeshes.Remove(key);
         }
         _renderedChunks.Clear();
         foreach (var pair in current) _renderedChunks[pair.Key] = pair.Value;
+        _meshMainThreadMs = mainSetupMs + Stopwatch.GetElapsedTime(mainMeshStarted).TotalMilliseconds;
+        _chunksRebuilt = build.Count;
     }
 
     // The mesher reads one cell past a chunk on every side (edge faces, wall corners), so a new,
@@ -399,29 +478,39 @@ public partial class WorldClient : Node
         {
             _actors[stale].QueueFree();
             _actors.Remove(stale);
-            _actorMotions.Remove(stale);
         }
+        foreach (var stale in _actorMotions.Keys.Where(id => !current.Contains(id)).ToArray())
+            _actorMotions.Remove(stale);
+
+        var extraIds = frame.Actors.Where(actor => actor.Id != Ids.Player).Select(actor => actor.Id)
+            .OrderBy(id => id, StringComparer.Ordinal).ToArray();
+        if (!_extraActorIds.SequenceEqual(extraIds, StringComparer.Ordinal))
+        {
+            _extraActorIds = extraIds;
+            _extraActorMesh.InstanceCount = extraIds.Length;
+            _extraActorMesh.VisibleInstanceCount = extraIds.Length;
+        }
+
         var now = Now;
-        // Niko moves once per Move step, everyone else once per clock tick.
         var tickSeconds = 1.0 / Math.Max(1, frame.Speed);
         foreach (var actor in frame.Actors)
         {
             var target = (actor.X, actor.H * 0.5 + 0.85, actor.Y);
-            if (!_actors.TryGetValue(actor.Id, out var node))
-            {
-                node = new MeshInstance3D
-                {
-                    Name = actor.Id,
-                    Mesh = _actorMesh,
-                    MaterialOverride = actor.Id == Ids.Player ? _playerActorMaterial : _extraActorMaterial,
-                };
-                _root.AddChild(node);
-                node.Position = ToVector(target);
-                _actors[actor.Id] = node;
-                _actorMotions[actor.Id] = ActorMotion.At(target, now);
-            }
             if (actor.Id == Ids.Player)
             {
+                if (!_actors.TryGetValue(actor.Id, out var node))
+                {
+                    node = new MeshInstance3D
+                    {
+                        Name = actor.Id,
+                        Mesh = _actorMesh,
+                        MaterialOverride = _playerActorMaterial,
+                    };
+                    _root.AddChild(node);
+                    node.Position = ToVector(target);
+                    _actors[actor.Id] = node;
+                    _actorMotions[actor.Id] = ActorMotion.At(target, now);
+                }
                 // WASD steps play on their own schedule; anything else (actions, new game) glides or snaps.
                 if (_playout.Applied(frame.MovesApplied, target, now))
                 {
@@ -430,10 +519,30 @@ public partial class WorldClient : Node
                 }
                 if (_playoutOwnsPlayer) _actorMotions[actor.Id] = ActorMotion.At(FromVector(node.Position), now);
                 _playoutOwnsPlayer = false;
+                _actorMotions[actor.Id].Retarget(target, MoveInterval, ActorMotion.MaxStep(MoveInterval), now);
+                continue;
             }
-            var duration = actor.Id == Ids.Player ? MoveInterval : tickSeconds;
-            _actorMotions[actor.Id].Retarget(target, duration, ActorMotion.MaxStep(duration), now);
+
+            if (!_actorMotions.TryGetValue(actor.Id, out var actorMotion))
+                _actorMotions[actor.Id] = actorMotion = ActorMotion.At(target, now);
+            actorMotion.Retarget(target, tickSeconds, ActorMotion.MaxStep(tickSeconds), now);
         }
+    }
+
+    private void UpdateExtraActorInstances(double now)
+    {
+        if (_extraActorIds.Length == 0) return;
+        var margin = new Vector3(1, 2, 1);
+        var min = new Vector3(float.PositiveInfinity, float.PositiveInfinity, float.PositiveInfinity);
+        var max = new Vector3(float.NegativeInfinity, float.NegativeInfinity, float.NegativeInfinity);
+        for (var index = 0; index < _extraActorIds.Length; index++)
+        {
+            var position = ToVector(_actorMotions[_extraActorIds[index]].Sample(now));
+            _extraActorMesh.SetInstanceTransform(index, new Transform3D(Basis.Identity, position));
+            min = new Vector3(Math.Min(min.X, position.X), Math.Min(min.Y, position.Y), Math.Min(min.Z, position.Z));
+            max = new Vector3(Math.Max(max.X, position.X), Math.Max(max.Y, position.Y), Math.Max(max.Z, position.Z));
+        }
+        _extraActors.CustomAabb = new Aabb(min - margin, max - min + margin * 2);
     }
 
     private void SendMovement(double delta, double now)
@@ -492,13 +601,16 @@ public partial class WorldClient : Node
         if (_trace is null)
         {
             _trace = new StreamWriter(path) { AutoFlush = true };
-            _trace.WriteLine("usec,delta,arrived,moves_applied,x,y,z,cam_x,cam_y,cam_z,rem_x,rem_y,scale");
+            _trace.WriteLine("usec,delta,arrived,moves_applied,x,y,z,cam_x,cam_y,cam_z,rem_x,rem_y,scale,apply_ms,actor_update_ms,geometry_ms,mesh_main_ms,chunks_rebuilt,host_first_frame_ms,host_first_after_ready_ms,engine_init_ms,world_setup_ms,frame_prep_ms,snapshot_build_ms,ready_to_rendered_frame_ms");
         }
         _traceElapsed += delta;
         var cam = _view.Camera.Position;
         _trace.WriteLine(string.Join(",", Time.GetTicksUsec(), Fmt(delta), arrived ? 1 : 0, _frame.MovesApplied,
             Fmt(player.Position.X), Fmt(player.Position.Y), Fmt(player.Position.Z), Fmt(cam.X), Fmt(cam.Y), Fmt(cam.Z),
-            Fmt(_view.Remainder.X), Fmt(_view.Remainder.Y), _view.Scale));
+            Fmt(_view.Remainder.X), Fmt(_view.Remainder.Y), _view.Scale, Fmt(_applyFrameMs), Fmt(_actorUpdateMs),
+            Fmt(_geometryBuildMs), Fmt(_meshMainThreadMs), _chunksRebuilt, Fmt(_hostFirstFrameMs),
+            Fmt(_hostFirstFrameAfterReadyMs), Fmt(_hostEngineInitializationMs), Fmt(_hostWorldSetupMs),
+            Fmt(_hostFramePreparationMs), Fmt(_hostSnapshotBuildMs), Fmt(_readyToRenderedFrameMs)));
         if (_traceElapsed < TraceSettle + TraceWalkSeconds + 0.5) return;
         _trace.Dispose();
         GetTree().Quit();
@@ -547,17 +659,18 @@ public partial class WorldClient : Node
                     break;
                 case HostActionResponse action:
                     if (!action.Result.Trajectory.IsDefaultOrEmpty) _trajectoryAnimator.Play(action.Result.Trajectory);
-                    _gameHud.PushFeed(action.Result.Text ?? (action.Result.Accepted
-                        ? action.Result.Action.Op.ToUpperInvariant()
-                        : $"CAN'T {action.Result.Action.Op.ToUpperInvariant()} · {action.Result.Reason}"),
-                        action.Result.Accepted ? "act" : "warn");
+                    if (action.Result.Text is { } text)
+                        _gameHud.PushFeed(text, "act");
+                    else if (!ShowSimulationEvents(action.Events))
+                        _gameHud.PushFeed(action.Result.Accepted ? action.Result.Action.Op.ToUpperInvariant()
+                            : $"CAN'T {action.Result.Action.Op.ToUpperInvariant()} · {action.Result.Reason}",
+                            action.Result.Accepted ? "act" : "warn");
                     break;
-                case HostActivityNotice notice:
-                    _gameHud.PushFeed(notice.Outcome == "completed" ? $"{notice.Op.ToUpperInvariant()} DONE" :
-                        $"{notice.Op.ToUpperInvariant()} {notice.Outcome.ToUpperInvariant()} {notice.Reason}",
-                        notice.Outcome == "completed" ? "act" : "fail");
+                case HostEventsResponse events:
+                    ShowSimulationEvents(events.Events);
                     break;
                 case HostNewGameResponse game when game.RequestId == _pendingNewGameRequest:
+                    ShowSimulationEvents(game.Events);
                     _pendingNewGameRequest = 0;
                     _gameHud.CloseNewGame();
                     _gameHud.ShowGeneratorError("");
@@ -573,6 +686,13 @@ public partial class WorldClient : Node
                     break;
             }
         }
+    }
+
+    private bool ShowSimulationEvents(IReadOnlyList<HostSimulationEvent> events)
+    {
+        if (!SimulationEventPresenter.TryFormat(events, out var text, out var category)) return false;
+        _gameHud.PushFeed(text, category);
+        return true;
     }
 
     private Vector2 PlayerScreenPosition()

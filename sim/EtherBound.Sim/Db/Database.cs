@@ -15,8 +15,8 @@ namespace EtherBound.Sim.Db;
 /// </summary>
 public sealed class Database : IDisposable
 {
-    public const string AlembicHead = "0009_walls";
-    public const string SimSchema = "sim-0009";
+    public const string AlembicHead = "0010_replay_work";
+    public const string SimSchema = "sim-0010";
 
     /// <summary>
     /// The sim's migration chain, oldest first: each entry moves a save one step up and is the whole
@@ -26,6 +26,7 @@ public sealed class Database : IDisposable
     private static readonly (string Version, string Resource)[] Migrations =
     {
         ("0009_walls", "EtherBound.Sim.Db.Schema0009_walls.sql"),
+        ("0010_replay_work", "EtherBound.Sim.Db.Schema0010_replay_work.sql"),
     };
 
     /// <summary>Every version the runner knows how to move through, oldest first.</summary>
@@ -153,15 +154,15 @@ public sealed class Database : IDisposable
             throw new InvalidOperationException($"save is at {(found.Length == 0 ? "no version" : found)}; the runner only knows {string.Join(" -> ", Known)}");
         for (var step = from; step < Known.Length - 1; step++)
         {
-            using var stream = typeof(Database).Assembly.GetManifestResourceStream(Migrations[step - from].Resource)
-                ?? throw new InvalidOperationException($"embedded migration {Migrations[step - from].Resource} is missing");
+            using var stream = typeof(Database).Assembly.GetManifestResourceStream(Migrations[step].Resource)
+                ?? throw new InvalidOperationException($"embedded migration {Migrations[step].Resource} is missing");
             using var reader = new StreamReader(stream);
             using var transaction = _connection.BeginTransaction();
             using (var apply = Command(reader.ReadToEnd(), transaction)) apply.ExecuteNonQuery();
             // The step's own body already writes the version; this covers a body that does not.
             using (var version = Command("UPDATE alembic_version SET version_num = $v WHERE version_num <> $v", transaction))
             {
-                version.Parameters.AddWithValue("$v", Migrations[step - from].Version);
+                version.Parameters.AddWithValue("$v", Migrations[step].Version);
                 version.ExecuteNonQuery();
             }
             transaction.Commit();
@@ -215,6 +216,18 @@ public sealed class Database : IDisposable
                 store.Walls[new WallKey(r.GetInt32(0), r.GetInt32(1), r.GetInt32(2), r.GetInt32(3), r.GetString(4))] = r.GetDouble(5);
         using (var command = Command("SELECT COALESCE(MAX(seq), 0) FROM event"))
             store.MaxEventSeq = Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
+        using (var command = Command("SELECT actor_id, action_key, progress_minutes FROM activity_work ORDER BY actor_id, action_key"))
+        using (var r = command.ExecuteReader())
+            while (r.Read()) store.ActivityWork[(r.GetString(0), r.GetString(1))] = r.GetInt32(2);
+    }
+
+    public IReadOnlyList<InputJournalEntry> ReadInputJournal()
+    {
+        var rows = new List<InputJournalEntry>();
+        using var command = Command("SELECT seq, kind, payload, repeat_count FROM input_journal ORDER BY seq");
+        using var r = command.ExecuteReader();
+        while (r.Read()) rows.Add(new InputJournalEntry(r.GetInt64(0), r.GetString(1), Json.Parse(r.GetString(2)), r.GetInt32(3)));
+        return rows;
     }
 
     /// <summary><c>world_setup.load_grid</c>: chunks by (cx, cy), levels by (cx, cy, z).</summary>
@@ -338,6 +351,8 @@ public sealed class Database : IDisposable
             if (changes.WipeActors) Exec(t, "DELETE FROM actor");
             if (changes.WipeEvents) Exec(t, "DELETE FROM event");
         }
+        if (changes.WipeActivityWork) Exec(t, "DELETE FROM activity_work");
+        if (changes.WipeInputs) Exec(t, "DELETE FROM input_journal");
         if (changes.Meta is { } meta)
         {
             using var command = Command("INSERT OR REPLACE INTO world_meta (id, seed, game_minute, speed, paused, gen_version, generator, gen_options) " +
@@ -354,6 +369,7 @@ public sealed class Database : IDisposable
         }
         foreach (var id in changes.DeletedObjects) Exec(t, "DELETE FROM object WHERE id = $id", ("$id", id));
         foreach (var id in changes.DeletedActors) Exec(t, "DELETE FROM actor WHERE id = $id", ("$id", id));
+        foreach (var id in changes.DeletedActors) Exec(t, "DELETE FROM activity_work WHERE actor_id = $id", ("$id", id));
         foreach (var row in changes.InsertedActors.Concat(changes.UpdatedActors)) WriteActor(t, row);
         foreach (var row in changes.InsertedObjects.Concat(changes.UpdatedObjects).OrderBy(o => o.Id)) WriteObject(t, row);
         foreach (var key in changes.DeletedWalls)
@@ -362,6 +378,30 @@ public sealed class Database : IDisposable
         foreach (var (key, value) in changes.Walls)
             Exec(t, "INSERT OR REPLACE INTO wall_slot (cx, cy, z, cell_index, slot, joules) VALUES ($cx, $cy, $z, $i, $s, $v)",
                 ("$cx", key.Cx), ("$cy", key.Cy), ("$z", key.Z), ("$i", key.CellIndex), ("$s", key.Slot), ("$v", value));
+        foreach (var key in changes.DeletedActivityWork)
+            Exec(t, "DELETE FROM activity_work WHERE actor_id = $actor AND action_key = $action",
+                ("$actor", key.ActorId), ("$action", key.ActionKey));
+        foreach (var row in changes.ActivityWork)
+            Exec(t, "INSERT OR REPLACE INTO activity_work (actor_id, action_key, progress_minutes) VALUES ($actor, $action, $minutes)",
+                ("$actor", row.ActorId), ("$action", row.ActionKey), ("$minutes", row.ProgressMinutes));
+        foreach (var input in changes.Inputs)
+        {
+            var payload = input.Payload.ToJsonString();
+            using var last = Command("SELECT seq, kind, payload FROM input_journal ORDER BY seq DESC LIMIT 1", t);
+            using var r = last.ExecuteReader();
+            if (r.Read() && r.GetString(1) == input.Kind && r.GetString(2) == payload)
+            {
+                var sequence = r.GetInt64(0);
+                r.Close();
+                Exec(t, "UPDATE input_journal SET repeat_count = repeat_count + 1 WHERE seq = $seq", ("$seq", sequence));
+            }
+            else
+            {
+                r.Close();
+                Exec(t, "INSERT INTO input_journal (seq, kind, payload) VALUES ((SELECT COALESCE(MAX(seq), 0) + 1 FROM input_journal), $kind, $payload)",
+                    ("$kind", input.Kind), ("$payload", payload));
+            }
+        }
         foreach (var chunk in changes.Chunks)
             Exec(t, "INSERT OR REPLACE INTO chunk (cx, cy, ground_h, surface_mat, strata, revision, gen_version, dug) " +
                 "VALUES ($cx, $cy, $g, $s, $strata, $rev, $gv, $dug)",

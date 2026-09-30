@@ -44,15 +44,40 @@ public sealed class WorldEngine : IEnginePort, IDisposable
 
     public WorldEngine(string databasePath = ":memory:", MaterialRegistry? registry = null, EventBus? bus = null,
         ObjectCatalog? catalog = null, string? materialsToml = null)
+        : this(databasePath, () => LoadCatalogs(registry, catalog, materialsToml), bus)
     {
-        _materialsToml = materialsToml ?? DataFiles.ReadText("materials.toml");
+    }
+
+    public WorldEngine(string databasePath, Func<WorldEngineCatalogs> loadCatalogs, EventBus? bus = null)
+    {
         _db = new Database(databasePath);
         _store.Db = _db;
-        _db.Load(_store);
-        Registry = registry ?? MaterialRegistry.FromText(_materialsToml);
-        Catalog = catalog ?? ObjectCatalog.Load(Registry);
+        WorldEngineCatalogs catalogs;
+        try
+        {
+            _db.Load(_store);
+            catalogs = loadCatalogs();
+        }
+        catch
+        {
+            _db.Dispose();
+            throw;
+        }
+        _materialsToml = catalogs.MaterialsToml;
+        Registry = catalogs.Registry;
+        Catalog = catalogs.Catalog;
         Grid = new WorldGrid(registry: Registry, catalog: Catalog);
         Bus = bus ?? new EventBus();
+    }
+
+    /// <summary>Loads immutable engine catalogs without opening or changing a world database.</summary>
+    public static WorldEngineCatalogs LoadCatalogs() => LoadCatalogs(null, null, null);
+
+    private static WorldEngineCatalogs LoadCatalogs(MaterialRegistry? registry, ObjectCatalog? catalog, string? materialsToml)
+    {
+        var text = materialsToml ?? DataFiles.ReadText("materials.toml");
+        var resolvedRegistry = registry ?? MaterialRegistry.FromText(text);
+        return new WorldEngineCatalogs(text, resolvedRegistry, catalog ?? ObjectCatalog.Load(resolvedRegistry));
     }
 
     public MaterialRegistry Registry { get; private set; }
@@ -110,8 +135,11 @@ public sealed class WorldEngine : IEnginePort, IDisposable
     {
         var events = new List<SimEvent>();
         var session = NewSession();
-        if (!session.HasWorld)
+        var creating = !session.HasWorld;
+        if (creating)
+        {
             session.CreateWorld(new WorldMetaRow { Seed = seed, GameMinute = 0, Speed = 1, Paused = false, GenVersion = 0, Generator = Generators.Default });
+        }
         var world = session.World;
         if (_store.MaterialIds.Count > 0)
         {
@@ -124,6 +152,9 @@ public sealed class WorldEngine : IEnginePort, IDisposable
         foreach (var material in Registry.Materials) _store.MaterialIds[material.Key] = material.Id;
 
         var (spec, options, fallback) = WorldSetup.ResolveGenerator(world);
+        if (creating)
+            session.RecordInput("ensure_world", Json.Obj(("seed", Json.Of(seed)), ("generator", Json.Of(spec.Key)),
+                ("gen_version", Json.Of(spec.Version)), ("options", options.Dump())));
         var hasChunks = _db.HasChunks();
         var regenerate = fallback || !hasChunks || world.GenVersion < spec.Version;
         if (regenerate)
@@ -160,7 +191,9 @@ public sealed class WorldEngine : IEnginePort, IDisposable
         var session = NewSession();
         var world = session.HasWorld ? session.World : new WorldMetaRow();
         if (!session.HasWorld) session.CreateWorld(world);
-        session.Wipe(actors: true, events: true);
+        session.Wipe(actors: true, events: true, inputs: true);
+        session.RecordInput("new_game", Json.Obj(("seed", Json.Of(seed)), ("generator", Json.Of(spec.Key)),
+            ("gen_version", Json.Of(spec.Version)), ("options", resolved.Dump()), ("paused", Json.Of(paused))));
         world.Seed = seed;
         world.GameMinute = 0;
         world.Speed = 1;
@@ -197,20 +230,34 @@ public sealed class WorldEngine : IEnginePort, IDisposable
         var session = NewSession();
         var world = session.World;
         var actor = session.GetActor(actorId) ?? throw new KeyNotFoundException($"unknown actor: {actorId}");
-        if (world.Paused) return Result(session, actor, action, false, "paused");
+        session.RecordInput("submit", Json.Obj(("actor_id", Json.Of(actorId)), ("action", action.ToJson()),
+            ("delta_seconds", InputReplay.EncodeDelta(deltaSeconds))));
+        if (world.Paused)
+        {
+            session.Commit();
+            return Result(session, actor, action, false, "paused");
+        }
         if (action.Op == "move" && action.Dx == 0 && action.Dy == 0)
             // Releasing WASD sends a zero vector; it is not an action, so it must not interrupt an
             // activity that was chosen a moment earlier.
+        {
+            session.Commit();
             return Result(session, actor, action, true, activity: ActivityState.From(actor.Activity));
+        }
         var handler = OpCatalog.HandlerFor(action.Op);
         var ctx = new ActionContext(session, world, actor, Grid, deltaSeconds, LoadKg(actorId));
         var reason = handler.Validate(ctx, action);
         // A rejection changes nothing, a running activity included.
-        if (reason is not null) return Result(session, actor, action, false, reason, activity: ActivityState.From(actor.Activity));
+        if (reason is not null)
+        {
+            session.Commit();
+            return Result(session, actor, action, false, reason, activity: ActivityState.From(actor.Activity));
+        }
 
         var events = new List<SimEvent>();
         if (ActivityState.From(actor.Activity) is { } running)
         {
+            ActivityWork.SaveOnInterrupt(session, actor, running, world.GameMinute);
             actor.Activity = null;
             events.Add(SimEvent.ActivityFinished(actor.Id, running.Op, "interrupted", action.Op));
         }
@@ -218,8 +265,10 @@ public sealed class WorldEngine : IEnginePort, IDisposable
         ActivityState? activity = null;
         IReadOnlyList<PhysicsPosition> trajectory = Array.Empty<PhysicsPosition>();
         var duration = handler.Duration(ctx, action);
+        var workKey = WorkKey(action);
         if (duration == 0)
         {
+            if (handler.RetainsWorkProgress) session.SetActivityWorkMinutes(actor.Id, workKey, 0);
             var resolution = handler.Resolve(ctx, action);
             events.AddRange(resolution.Events);
             text = resolution.Text;
@@ -227,10 +276,22 @@ public sealed class WorldEngine : IEnginePort, IDisposable
         }
         else
         {
-            activity = new ActivityState(action.Op, action.ToJson(), world.GameMinute, world.GameMinute + duration);
-            actor.Activity = activity.ToJson();
-            var target = action.Op == "move" ? new JsonObject() : action.Target!.ToJson();
-            events.Add(SimEvent.ActivityStarted(actor.Id, action.Op, target, activity.EndsMinute));
+            var progress = handler.RetainsWorkProgress ? session.ActivityWorkMinutes(actor.Id, workKey) : 0;
+            if (progress >= duration)
+            {
+                if (handler.RetainsWorkProgress) session.SetActivityWorkMinutes(actor.Id, workKey, 0);
+                var resolution = handler.Complete(ctx, action);
+                events.AddRange(resolution);
+                events.Add(SimEvent.ActivityFinished(actor.Id, action.Op, "completed"));
+            }
+            else
+            {
+                activity = new ActivityState(action.Op, action.ToJson(), world.GameMinute - progress,
+                    world.GameMinute + duration - progress);
+                actor.Activity = activity.ToJson();
+                var target = action.Op == "move" ? new JsonObject() : action.Target!.ToJson();
+                events.Add(SimEvent.ActivityStarted(actor.Id, action.Op, target, activity.EndsMinute));
+            }
         }
         Publish(session, world, events);
         if (handler.ChangesLoad) RefreshLoad(session);
@@ -250,6 +311,8 @@ public sealed class WorldEngine : IEnginePort, IDisposable
             throw new ArgumentException("goal tile has no standing surface");
         var mind = actor.Mind is { } stored ? Mind.Parse(stored) : new Mind(new TilePos(actor.TileX, actor.TileY, actor.H));
         actor.Mind = (mind with { Goal = goal }).ToJson();
+        session.RecordInput("set_goal", Json.Obj(("actor_id", Json.Of(actorId)), ("goal", goal?.ToJson()),
+            ("reason", Json.Of(reason))));
         Publish(session, world, new List<SimEvent> { SimEvent.ActorGoalSet(actorId, goal?.ToJson(), reason) });
         Bus.Drain();
     }
@@ -262,6 +325,7 @@ public sealed class WorldEngine : IEnginePort, IDisposable
         {
             var session = NewSession();
             var world = session.World;
+            session.RecordInput("advance_time", new JsonObject());
             if (!world.Paused)
             {
                 world.GameMinute += 1;
@@ -269,6 +333,10 @@ public sealed class WorldEngine : IEnginePort, IDisposable
                 var events = CompleteActivities(session, world);
                 events.Add(SimEvent.ClockTicked());
                 Publish(session, world, events);
+            }
+            else
+            {
+                session.Commit();
             }
             var state = GetState();
             _tickSnapshot = state;
@@ -293,6 +361,7 @@ public sealed class WorldEngine : IEnginePort, IDisposable
             actor.Activity = null;
             var action = GameAction.Parse(running.Action);
             var handler = OpCatalog.HandlerFor(action.Op);
+            if (handler.RetainsWorkProgress) session.SetActivityWorkMinutes(actor.Id, WorkKey(action), 0);
             var ctx = new ActionContext(session, world, actor, Grid, 0, LoadKg(actor.Id));
             // The world may have changed since the start; effects apply only if still valid.
             var reason = handler.Validate(ctx, action);
@@ -311,6 +380,7 @@ public sealed class WorldEngine : IEnginePort, IDisposable
     {
         var session = NewSession();
         var world = session.World;
+        session.RecordInput("set_clock", Json.Obj(("paused", Json.Of(paused)), ("speed", Json.Of(speed))));
         var (oldSpeed, oldPaused) = (world.Speed, world.Paused);
         if (paused is not null) world.Paused = paused.Value;
         if (speed is not null)
@@ -320,10 +390,16 @@ public sealed class WorldEngine : IEnginePort, IDisposable
         }
         if ((world.Speed, world.Paused) != (oldSpeed, oldPaused))
             Publish(session, world, new List<SimEvent> { SimEvent.ClockChanged(world.Speed, world.Paused) });
+        else
+            session.Commit();
         var state = GetState();
         Bus.Drain();
         return state;
     }
+
+    public IReadOnlyList<InputJournalEntry> ReadInputJournal() => _db.ReadInputJournal();
+
+    private static string WorkKey(GameAction action) => action.ToJson().ToJsonString();
 
     public MenuPayload Menu(string actorId, double x, double y, int z, int radius = 0) =>
         Engine.Menu.Build(NewSession(), Grid, Registry, LoadKg(actorId), actorId, x, y, z, radius);

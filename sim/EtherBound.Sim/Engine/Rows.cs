@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using EtherBound.Sim.Core;
+using EtherBound.Sim.World;
 
 namespace EtherBound.Sim.Engine;
 
@@ -89,3 +90,15 @@ public readonly record struct WallKey(int Cx, int Cy, int Z, int CellIndex, stri
 
 /// <summary>One stored event log row.</summary>
 public sealed record EventRow(int Seq, int GameMinute, string Type, string? ActorId, JsonObject Data);
+
+/// <summary>One committed record of work saved across an interrupted activity.</summary>
+public sealed record ActivityWorkRow(string ActorId, string ActionKey, int ProgressMinutes);
+
+/// <summary>An input row read from the ordered replay journal.</summary>
+public sealed record InputJournalEntry(long Sequence, string Kind, JsonObject Payload, int RepeatCount = 1);
+
+/// <summary>An input staged by the engine for the same transaction as its world changes.</summary>
+public sealed record InputToRecord(string Kind, JsonObject Payload);
+
+/// <summary>Immutable engine catalogs loaded before a world session starts.</summary>
+public sealed record WorldEngineCatalogs(string MaterialsToml, MaterialRegistry Registry, ObjectCatalog Catalog);

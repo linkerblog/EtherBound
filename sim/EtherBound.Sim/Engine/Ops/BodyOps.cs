@@ -24,7 +24,8 @@ public sealed class MoveOp : OpHandler
     {
         var from = ctx.ActorPos;
         var (x, y, h) = Movement.MoveInWorld(ctx.Actor.X, ctx.Actor.Y, ctx.Actor.H, action.Dx, action.Dy,
-            WalkingSpeed * ctx.DeltaSeconds, ctx.Grid, ctx.LoadKg);
+            WalkingSpeed * ctx.DeltaSeconds, ctx.Grid, ctx.LoadKg,
+            ctx.Session.Actors().Where(actor => actor.Id != ctx.Actor.Id).ToList());
         (ctx.Actor.X, ctx.Actor.Y, ctx.Actor.H) = (x, y, h);
         ctx.Actor.Z = PyMath.FloorDiv(h, 6);
         var to = ctx.ActorPos;
@@ -118,6 +119,7 @@ public sealed class DigOp : OpHandler
     public const int ReachH = 2;
 
     public override string Op => "dig";
+    public override bool RetainsWorkProgress => true;
 
     /// <summary><c>(ground_h, dug, removed, exposed)</c>; depth counts from the original ground.</summary>
     private static (int GroundH, int Dug, Material Removed, Material Exposed) Layers(ActionContext ctx, int x, int y)
@@ -209,6 +211,7 @@ public sealed class BuildOp : OpHandler
     public const int WallCells = 6;
 
     public override string Op => "build";
+    public override bool RetainsWorkProgress => true;
 
     /// <summary>The best <c>tool.build</c> among the objects in the actor's hands, else bare hands.</summary>
     private static double ToolFactor(ActionContext ctx)

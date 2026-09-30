@@ -11,6 +11,7 @@ public sealed class WorldStore
     public SortedDictionary<int, ObjectRow> Objects { get; } = new();
     public Dictionary<WallKey, double> Walls { get; } = new();
     public Dictionary<string, int> MaterialIds { get; } = new();
+    public Dictionary<(string ActorId, string ActionKey), int> ActivityWork { get; } = new();
     public int MaxEventSeq { get; set; }
     public Database? Db { get; set; }
 }
@@ -36,7 +37,11 @@ public sealed class Session
     private readonly HashSet<(int, int)> _dirtyChunks = new();
     private readonly HashSet<(int, int, int)> _dirtyLevels = new();
     private readonly List<EventRow> _events = new();
+    private readonly List<InputToRecord> _inputs = new();
+    private readonly Dictionary<(string ActorId, string ActionKey), int> _activityWork = new();
+    private readonly HashSet<(string ActorId, string ActionKey)> _deletedActivityWork = new();
     private bool _wipe;
+    private bool _wipeInputs;
 
     public Session(WorldStore store, WorldGrid grid)
     {
@@ -145,15 +150,47 @@ public sealed class Session
 
     public void AddEvent(EventRow row) => _events.Add(row);
 
+    public void RecordInput(string kind, System.Text.Json.Nodes.JsonObject payload) =>
+        _inputs.Add(new InputToRecord(kind, (System.Text.Json.Nodes.JsonObject)payload.DeepClone()));
+
+    public int ActivityWorkMinutes(string actorId, string actionKey)
+    {
+        var key = (actorId, actionKey);
+        if (_activityWork.TryGetValue(key, out var minutes)) return minutes;
+        if (_deletedActivityWork.Contains(key) || (_wipe && WipeActors)) return 0;
+        return _store.ActivityWork.GetValueOrDefault(key);
+    }
+
+    public void SetActivityWorkMinutes(string actorId, string actionKey, int minutes)
+    {
+        var key = (actorId, actionKey);
+        _deletedActivityWork.Remove(key);
+        if (minutes <= 0)
+        {
+            _activityWork.Remove(key);
+            _deletedActivityWork.Add(key);
+        }
+        else
+        {
+            _activityWork[key] = minutes;
+        }
+    }
+
     /// <summary>
     /// Drop actors, objects, walls, terrain and the event log (a new game or a regeneration).
     /// Everything the session adds afterwards is the whole new state.
     /// </summary>
-    public void Wipe(bool actors, bool events)
+    public void Wipe(bool actors, bool events, bool inputs = false)
     {
         _wipe = true;
         WipeActors = actors;
         WipeEvents = events;
+        _wipeInputs = inputs;
+        if (actors)
+        {
+            _activityWork.Clear();
+            _deletedActivityWork.Clear();
+        }
         _objects.Clear();
         _deletedObjects.Clear();
         _allObjectsLoaded = true;
@@ -190,7 +227,10 @@ public sealed class Session
             Wipe = _wipe,
             WipeActors = WipeActors,
             WipeEvents = WipeEvents,
+            WipeActivityWork = _wipe && WipeActors,
+            WipeInputs = _wipeInputs,
             Events = _events.ToList(),
+            Inputs = _inputs.ToList(),
         };
         if (_world is not null && (_store.Meta is null || !_world.SameAs(_store.Meta))) changes.Meta = _world;
 
@@ -218,6 +258,12 @@ public sealed class Session
             if (!_wipe && _store.Walls.ContainsKey(key)) changes.DeletedWalls.Add(key);
         foreach (var (key, value) in _walls) changes.Walls[key] = value;
 
+        foreach (var key in _deletedActivityWork)
+            if (_store.ActivityWork.ContainsKey(key)) changes.DeletedActivityWork.Add(key);
+        foreach (var (key, minutes) in _activityWork)
+            if (!_deletedActivityWork.Contains(key) && (changes.WipeActivityWork || _store.ActivityWork.GetValueOrDefault(key) != minutes))
+                changes.ActivityWork.Add(new ActivityWorkRow(key.ActorId, key.ActionKey, minutes));
+
         foreach (var key in _dirtyChunks) if (_grid.Chunks.TryGetValue(key, out var chunk)) changes.Chunks.Add(chunk);
         foreach (var key in _dirtyLevels) if (_grid.Levels.TryGetValue(key, out var level)) changes.Levels.Add(level);
 
@@ -233,6 +279,7 @@ public sealed class Session
             _store.Walls.Clear();
             if (changes.WipeActors) _store.Actors.Clear();
         }
+        if (changes.WipeActivityWork) _store.ActivityWork.Clear();
         if (changes.Meta is not null) _store.Meta = changes.Meta.Clone();
         foreach (var id in changes.DeletedActors) _store.Actors.Remove(id);
         foreach (var row in changes.InsertedActors.Concat(changes.UpdatedActors)) _store.Actors[row.Id] = row.Clone();
@@ -240,6 +287,9 @@ public sealed class Session
         foreach (var row in changes.InsertedObjects.Concat(changes.UpdatedObjects)) _store.Objects[row.Id] = row.Clone();
         foreach (var key in changes.DeletedWalls) _store.Walls.Remove(key);
         foreach (var (key, value) in changes.Walls) _store.Walls[key] = value;
+        foreach (var key in changes.DeletedActivityWork) _store.ActivityWork.Remove(key);
+        foreach (var row in changes.ActivityWork)
+            _store.ActivityWork[(row.ActorId, row.ActionKey)] = row.ProgressMinutes;
         if (changes.WipeEvents) _store.MaxEventSeq = 0;
         foreach (var e in changes.Events) _store.MaxEventSeq = Math.Max(_store.MaxEventSeq, e.Seq);
     }
@@ -251,6 +301,8 @@ public sealed class Changes
     public bool Wipe { get; init; }
     public bool WipeActors { get; init; }
     public bool WipeEvents { get; init; }
+    public bool WipeActivityWork { get; init; }
+    public bool WipeInputs { get; init; }
     public WorldMetaRow? Meta { get; set; }
     public List<string> DeletedActors { get; } = new();
     public List<ActorRow> InsertedActors { get; } = new();
@@ -263,4 +315,7 @@ public sealed class Changes
     public List<Chunk> Chunks { get; } = new();
     public List<ChunkLevel> Levels { get; } = new();
     public List<EventRow> Events { get; init; } = new();
+    public List<InputToRecord> Inputs { get; init; } = new();
+    public List<(string ActorId, string ActionKey)> DeletedActivityWork { get; } = new();
+    public List<ActivityWorkRow> ActivityWork { get; } = new();
 }

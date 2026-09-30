@@ -15,6 +15,7 @@
     <EmbeddedResource Include="Data\*.toml" LogicalName="EtherBound.Sim.Data.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Db\Schema0008.sql" LogicalName="EtherBound.Sim.Db.Schema0008.sql" />
     <EmbeddedResource Include="Db\Schema0009_walls.sql" LogicalName="EtherBound.Sim.Db.Schema0009_walls.sql" />
+    <EmbeddedResource Include="Db\Schema0010_replay_work.sql" LogicalName="EtherBound.Sim.Db.Schema0010_replay_work.sql" />
   </ItemGroup>
 
   <ItemGroup>

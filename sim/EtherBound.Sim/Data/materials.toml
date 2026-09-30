@@ -1,0 +1,312 @@
+# `resistance` is joules absorbed to break one half-metre segment.
+# `build_cost` is present only where the material can be built with: a material without one is not
+# a building material and `build` refuses the spot (Dev-036 [Sec. 1]).
+[[materials]]
+key = "grass"
+name = "Grass"
+color = "#6a9f4b"
+walkable = true
+walk_cost = 1.0
+solid = true
+blocks_sight = false
+diggable = true
+dig_cost = 1.0
+flammable = true
+density = 1.3
+resistance = 50.0
+liquid = false
+tags = ["natural"]
+
+[[materials]]
+key = "dirt"
+name = "Dirt"
+color = "#8b623d"
+walkable = true
+walk_cost = 1.05
+solid = true
+blocks_sight = false
+diggable = true
+dig_cost = 1.0
+flammable = false
+density = 1.6
+resistance = 75.0
+liquid = false
+tags = ["natural"]
+
+[[materials]]
+key = "topsoil"
+name = "Topsoil"
+color = "#704b31"
+walkable = true
+walk_cost = 1.1
+solid = true
+blocks_sight = false
+diggable = true
+dig_cost = 0.8
+flammable = true
+density = 1.4
+resistance = 50.0
+liquid = false
+tags = ["natural"]
+
+[[materials]]
+key = "clay"
+name = "Clay"
+color = "#a86f5a"
+walkable = true
+walk_cost = 1.15
+solid = true
+blocks_sight = false
+diggable = true
+dig_cost = 1.4
+flammable = false
+density = 1.8
+resistance = 100.0
+liquid = false
+tags = ["natural"]
+
+[[materials]]
+key = "rock"
+name = "Rock"
+color = "#71777b"
+walkable = false
+walk_cost = 1.0
+solid = true
+blocks_sight = true
+diggable = true
+dig_cost = 4.0
+flammable = false
+density = 2.7
+resistance = 400.0
+liquid = false
+tags = ["natural"]
+
+[[materials]]
+key = "sand"
+name = "Sand"
+color = "#c7ad6a"
+walkable = true
+walk_cost = 1.35
+solid = true
+blocks_sight = false
+diggable = true
+dig_cost = 0.8
+flammable = false
+density = 1.6
+resistance = 50.0
+liquid = false
+tags = ["natural"]
+
+[[materials]]
+key = "asphalt"
+name = "Asphalt"
+color = "#414449"
+walkable = true
+walk_cost = 0.9
+solid = true
+blocks_sight = false
+diggable = false
+dig_cost = 10.0
+flammable = false
+density = 2.4
+resistance = 350.0
+liquid = false
+tags = ["road"]
+
+[[materials]]
+key = "concrete"
+name = "Concrete"
+color = "#a1a5a3"
+walkable = true
+walk_cost = 1.0
+solid = true
+blocks_sight = true
+diggable = true
+dig_cost = 5.0
+build_cost = 2.5
+flammable = false
+density = 2.4
+resistance = 350.0
+liquid = false
+tags = ["building"]
+
+[[materials]]
+key = "brick"
+name = "Brick"
+color = "#a6533d"
+walkable = false
+walk_cost = 1.0
+solid = true
+blocks_sight = true
+diggable = true
+dig_cost = 4.0
+build_cost = 2.0
+flammable = false
+density = 1.9
+resistance = 250.0
+liquid = false
+tags = ["building"]
+
+[[materials]]
+key = "wood_floor"
+name = "Wood floor"
+color = "#b6814f"
+walkable = true
+walk_cost = 1.0
+solid = true
+blocks_sight = false
+diggable = true
+dig_cost = 1.5
+build_cost = 1.0
+flammable = true
+density = 0.7
+resistance = 100.0
+liquid = false
+tags = ["building"]
+
+[[materials]]
+key = "tile_floor"
+name = "Tile floor"
+color = "#d2d4cc"
+walkable = true
+walk_cost = 1.0
+solid = true
+blocks_sight = false
+diggable = true
+dig_cost = 2.0
+build_cost = 1.2
+flammable = false
+density = 2.0
+resistance = 200.0
+liquid = false
+tags = ["building"]
+
+[[materials]]
+key = "roofing"
+name = "Roofing"
+color = "#4d5058"
+walkable = true
+walk_cost = 1.1
+solid = true
+blocks_sight = true
+diggable = true
+dig_cost = 2.0
+build_cost = 1.2
+flammable = false
+density = 1.8
+resistance = 150.0
+liquid = false
+tags = ["building"]
+
+[[materials]]
+key = "water_shallow"
+name = "Shallow water"
+color = "#4f9fc1"
+walkable = true
+walk_cost = 1.6
+solid = false
+blocks_sight = false
+diggable = false
+dig_cost = 0.0
+flammable = false
+density = 1.0
+resistance = 0.0
+liquid = true
+tags = ["liquid"]
+
+[[materials]]
+key = "water_deep"
+name = "Deep water"
+color = "#23618d"
+walkable = false
+walk_cost = 1.0
+solid = false
+blocks_sight = false
+diggable = false
+dig_cost = 0.0
+flammable = false
+density = 1.0
+resistance = 0.0
+liquid = true
+tags = ["liquid"]
+
+[[materials]]
+key = "glass"
+name = "Glass"
+color = "#a7d5df"
+walkable = false
+walk_cost = 1.0
+solid = true
+blocks_sight = false
+diggable = false
+dig_cost = 10.0
+build_cost = 4.0
+flammable = false
+density = 2.5
+resistance = 200.0
+liquid = false
+tags = ["building"]
+
+[[materials]]
+key = "wood"
+name = "Wood"
+color = "#8a5a34"
+walkable = true
+walk_cost = 1.0
+solid = true
+blocks_sight = true
+diggable = false
+dig_cost = 10.0
+flammable = true
+density = 0.6
+resistance = 150.0
+liquid = false
+tags = ["object"]
+
+[[materials]]
+key = "metal"
+name = "Metal"
+color = "#8c9399"
+walkable = true
+walk_cost = 1.0
+solid = true
+blocks_sight = true
+diggable = false
+dig_cost = 10.0
+flammable = false
+density = 7.8
+resistance = 450.0
+liquid = false
+tags = ["object"]
+
+[[materials]]
+key = "cloth"
+name = "Cloth"
+color = "#5d6b4e"
+walkable = true
+walk_cost = 1.0
+solid = true
+blocks_sight = false
+diggable = false
+dig_cost = 10.0
+flammable = true
+density = 0.3
+resistance = 25.0
+liquid = false
+tags = ["object"]
+
+[[materials]]
+key = "food"
+name = "Food"
+color = "#b8402f"
+walkable = false
+walk_cost = 1.0
+solid = true
+blocks_sight = false
+diggable = false
+dig_cost = 10.0
+flammable = false
+density = 1.0
+resistance = 10.0
+liquid = false
+tags = ["object"]

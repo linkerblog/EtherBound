@@ -343,10 +343,13 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
 - **Height is scaled on the render root, not in the meshes.** Meshes are built in metres
   (`x`, `h / 2`, `y`); the root's `Y` scale √(2/3) turns 0.5 m into 16 px. Snap the camera in that
   scaled space, and keep the SubViewport size even so tile corners land on pixel corners.
-- **The HUD scales from the window height, not a constant.** `HudTheme.Scale` is
-  `window height / 1440`, set by `GameHud.Layout`; `HudLayout` holds the design units and every size
-  goes through `HudTheme.S`/`V`/`R`. The old fixed `UiScale = 1.5` drifts as soon as the window
-  changes size, and text set only at build time keeps the scale it was built with.
+- **The HUD scales to fit the window, not a constant.** `HudTheme.Scale` is
+  `min(width / 2560, height / 1440)` and `HudLayout.Frame.Offset` centres the frame, set by
+  `GameHud.Layout`; `HudLayout` holds the design units and every size goes through
+  `HudTheme.S`/`V`/`R`. A maximized 2K window is about 2560x1370 (the title bar and taskbar take
+  height), so scaling by height alone leaves the frame short of the right edge. Styleboxes, fonts and
+  borders bake the scale they were created at: `GameHud` rebuilds its frame when the scale moves
+  (the maximize at start-up included) and replays the feed history into the new log.
 - **`Control.Size` is clamped up to the content minimum.** A `PanelContainer` given 64 px renders
   taller when its children need more: the header grew to 80 until its own frame padding and the
   clock font were reduced. Size a container to what its content needs, then check the drawn height
@@ -370,6 +373,16 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
 - **World input is gated by the viewport, movement is not.** Right-click, the cursor cutaway and the
   build click are ignored outside `GameHud.ViewportRect`; keyboard movement stays window-wide, so
   opening the build panel or the console never stops `W`/`A`/`S`/`D`.
+- **A `Button` grows to its text.** A label wider than its slot (`DEBUG MENU  ALT+2` in a 200-unit
+  column) pushed the button under the viewport. Set `ClipText` (and `TextOverrunBehavior`) and put
+  the hotkey in a chip child anchored to the right edge.
+- **An autowrap `Label` can inflate its container for good.** Before its width is known it wraps
+  word by word and reports a huge minimum height; the container takes that size and keeps it after the
+  label settles. The console grew to 2122 units and covered the footer at 720p. Use `ClipText` for a
+  one-line note, scroll long forms, and put a page back on its rectangle every frame it is visible.
+- **A container child anchors only if its parent is a container or has a size.** The status
+  column's `VBoxContainer` sat in a plain `Control` and took its own minimum width, so every panel was
+  narrower than the column; give it `SetAnchorsPreset(FullRect)`.
 - **`--shots` writes PNGs only in a windowed run.** `--headless` has no renderer, so `check:game`'s
   headless import cannot replace a capture; use `--shots DIR --shots-size 2560x1440` with an isolated
   `--database` when the shots are for a design comparison.

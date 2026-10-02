@@ -156,6 +156,8 @@ public partial class ActionMenuOverlay : Control
             var point = _center + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * radius;
             var available = group.Entries.Any(entry => entry.Available);
             var text = group.Entries.Count == 1 ? VerbText(group.Entries[0]) : group.Label.ToUpperInvariant();
+            // Digits 1-9 focus a verb (see _UnhandledKeyInput), so the slot shows its own key.
+            if (i < 9) text = $"{i + 1}  {text}";
             var button = AddRadialButton(text, point, available, group.Entries.FirstOrDefault(e => !e.Available)?.Reason ?? "");
             var captured = i;
             button.Pressed += () => SelectVerb(captured);
@@ -274,6 +276,10 @@ public partial class ActionMenuOverlay : Control
     private PanelContainer PanelAt(Vector2 position, Vector2 size)
     {
         var style = HudTheme.PanelFrame(modal: true);
+        // A soft drop shadow lifts the menu off the world (STYLEGUIDE.md [Sec. 8]).
+        style.ShadowColor = HudTheme.Shadow;
+        style.ShadowSize = S(14);
+        style.ShadowOffset = new Vector2(0, S(6));
         var panel = new PanelContainer
         {
             Position = position,
@@ -283,6 +289,19 @@ public partial class ActionMenuOverlay : Control
         };
         panel.AddThemeStyleboxOverride("panel", style);
         AddChild(panel);
+        // The cyan left rule of the menu, drawn as a sibling because a container fills its children.
+        AddChild(new ColorRect
+        {
+            Color = HudTheme.Cyan,
+            Position = position,
+            Size = new Vector2(Mathf.Max(2, S(3)), size.Y),
+            MouseFilter = MouseFilterEnum.Ignore,
+        });
+        if (HudTheme.Motion)
+        {
+            panel.Modulate = new Color(1, 1, 1, 0);
+            panel.CreateTween().TweenProperty(panel, "modulate:a", 1.0, 0.1);
+        }
         return panel;
     }
 

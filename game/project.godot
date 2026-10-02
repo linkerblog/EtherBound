@@ -15,8 +15,8 @@ SimulationBootstrap="*res://app/SimulationBootstrap.cs"
 
 [display]
 
-window/size/viewport_width=1280
-window/size/viewport_height=720
+window/size/viewport_width=2560
+window/size/viewport_height=1440
 window/vsync/vsync_mode=1
 
 [dotnet]

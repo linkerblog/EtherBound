@@ -48,6 +48,7 @@ public partial class WorldClient : Node
     private Node3D _root = null!;
     private WorldDump? _world;
     private WorldFrame? _frame;
+    private double _nearbyClock;
     private TrajectoryAnimator _trajectoryAnimator = null!;
     private ShaderMaterial _terrainMat = null!, _structureMat = null!, _glassMat = null!, _outlineMat = null!;
     private Godot.Environment _env = null!;
@@ -94,8 +95,10 @@ public partial class WorldClient : Node
         for (var i = 0; i < raw.Length; i++)
             if (raw[i].StartsWith("--")) _args[raw[i][2..]] = i + 1 < raw.Length && !raw[i + 1].StartsWith("--") ? raw[++i] : "";
         _levelOnlyView = _args.ContainsKey("shots-level-only") && _args.ContainsKey("shots");
-        // Screenshots keep the project's fixed 1280x720 so every capture has the same size, unless
-        // `--shots-size WxH` asks for the design frame (2560x1440) the Figma comparison needs.
+        // A capture must be still, and `--reduce-motion` turns the HUD's motion off for a player.
+        HudTheme.Motion = !_args.ContainsKey("reduce-motion") && !_args.ContainsKey("shots");
+        // Screenshots use the project default window (2560x1440) so every capture has the same size, unless
+        // `--shots-size WxH` asks for another one, such as 1280x720 or the 2560x1369 maximized client.
         if (!_args.ContainsKey("shots")) DisplayServer.WindowSetMode(DisplayServer.WindowMode.Maximized);
         else if (_args.TryGetValue("shots-size", out var shotSize) && shotSize.Split('x') is [var shotW, var shotH]
             && int.TryParse(shotW, out var parsedW) && int.TryParse(shotH, out var parsedH))
@@ -262,6 +265,7 @@ public partial class WorldClient : Node
         FollowPlayer();
         SendMovement(delta, now);
         TraceWalk(delta, arrived);
+        UpdateNearby(delta);
     }
 
     private void ApplyFrame(WorldFrame frame)
@@ -757,6 +761,33 @@ public partial class WorldClient : Node
         return true;
     }
 
+    /// <summary>
+    /// Feeds the HUD's `NEARBY` panel at 4 Hz with the actors whose projected position lies inside
+    /// the `GameViewport` rectangle, so the panel can only list what is on screen. The distance is
+    /// the sim's own metres from Niko; nothing is written back.
+    /// </summary>
+    private void UpdateNearby(double delta)
+    {
+        _nearbyClock += delta;
+        if (_nearbyClock < 0.25) return;
+        _nearbyClock = 0;
+        if (_frame is not { } frame || _gameHud.ActiveView != "GAME") return;
+        var player = frame.Actors.FirstOrDefault(actor => actor.Id == Ids.Player);
+        if (player is null) return;
+        var rect = _gameHud.ViewportRect;
+        var now = Now;
+        var visible = new List<NearbyList.Entry>();
+        foreach (var actor in frame.Actors)
+        {
+            if (actor.Id == Ids.Player || !_actorMotions.TryGetValue(actor.Id, out var motion)) continue;
+            var screen = _view.ScreenFromWorld(_root.ToGlobal(ToVector(motion.Sample(now))));
+            if (!rect.HasPoint(screen)) continue;
+            var distance = Math.Sqrt((actor.X - player.X) * (actor.X - player.X) + (actor.Y - player.Y) * (actor.Y - player.Y));
+            visible.Add(new NearbyList.Entry(actor.Id, actor.Name ?? actor.Id, actor.Kind, distance, actor.Activity?.Op));
+        }
+        _gameHud.SetNearby(visible);
+    }
+
     private Vector2 PlayerScreenPosition()
     {
         if (!_actors.TryGetValue(Ids.Player, out var player)) return GetViewport().GetVisibleRect().Size * 0.5f;
@@ -860,6 +891,24 @@ public partial class WorldClient : Node
             GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "context-menu.png"));
             _actionMenu.Close();
         }
+        // The feed with enough rows to scroll, then its oldest rows, then a hovered menu button.
+        foreach (var (text, category) in new[]
+        {
+            ("DIG · 24 MIN", "act"), ("DIG DONE", "act"), ("APPLE ×3 TAKEN", "seen"), ("CAN'T DIG · TOO HEAVY", "warn"),
+            ("BUILD FAILED · NO MATERIAL", "fail"), ("VIEW: AROUND NIKO", "seen"), ("NOTHING HERE", "warn"),
+        })
+            _gameHud.PushFeed(text, category);
+        await Frames(4);
+        GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "feed-latest.png"));
+        _gameHud.ScrollFeedToTop();
+        await Frames(3);
+        GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "feed-history.png"));
+        var hover = _gameHud.MenuButtonCenter("DEBUG");
+        Input.WarpMouse(hover);
+        Input.ParseInputEvent(new InputEventMouseMotion { Position = hover, GlobalPosition = hover });
+        await Frames(4);
+        GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "menu-hover.png"));
+        Input.WarpMouse(Vector2.Zero);
         _gameHud.ShowNewGame();
         await Frames(4);
         GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "new-game.png"));

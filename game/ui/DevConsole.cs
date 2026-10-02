@@ -134,13 +134,23 @@ public partial class DevConsole : PanelContainer
         var note = new Label
         {
             Text = "RAISES THE SAME NEW-GAME REQUEST AS THE GAME VIEW · NOTHING HERE WRITES STATE",
-            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            ClipText = true,
         };
         HudTheme.Label(note, HudTheme.Dim, HudTheme.SmallUnits);
         body.AddChild(note);
         _regenerate = new GeneratorPanel(newGameMode: false);
         _regenerate.Confirmed += request => RegenerateRequested?.Invoke(request);
-        body.AddChild(_regenerate);
+        // A long generator form scrolls inside the card; as a plain child its minimum height would
+        // push the console past the viewport and over the footer.
+        var scroll = new ScrollContainer
+        {
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            SizeFlagsVertical = SizeFlags.ExpandFill,
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+        };
+        _regenerate.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        scroll.AddChild(_regenerate);
+        body.AddChild(scroll);
         return card;
     }
 

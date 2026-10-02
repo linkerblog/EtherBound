@@ -1,10 +1,13 @@
+using System;
 using Godot;
 
 namespace EtherBound.Game.Ui;
 
 /// <summary>
 /// The HUD's layout, solved in design units of the 2560x1440 frame and scaled to the window by
-/// <see cref="HudTheme.Scale"/> (<c>window height / 1440</c>). Pure arithmetic, no nodes: the same
+/// <see cref="HudTheme.Scale"/>: the largest scale at which the whole frame fits
+/// (<c>min(width / 2560, height / 1440)</c>), centred in any spare width or height, so a maximized
+/// window that is not exactly 16:9 still shows the entire HUD. Pure arithmetic, no nodes: the same
 /// numbers feed the shell and the test in `game.tests/HudLayoutTests.cs`.
 ///
 /// The plan fixes the frame, the 32-unit margins, the 40-unit gutters, the 200x50 menu buttons with
@@ -31,6 +34,7 @@ public static class HudLayout
     public const float InputWidth = 760f;
     public const float CompassSize = 160f;
     public const float PanelHeight = 360f;
+    public const float PanelEmptyHeight = 240f;
     public const float TabHeight = 56f;
     public const float SlotHeight = 120f;
     public const int TilesAcross = 30;
@@ -44,11 +48,23 @@ public static class HudLayout
     /// </summary>
     public sealed record Frame(
         Rect2 Header, Rect2 Menu, Rect2 Viewport, Rect2 Status, Rect2 Footer,
-        Rect2 BuildButton, Rect2 Feed, Rect2 Input, Rect2 Compass, Rect2 Panel, float Scale);
+        Rect2 BuildButton, Rect2 Feed, Rect2 Input, Rect2 Compass, Rect2 Panel, float Scale, Vector2 Offset);
 
-    public static Frame Solve(Vector2 window) => Solve(window.Y / Height);
+    /// <summary>The scale at which the whole design frame fits a window.</summary>
+    public static float ScaleFor(Vector2 window) => Math.Min(window.X / Width, window.Y / Height);
 
-    public static Frame Solve(float scale)
+    /// <summary>Where the scaled frame starts in window pixels: it is centred on both axes.</summary>
+    public static Vector2 OffsetFor(Vector2 window)
+    {
+        var scale = ScaleFor(window);
+        return new Vector2(Math.Max(0, (window.X - Width * scale) * 0.5f), Math.Max(0, (window.Y - Height * scale) * 0.5f));
+    }
+
+    public static Frame Solve(Vector2 window) => Solve(ScaleFor(window), OffsetFor(window));
+
+    public static Frame Solve(float scale) => Solve(scale, Vector2.Zero);
+
+    private static Frame Solve(float scale, Vector2 offset)
     {
         var header = new Rect2(Margin, Margin, Width - 2 * Margin, HeaderHeight);
         var band = Margin + HeaderHeight + Gutter;
@@ -64,7 +80,7 @@ public static class HudLayout
         var compass = new Rect2(ViewportWidth - Gutter - CompassSize, ViewportHeight - Gutter - CompassSize,
             CompassSize, CompassSize);
         var panel = new Rect2(0, ViewportHeight - PanelHeight, ViewportWidth, PanelHeight);
-        return new Frame(header, menu, viewport, status, footer, build, feed, input, compass, panel, scale);
+        return new Frame(header, menu, viewport, status, footer, build, feed, input, compass, panel, scale, offset);
     }
 
     /// <summary>The i-th menu button, top to bottom in the left column, in the column's own space.</summary>
@@ -72,8 +88,9 @@ public static class HudLayout
         new(0, index * (MenuButtonHeight + MenuGap), MenuWidth, MenuButtonHeight);
 
     /// <summary>The 3D view in screen pixels for a window, which is what `PixelView` renders into.</summary>
-    public static Rect2 ViewportPixels(Vector2 window) => Cells(Solve(window).Viewport, window.Y / Height);
-
-    private static Rect2 Cells(Rect2 rect, float scale) =>
-        new(rect.Position * scale, rect.Size * scale);
+    public static Rect2 ViewportPixels(Vector2 window)
+    {
+        var frame = Solve(window);
+        return new Rect2(frame.Viewport.Position * frame.Scale + frame.Offset, frame.Viewport.Size * frame.Scale);
+    }
 }

@@ -59,6 +59,17 @@ Open decisions and loose ends. When one is settled, record the decision where it
       seed 7 the only slot is a disabled `Asphalt wall`); press `D`, `W`, `A`, `S` with the console
       closed; and confirm that opening the build panel or the console does not stop movement.
       `HudLayoutTests.cs` covers the frame arithmetic instead of a screenshot.
+- [ ] **Dev-005 manual checks (HUD polish).** Captures exist at 2560×1440, 2560×1369 (the maximized
+      client of a 2K monitor) and 1280×720 (`--shots --shots-size WxH`, isolated `--database`),
+      including `feed-latest.png`, `feed-history.png` and `menu-hover.png`. Open, because they need
+      a person at a real window: run the game maximized on the 2K monitor and judge the polish (font,
+      header, status column, feed, build panel) against the Dev-004 captures; check that `NEARBY`
+      drops an actor that walks out of the viewport (a lab save or a walk-through; the projection needs
+      the live camera); run once with `--reduce-motion` and confirm the feed row and the menu open step
+      do not animate; drag the window between sizes and confirm the frame rebuilds without losing the
+      feed history. `HudMeterTests`, `FeedFormatTests`, `CarryListTests`, `NearbyListTests`,
+      `BuildSwatchTests` and the new `HudLayoutTests` cases cover the arithmetic. `GameHud.cs` is now
+      over 600 lines; split it if it grows again.
 - [ ] **Dev-004: Figma side.** Update the Figma frames with the panels from D3 and export the
       `EtherBound/Colors` tokens. The implementing session had no Figma access, so the palette comes
       from the tokens already documented in `utils/STYLEGUIDE.md` [Sec. 3] and the derived widths

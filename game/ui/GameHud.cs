@@ -8,39 +8,57 @@ using Godot;
 namespace EtherBound.Game.Ui;
 
 /// <summary>
-/// The HUD shell: the 2560x1440 design frame from the Figma `HUD / Base` nodes, laid out in design
-/// units and scaled to the window by <see cref="HudTheme.Scale"/>. Left `MainMenu`, header with brand
-/// and clock, the `GameViewport` rectangle the 3D view renders into, the status column, and the
-/// footer with `BuildButton`, feed and input line. The sim stays the source of truth for every
-/// number: this class reads `WorldFrame` and raises events, it never writes state.
+/// The HUD shell on the 2560x1440 design frame (`HudLayout`), laid out in design units, scaled to
+/// the window and centred in it. Left `MainMenu`, header with brand, clock and speed control, the
+/// `GameViewport` rectangle the 3D view renders into, the status column (`ACT`, `CARRY`, `NEARBY`),
+/// and the footer with `BUILD`, the feed and the input line. The sim stays the source of truth for
+/// every number: this class reads `WorldFrame` and raises events, it never writes state.
+///
+/// Sizes and styleboxes are baked at the scale they are created at, so the frame is rebuilt when
+/// the window changes the scale (the maximize at start-up, a manual resize). The feed history lives
+/// here and is replayed into the new log, so a rebuild loses nothing the player saw.
 /// </summary>
 public partial class GameHud : CanvasLayer
 {
-    private static readonly (string View, string Label, string Hint, bool Enabled)[] MenuEntries =
+    private sealed record MenuItem(string View, string Label, string Hint, bool Enabled);
+
+    private sealed record MenuCell(Button Button, ColorRect Rule, PanelContainer Chip);
+
+    private static readonly MenuItem[] MenuItems =
     {
-        ("GAME", "GAME", "ALT+1", true),
-        ("INVENTORY", "INVENTORY", "—", false),
-        ("DEBUG", "DEBUG MENU", "ALT+2", true),
+        new("GAME", "GAME", "ALT+1", true),
+        new("INVENTORY", "INVENTORY", "—", false),
+        new("DEBUG", "DEBUG", "ALT+2", true),
     };
 
     private readonly Dictionary<int, Button> _speedButtons = new();
-    private readonly Queue<Label> _feedRows = new();
-    private readonly Button[] _menuButtons = new Button[MenuEntries.Length];
-    private Control _root = null!;
+    private readonly List<MenuCell> _menuButtons = new();
+    private readonly List<(int Minute, string Text, string Category)> _feedHistory = new();
+    private readonly List<Control> _carryRows = new();
+    private readonly List<Control> _nearbyRows = new();
+    private Theme _theme = null!;
+    private Font _bold = null!;
+    private Control _root = null!, _frameRoot = null!;
     private PanelContainer _header = null!, _clockPanel = null!, _feedPanel = null!, _inputPanel = null!;
-    private PanelContainer _activityPanel = null!, _carryPanel = null!, _statusPanel = null!;
+    private PanelContainer _activityPanel = null!, _carryPanel = null!, _nearbyPanel = null!, _statusPanel = null!;
     private Control _menu = null!, _gameView = null!, _debugView = null!, _llmView = null!, _statusColumn = null!, _footer = null!;
-    private HBoxContainer _clockRow = null!;
-    private Label _clockText = null!, _carryText = null!, _activityText = null!;
-    private ProgressBar _activityProgress = null!;
-    private VBoxContainer _feedRowsContainer = null!;
+    private ViewportFrame _viewportFrame = null!;
+    private Label _clockText = null!, _subtitle = null!, _activityText = null!, _loadText = null!;
+    private MeterBar _activityMeter = null!, _loadMeter = null!;
+    private FeedLog _feed = null!;
     private LineEdit _input = null!;
+    private Control _inputChip = null!;
     private Button _pauseButton = null!, _buildButton = null!;
     private GeneratorPanel _newGame = null!;
     private DevConsole _console = null!;
     private CompassOverlay _compass = null!;
     private WorldFrame? _frame;
     private int _buildRefresh;
+    private string _nearbySignature = "\0";
+    private IReadOnlyList<NearbyList.Entry> _nearby = Array.Empty<NearbyList.Entry>();
+    private float _builtScale = -1f;
+    private HudLayout.Frame _layoutFrame = HudLayout.Solve(1f);
+    private int _materialCount = -1;
     private Rect2 _viewportRect;
 
     public GameHud()
@@ -86,27 +104,20 @@ public partial class GameHud : CanvasLayer
 
     public override void _Ready()
     {
-        var font = GD.Load<FontFile>("res://assets/fonts/Inter-VariableFont_opsz_wght.ttf");
-        if (font is null) throw new InvalidOperationException("The HUD font could not be loaded.");
-        HudTheme.SetScale(GetViewport().GetVisibleRect().Size.Y / HudLayout.Height);
-        var uiTheme = HudTheme.CreateTheme(font);
-        ActionMenus.Theme = uiTheme;
-        Build.Theme = uiTheme;
-        _root = new Control { Name = "HudRoot", Modulate = new Color(1, 1, 1, 1), Theme = uiTheme };
+        var body = HudTheme.LoadBodyFont();
+        _bold = HudTheme.LoadBoldFont(body);
+        HudTheme.SetScale(HudLayout.ScaleFor(GetViewport().GetVisibleRect().Size));
+        _theme = HudTheme.CreateTheme(body);
+        ActionMenus.Theme = _theme;
+        Build.Theme = _theme;
+        _root = new Control { Name = "HudRoot", Modulate = new Color(1, 1, 1, 1), Theme = _theme };
         _root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         _root.MouseFilter = Control.MouseFilterEnum.Ignore;
         AddChild(_root);
-        BuildHeader();
-        BuildMenu();
-        BuildViewportAndStatus();
-        BuildFooter();
-        _newGame = new GeneratorPanel(newGameMode: true) { Visible = false };
-        _newGame.Confirmed += request => NewGameRequested?.Invoke(request);
-        _root.AddChild(_newGame);
         AddChild(ActionMenus);
+        PushFeed("ALT+1 GAME · ALT+2 DEBUG · ALT+3 LLM", "seen");
         GetViewport().SizeChanged += Layout;
         Layout();
-        PushFeed("ALT+1 GAME · ALT+2 DEBUG · ALT+3 LLM", "seen");
     }
 
     public void UpdateFrame(WorldFrame frame)
@@ -116,35 +127,32 @@ public partial class GameHud : CanvasLayer
         if (player is null) return;
         var day = frame.GameMinute / 1440 + 1;
         var minute = frame.GameMinute % 1440;
-        _clockText.Text = $"DAY {day:00}   {minute / 60:00}:{minute % 60:00}";
+        _clockText.Text = $"DAY {day:00} · {minute / 60:00}:{minute % 60:00}";
         _clockText.AddThemeColorOverride("font_color", frame.Paused ? HudTheme.Yellow : HudTheme.Green);
-        _pauseButton.Text = frame.Paused ? "PLAY" : "PAUSE";
+        _subtitle.Text = frame.Paused ? "// PAUSED" : "// LIVE SIMULATION";
+        _subtitle.AddThemeColorOverride("font_color", frame.Paused ? HudTheme.Yellow : HudTheme.Dim);
+        _pauseButton.Text = frame.Paused ? "▶" : "II";
         _pauseButton.TooltipText = frame.Paused ? "Resume the world clock" : "Pause the world clock";
-        HudTheme.MiniButton(_pauseButton, frame.Paused ? HudTheme.Yellow : HudTheme.Text, frame.Paused);
+        HudTheme.Segment(_pauseButton, frame.Paused ? HudTheme.Yellow : HudTheme.Text, frame.Paused);
         foreach (var (speed, button) in _speedButtons)
         {
             var selected = frame.Speed == speed;
-            HudTheme.MiniButton(button, selected ? HudTheme.Cyan : HudTheme.Dim, selected);
+            HudTheme.Segment(button, selected ? HudTheme.Cyan : HudTheme.Dim, selected);
         }
 
-        var carried = player.Carried.Length == 0
-            ? "L  —\nR  —\nBACK  —"
-            : string.Join("\n", player.Carried.Select(item => $"{item.Slot.ToUpperInvariant(),-5} {item.Name} ×{item.Quantity}"));
-        _carryText.Text = $"{carried}\nLOAD  {player.LoadKg:0.0} kg";
-        _carryText.AddThemeColorOverride("font_color", player.LoadKg > 10 ? HudTheme.Yellow : HudTheme.Text);
-
-        var activity = player.Activity;
-        _activityPanel.Visible = activity is not null;
-        if (activity is not null)
+        if (frame.Materials.Length != _materialCount)
         {
-            var duration = Math.Max(1, activity.EndsMinute - activity.StartedMinute);
-            var progress = Math.Clamp((double)(frame.GameMinute - activity.StartedMinute) / duration, 0, 1);
-            _activityText.Text = $"{activity.Op.ToUpperInvariant()}  {Math.Max(0, activity.EndsMinute - frame.GameMinute)} MIN";
-            _activityProgress.Value = progress * 100;
+            _materialCount = frame.Materials.Length;
+            Build.SetMaterials(frame.Materials.Select(material => (material.Name, material.Color)));
         }
+        UpdateCarry(player);
+        UpdateActivity(frame, player);
 
         _newGame.UpdateFrame(frame);
         _console.UpdateFrame(frame);
+        // A container keeps the size it grew to while its content was taller, and this page is
+        // rebuilt from every frame; putting it back on the viewport rectangle keeps it off the footer.
+        if (_debugView.Visible) Place(_debugView, _layoutFrame.Viewport);
         // The slots read the world through `Menu.Build`; refresh them while the panel is open so a
         // wall built a moment ago is not offered again.
         if (Build.Visible && ++_buildRefresh >= 20)
@@ -154,29 +162,28 @@ public partial class GameHud : CanvasLayer
         }
     }
 
+    /// <summary>
+    /// The actors Niko can currently see, already filtered by the client to those inside
+    /// `GameViewport`, so this panel can only ever list what is on screen. Read-only.
+    /// </summary>
+    public void SetNearby(IReadOnlyList<NearbyList.Entry> visible)
+    {
+        _nearby = visible;
+        if (_nearbyPanel is null) return;
+        var rows = NearbyList.Rows(visible);
+        var signature = string.Join("\n", rows.Select(row => $"{row.Name}|{row.Distance}|{row.Activity}"));
+        if (signature == _nearbySignature) return;
+        _nearbySignature = signature;
+        RebuildNearby(rows);
+    }
+
     public void PushFeed(string text, string category = "info")
     {
-        if (string.IsNullOrWhiteSpace(text) || _feedRowsContainer is null) return;
-        var label = new Label { Text = text, AutowrapMode = TextServer.AutowrapMode.WordSmart };
-        label.AddThemeColorOverride("font_color", category switch
-        {
-            "warn" or "rumor" => HudTheme.Yellow,
-            "fail" or "harm" => HudTheme.Red,
-            "act" => HudTheme.LineHi,
-            "seen" => HudTheme.Cyan,
-            "ether" => HudTheme.Magenta,
-            _ => HudTheme.Text,
-        });
-        label.AddThemeFontSizeOverride("font_size", HudTheme.S(HudTheme.SmallUnits));
-        _feedRowsContainer.AddChild(label);
-        _feedRows.Enqueue(label);
-        // The footer strip is 80 design units tall; three rows plus the heading fit it.
-        while (_feedRows.Count > 3)
-        {
-            var oldest = _feedRows.Dequeue();
-            _feedRowsContainer.RemoveChild(oldest);
-            oldest.QueueFree();
-        }
+        if (string.IsNullOrWhiteSpace(text)) return;
+        var minute = _frame?.GameMinute ?? 0;
+        _feedHistory.Add((minute, text, category));
+        if (FeedFormat.Overflow(_feedHistory.Count) > 0) _feedHistory.RemoveRange(0, FeedFormat.Overflow(_feedHistory.Count));
+        _feed?.Push(minute, text, category);
     }
 
     public void ShowNewGame()
@@ -185,14 +192,29 @@ public partial class GameHud : CanvasLayer
         Layout();
     }
 
-    public void CloseNewGame() => _newGame.CloseNew();
+    public void CloseNewGame() => _newGame?.CloseNew();
 
     public void ShowGeneratorError(string message) => _newGame.ShowError(message);
 
     /// <summary>Fills the build panel from the sim's own `build` entries; nothing is authored here.</summary>
     public void ApplyBuildMenu(HostMenuPayload menu) => Build.SetEntries(menu.Entries);
 
-    public bool CloseBuild() => Build.Close();
+    public bool CloseBuild()
+    {
+        var closed = Build.Close();
+        if (closed) UpdateBuildButton();
+        return closed;
+    }
+
+    /// <summary>The centre of a menu button in window pixels, to hover it; for the screenshot driver.</summary>
+    public Vector2 MenuButtonCenter(string view)
+    {
+        var index = Array.FindIndex(MenuItems, item => item.View == view);
+        return index < 0 ? Vector2.Zero : _menuButtons[index].Button.GetGlobalRect().GetCenter();
+    }
+
+    /// <summary>Scrolls the feed to its oldest row; for the screenshot driver.</summary>
+    public void ScrollFeedToTop() => _feed.ScrollToTop();
 
     /// <summary>Selects a console section; for the screenshot driver.</summary>
     public void ShowConsoleSection(string key) => _console.ShowSection(key);
@@ -201,9 +223,7 @@ public partial class GameHud : CanvasLayer
     {
         if (view is not ("GAME" or "DEBUG" or "LLM") || view == ActiveView) return;
         ActiveView = view;
-        _gameView.Visible = view == "GAME";
-        _debugView.Visible = view == "DEBUG";
-        _llmView.Visible = view == "LLM";
+        ApplyView();
         ActionMenus.Close();
         CloseNewGame();
         _input.ReleaseFocus();
@@ -232,69 +252,142 @@ public partial class GameHud : CanvasLayer
         GetViewport().SetInputAsHandled();
     }
 
+    // ------------------------------------------------------------------ construction
+
+    /// <summary>Creates every scaled control from scratch. Called again when the scale changes.</summary>
+    private void BuildFrame()
+    {
+        if (Build.GetParent() is { } parent) parent.RemoveChild(Build);
+        if (_frameRoot is not null)
+        {
+            _root.RemoveChild(_frameRoot);
+            _frameRoot.QueueFree();
+        }
+        if (_newGame is not null)
+        {
+            _root.RemoveChild(_newGame);
+            _newGame.QueueFree();
+        }
+        _speedButtons.Clear();
+        _menuButtons.Clear();
+        _carryRows.Clear();
+        _nearbyRows.Clear();
+        _nearbySignature = "\0";
+
+        HudTheme.ApplyScale(_theme);
+        _frameRoot = new Control { Name = "HudFrame", MouseFilter = Control.MouseFilterEnum.Ignore };
+        _root.AddChild(_frameRoot);
+        BuildHeader();
+        BuildMenu();
+        BuildViewportAndStatus();
+        BuildFooter();
+        _newGame = new GeneratorPanel(newGameMode: true) { Visible = false };
+        _newGame.Confirmed += request => NewGameRequested?.Invoke(request);
+        _root.AddChild(_newGame);
+        Build.Restyle();
+
+        foreach (var (minute, text, category) in _feedHistory) _feed.Push(minute, text, category, animate: false);
+        ApplyView();
+        UpdateMenuStyles();
+        UpdateBuildButton();
+        if (_frame is not null) UpdateFrame(_frame);
+        SetNearby(_nearby);
+    }
+
     private void BuildHeader()
     {
         _header = new PanelContainer { Name = "Header", MouseFilter = Control.MouseFilterEnum.Pass };
         _header.AddThemeStyleboxOverride("panel", HudTheme.HeaderFrame());
         var row = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         row.AddThemeConstantOverride("separation", HudTheme.S(14));
+
+        row.AddChild(new ColorRect
+        {
+            Color = HudTheme.Cyan,
+            CustomMinimumSize = HudTheme.V(6, 34),
+            SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        });
         var brand = new Label { Text = "ETHERBOUND", VerticalAlignment = VerticalAlignment.Center };
         HudTheme.Label(brand, HudTheme.Text, HudTheme.BrandUnits);
+        brand.AddThemeFontOverride("font", _bold);
         row.AddChild(brand);
-        row.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
+        _subtitle = new Label { Text = "// LIVE SIMULATION", VerticalAlignment = VerticalAlignment.Center };
+        HudTheme.Label(_subtitle, HudTheme.Dim, HudTheme.SmallUnits);
+        row.AddChild(_subtitle);
+        row.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MouseFilter = Control.MouseFilterEnum.Ignore });
+
         _clockPanel = new PanelContainer { MouseFilter = Control.MouseFilterEnum.Pass };
-        _clockPanel.AddThemeStyleboxOverride("panel", HudTheme.Box(HudTheme.Bg, HudTheme.LineHi, 0.9f, HudTheme.S(1), HudTheme.S(10), HudTheme.S(4)));
-        _clockRow = new HBoxContainer();
-        _clockRow.AddThemeConstantOverride("separation", HudTheme.S(8));
-        _clockText = new Label { Text = "DAY 01   00:00", VerticalAlignment = VerticalAlignment.Center };
+        _clockPanel.AddThemeStyleboxOverride("panel", HudTheme.Box(HudTheme.Bg, HudTheme.LineHi, 0.9f, HudTheme.S(1), HudTheme.S(12), HudTheme.S(3)));
+        var clockRow = new HBoxContainer();
+        clockRow.AddThemeConstantOverride("separation", HudTheme.S(16));
+        _clockText = new Label { Text = "DAY 01 · 00:00", VerticalAlignment = VerticalAlignment.Center };
         HudTheme.Label(_clockText, HudTheme.Green, HudTheme.ClockUnits);
-        _clockRow.AddChild(_clockText);
-        _pauseButton = AddMiniButton(_clockRow, "PAUSE", () => PauseRequested?.Invoke(!(_frame?.Paused ?? false)));
+        _clockText.AddThemeFontOverride("font", _bold);
+        clockRow.AddChild(_clockText);
+
+        var segments = new HBoxContainer();
+        segments.AddThemeConstantOverride("separation", HudTheme.S(4));
+        _pauseButton = AddSegment(segments, "II", () => PauseRequested?.Invoke(!(_frame?.Paused ?? false)));
         foreach (var speed in new[] { 1, 3, 10 })
-            _speedButtons[speed] = AddMiniButton(_clockRow, $"x{speed}", () => SpeedRequested?.Invoke(speed));
-        AddMiniButton(_clockRow, "NEW", ShowNewGame);
-        _clockPanel.AddChild(_clockRow);
+            _speedButtons[speed] = AddSegment(segments, $"x{speed}", () => SpeedRequested?.Invoke(speed));
+        clockRow.AddChild(segments);
+
+        var newButton = new Button { Text = "NEW", CustomMinimumSize = HudTheme.V(78, 0) };
+        HudTheme.Segment(newButton, HudTheme.Green, false);
+        newButton.Pressed += ShowNewGame;
+        clockRow.AddChild(newButton);
+        _clockPanel.AddChild(clockRow);
         row.AddChild(_clockPanel);
+
         _header.AddChild(row);
-        _root.AddChild(_header);
+        _header.AddChild(new Scanlines());
+        _frameRoot.AddChild(_header);
     }
 
     private void BuildMenu()
     {
         _menu = new Control { Name = "MainMenu", MouseFilter = Control.MouseFilterEnum.Pass };
-        for (var i = 0; i < MenuEntries.Length; i++)
+        foreach (var item in MenuItems)
         {
-            var (view, label, hint, enabled) = MenuEntries[i];
-            var button = new Button
-            {
-                Text = $"{label}   {hint}",
-                Disabled = !enabled,
-                Alignment = HorizontalAlignment.Left,
-            };
-            HudTheme.Button(button, HudTheme.Text);
-            if (enabled) button.Pressed += () => SwitchView(view);
-            _menuButtons[i] = button;
+            // ClipText keeps a long label inside its 200-unit column instead of growing the button
+            // under the viewport; the hotkey chip is a child anchored to the right edge.
+            var button = new Button { Text = item.Label, Disabled = !item.Enabled, Alignment = HorizontalAlignment.Left, ClipText = true };
+            var rule = new ColorRect { Color = HudTheme.Cyan, MouseFilter = Control.MouseFilterEnum.Ignore, Visible = false };
+            rule.SetAnchorsPreset(Control.LayoutPreset.LeftWide);
+            rule.OffsetRight = HudTheme.S(6);
+            button.AddChild(rule);
+            var chip = HudTheme.Chip(item.Hint, item.Enabled ? HudTheme.Dim : HudTheme.LineHi);
+            chip.AnchorLeft = chip.AnchorRight = 1;
+            chip.AnchorTop = chip.AnchorBottom = 0.5f;
+            chip.GrowHorizontal = Control.GrowDirection.Begin;
+            chip.GrowVertical = Control.GrowDirection.Both;
+            chip.OffsetLeft = chip.OffsetRight = -HudTheme.S(10);
+            button.AddChild(chip);
+            var view = item.View;
+            if (item.Enabled) button.Pressed += () => SwitchView(view);
+            _menuButtons.Add(new MenuCell(button, rule, chip));
             _menu.AddChild(button);
         }
-        _root.AddChild(_menu);
-        UpdateMenuStyles();
+        _frameRoot.AddChild(_menu);
     }
 
     private void BuildViewportAndStatus()
     {
+        _viewportFrame = new ViewportFrame();
+        _frameRoot.AddChild(_viewportFrame);
         _gameView = new Control { Name = "GameViewport", MouseFilter = Control.MouseFilterEnum.Ignore };
         _compass = new CompassOverlay();
         _gameView.AddChild(_compass);
         _gameView.AddChild(Build);
-        _root.AddChild(_gameView);
+        _frameRoot.AddChild(_gameView);
         // The console and the LLM placeholder cover the viewport area but not the world: the world
         // renders on its own canvas below the HUD, so these are siblings of the GAME overlay.
-        _console = new DevConsole();
+        _console = new DevConsole { ClipContents = true };
         _console.RegenerateRequested += request => NewGameRequested?.Invoke(request);
         _debugView = _console;
-        _debugView.Visible = false;
-        _root.AddChild(_debugView);
-        _llmView = new PanelContainer { Name = "LlmView", Visible = false, MouseFilter = Control.MouseFilterEnum.Pass };
+        _frameRoot.AddChild(_debugView);
+        _llmView = new PanelContainer { Name = "LlmView", MouseFilter = Control.MouseFilterEnum.Pass };
         _llmView.AddThemeStyleboxOverride("panel", HudTheme.PanelFrame(modal: true));
         var placeholder = new Label
         {
@@ -304,55 +397,58 @@ public partial class GameHud : CanvasLayer
         };
         HudTheme.Label(placeholder, HudTheme.Dim);
         _llmView.AddChild(placeholder);
-        _root.AddChild(_llmView);
+        _frameRoot.AddChild(_llmView);
 
         _statusColumn = new Control { Name = "StatusColumn", MouseFilter = Control.MouseFilterEnum.Pass };
         var stack = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+        // The column is a plain Control, so the stack needs anchors to take its width and height.
+        stack.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         stack.AddThemeConstantOverride("separation", HudTheme.S(24));
+
         _activityPanel = CreatePanel(stack, "ACT");
-        _activityText = new Label { Text = "", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        _activityText = new Label { Text = "", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, ClipText = true };
         HudTheme.Label(_activityText, HudTheme.Text, HudTheme.SmallUnits);
         Content(_activityPanel).AddChild(_activityText);
-        _activityProgress = new ProgressBar { MinValue = 0, MaxValue = 100, Value = 0, ShowPercentage = false };
-        _activityProgress.AddThemeStyleboxOverride("background", HudTheme.Flat(HudTheme.Bar));
-        _activityProgress.AddThemeStyleboxOverride("fill", HudTheme.Flat(HudTheme.Cyan));
-        Content(_activityPanel).AddChild(_activityProgress);
+        _activityMeter = new MeterBar(HudTheme.Cyan);
+        Content(_activityPanel).AddChild(_activityMeter);
         _activityPanel.Visible = false;
 
         _carryPanel = CreatePanel(stack, "CARRY");
-        _carryText = new Label { Text = "L  —\nR  —\nBACK  —\nLOAD  0.0 kg" };
-        HudTheme.Label(_carryText, HudTheme.Text, HudTheme.SmallUnits);
-        Content(_carryPanel).AddChild(_carryText);
+        _loadText = new Label { Text = "LOAD  0.0 kg", ClipText = true };
+        HudTheme.Label(_loadText, HudTheme.Dim, HudTheme.SmallUnits);
+        _loadMeter = new MeterBar(HudTheme.Green);
+        Content(_carryPanel).AddChild(_loadText);
+        Content(_carryPanel).AddChild(_loadMeter);
+
+        _nearbyPanel = CreatePanel(stack, "NEARBY");
 
         // D4: the design's StatBar components (HP, EP) draw nothing until the sim exposes vitals of
         // its own; a placeholder would show invented numbers, so the panel stays hidden.
         _statusPanel = CreatePanel(stack, "STATUS");
         _statusPanel.Visible = false;
         _statusColumn.AddChild(stack);
-        _root.AddChild(_statusColumn);
+        _frameRoot.AddChild(_statusColumn);
     }
 
     private void BuildFooter()
     {
         _footer = new Control { Name = "Footer", MouseFilter = Control.MouseFilterEnum.Pass };
         _buildButton = new Button { Text = "BUILD" };
-        HudTheme.Button(_buildButton, HudTheme.Cyan);
         _buildButton.Pressed += ToggleBuild;
         _footer.AddChild(_buildButton);
 
-        _feedPanel = CreatePanel(_footer, "FEED");
-        _feedPanel.ClipContents = true;
-        _feedRowsContainer = new VBoxContainer
-        {
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
-        };
-        _feedRowsContainer.AddThemeConstantOverride("separation", HudTheme.S(4));
-        Content(_feedPanel).AddChild(_feedRowsContainer);
+        // No title row: the footer slot is 80 units tall and three feed rows need all of it.
+        _feedPanel = new PanelContainer { Name = "FeedPanel", MouseFilter = Control.MouseFilterEnum.Pass, ClipContents = true };
+        _feedPanel.AddThemeStyleboxOverride("panel", HudTheme.PanelFrame(padY: 2));
+        _feed = new FeedLog { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+        _feedPanel.AddChild(_feed);
+        _feedPanel.AddChild(new Scanlines());
+        _footer.AddChild(_feedPanel);
 
-        _inputPanel = CreatePanel(_footer, "");
+        _inputPanel = new PanelContainer { Name = "InputPanel", MouseFilter = Control.MouseFilterEnum.Pass };
+        _inputPanel.AddThemeStyleboxOverride("panel", HudTheme.PanelFrame(padY: 2));
         var inputRow = new HBoxContainer();
-        var prompt = new Label { Text = ">", CustomMinimumSize = HudTheme.V(28, 0) };
+        var prompt = new Label { Text = ">", CustomMinimumSize = HudTheme.V(28, 0), VerticalAlignment = VerticalAlignment.Center };
         HudTheme.Label(prompt, HudTheme.Green, HudTheme.BodyUnits);
         inputRow.AddChild(prompt);
         _input = new LineEdit
@@ -368,44 +464,197 @@ public partial class GameHud : CanvasLayer
             _input.Clear();
             _input.ReleaseFocus();
         };
+        _input.FocusEntered += () => SetInputFocused(true);
+        _input.FocusExited += () => SetInputFocused(false);
         inputRow.AddChild(_input);
-        Content(_inputPanel).AddChild(inputRow);
+        _inputChip = HudTheme.Chip("ENTER");
+        _inputChip.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
+        inputRow.AddChild(_inputChip);
+        _inputPanel.AddChild(inputRow);
+        _footer.AddChild(_inputPanel);
 
-        Build.SlotSelected += selection => PushFeed($"BUILD ARMED · {selection.Subject.ToUpperInvariant()}", "seen");
-        Build.SlotsClosed += () => BuildSlotsRequested?.Invoke();
-        _root.AddChild(_footer);
+        Build.SlotSelected -= OnSlotSelected;
+        Build.SlotSelected += OnSlotSelected;
+        Build.SlotsClosed -= OnSlotsClosed;
+        Build.SlotsClosed += OnSlotsClosed;
+        _frameRoot.AddChild(_footer);
+    }
+
+    private void OnSlotSelected(BuildPanel.Selection selection) =>
+        PushFeed($"BUILD ARMED · {selection.Subject.ToUpperInvariant()}", "seen");
+
+    private void OnSlotsClosed()
+    {
+        UpdateBuildButton();
+        BuildSlotsRequested?.Invoke();
+    }
+
+    // ------------------------------------------------------------------ updates
+
+    private void UpdateCarry(HostActor player)
+    {
+        foreach (var row in _carryRows)
+        {
+            row.GetParent().RemoveChild(row);
+            row.QueueFree();
+        }
+        _carryRows.Clear();
+        var rows = CarryList.Rows(player.Carried.Select(item => new CarryList.Item(item.Slot, item.Name, item.Quantity)));
+        var body = Content(_carryPanel);
+        var insertAt = body.GetChildCount() - 2;
+        foreach (var row in rows)
+        {
+            var line = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+            line.AddThemeConstantOverride("separation", HudTheme.S(10));
+            var slot = new Label { Text = row.Slot, CustomMinimumSize = HudTheme.V(78, 0) };
+            HudTheme.Label(slot, HudTheme.Dim, HudTheme.SmallUnits);
+            var item = new Label
+            {
+                Text = row.Text,
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                ClipText = true,
+                TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
+            };
+            HudTheme.Label(item, row.Filled ? HudTheme.Text : HudTheme.LineHi, HudTheme.SmallUnits);
+            line.AddChild(slot);
+            line.AddChild(item);
+            body.AddChild(line);
+            body.MoveChild(line, insertAt++);
+            _carryRows.Add(line);
+        }
+        var heavy = player.LoadKg > HudMeter.FreeLoadKg;
+        _loadText.Text = $"LOAD  {player.LoadKg:0.0} kg";
+        _loadText.AddThemeColorOverride("font_color", heavy ? HudTheme.Yellow : HudTheme.Dim);
+        _loadMeter.Set(HudMeter.Load(player.LoadKg));
+    }
+
+    private void UpdateActivity(WorldFrame frame, HostActor player)
+    {
+        var activity = player.Activity;
+        _activityPanel.Visible = activity is not null;
+        if (activity is null) return;
+        _activityText.Text = $"{activity.Op.ToUpperInvariant()}  {Math.Max(0, activity.EndsMinute - frame.GameMinute)} MIN";
+        _activityMeter.Set(HudMeter.Activity(frame.GameMinute, activity.StartedMinute, activity.EndsMinute));
+    }
+
+    private void RebuildNearby(IReadOnlyList<NearbyList.Row> rows)
+    {
+        foreach (var row in _nearbyRows)
+        {
+            row.GetParent().RemoveChild(row);
+            row.QueueFree();
+        }
+        _nearbyRows.Clear();
+        var body = Content(_nearbyPanel);
+        if (rows.Count == 0)
+        {
+            var empty = new Label { Text = "NO ONE IN VIEW" };
+            HudTheme.Label(empty, HudTheme.LineHi, HudTheme.SmallUnits);
+            body.AddChild(empty);
+            _nearbyRows.Add(empty);
+            return;
+        }
+        foreach (var row in rows)
+        {
+            var line = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+            line.AddThemeConstantOverride("separation", HudTheme.S(8));
+            var name = new Label
+            {
+                Text = row.Name,
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                ClipText = true,
+                TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
+            };
+            HudTheme.Label(name, HudTheme.Text, HudTheme.SmallUnits);
+            line.AddChild(name);
+            if (row.Activity is { } activity)
+            {
+                var doing = new Label { Text = activity };
+                HudTheme.Label(doing, HudTheme.Cyan, HudTheme.TinyUnits);
+                line.AddChild(doing);
+            }
+            var distance = new Label { Text = row.Distance, HorizontalAlignment = HorizontalAlignment.Right, CustomMinimumSize = HudTheme.V(70, 0) };
+            HudTheme.Label(distance, HudTheme.Dim, HudTheme.SmallUnits);
+            line.AddChild(distance);
+            body.AddChild(line);
+            _nearbyRows.Add(line);
+        }
+    }
+
+    private void ApplyView()
+    {
+        _gameView.Visible = ActiveView == "GAME";
+        _debugView.Visible = ActiveView == "DEBUG";
+        _llmView.Visible = ActiveView == "LLM";
+        // A container keeps the size it grew to even after its content shrinks, so views that
+        // switch sections are put back on their rectangle every time they are shown.
+        if (_builtScale > 0) Layout();
     }
 
     private void ToggleBuild()
     {
         if (Build.Visible && Build.Close()) return;
         Build.Open();
+        UpdateBuildButton();
         BuildSlotsRequested?.Invoke();
     }
 
+    private void UpdateBuildButton()
+    {
+        if (_buildButton is null) return;
+        HudTheme.Button(_buildButton, HudTheme.Cyan, Build.Visible);
+    }
+
+    private void SetInputFocused(bool focused)
+    {
+        _inputPanel.AddThemeStyleboxOverride("panel", HudTheme.PanelFrame(padY: 2, accent: focused ? HudTheme.Green : null));
+        _inputChip.Visible = !focused;
+    }
+
+    private void UpdateMenuStyles()
+    {
+        for (var i = 0; i < _menuButtons.Count; i++)
+        {
+            var (button, rule, chip) = _menuButtons[i];
+            var item = MenuItems[i];
+            var active = item.View == ActiveView;
+            HudTheme.Button(button, active ? HudTheme.Cyan : HudTheme.Text, active);
+            button.AddThemeFontSizeOverride("font_size", HudTheme.S(22));
+            rule.Visible = active;
+            if (!item.Enabled) button.Disabled = true;
+        }
+    }
+
+    // ------------------------------------------------------------------ layout
+
     private void Layout()
     {
-        if (_root is null || _footer is null) return;
+        if (_root is null) return;
         var window = GetViewport().GetVisibleRect().Size;
-        HudTheme.SetScale(window.Y / HudLayout.Height);
-        var frame = HudLayout.Solve(window);
-        _root.Theme.DefaultFontSize = HudTheme.S(HudTheme.BodyUnits);
-
-        Place(_header, frame.Header);
-        _clockPanel.Size = _clockPanel.CustomMinimumSize = new Vector2(HudTheme.S(600), _header.Size.Y - HudTheme.S(12));
-
-        Place(_menu, frame.Menu);
-        for (var i = 0; i < _menuButtons.Length; i++)
+        var frame = _layoutFrame = HudLayout.Solve(window);
+        if (_builtScale < 0f || Math.Abs(frame.Scale - _builtScale) > 0.004f)
         {
-            var rect = HudLayout.MenuButton(i, frame.Scale);
-            _menuButtons[i].Position = HudTheme.V(rect.Position);
-            _menuButtons[i].Size = HudTheme.V(rect.Size);
-            _menuButtons[i].AddThemeFontSizeOverride("font_size", HudTheme.S(HudTheme.BodyUnits));
+            HudTheme.SetScale(frame.Scale);
+            _builtScale = frame.Scale;
+            BuildFrame();
         }
 
+        _frameRoot.Position = frame.Offset;
+        _frameRoot.Size = HudTheme.V(HudLayout.Width, HudLayout.Height);
+        Place(_header, frame.Header);
+        for (var i = 0; i < _menuButtons.Count; i++)
+        {
+            var rect = HudLayout.MenuButton(i, frame.Scale);
+            Place(_menuButtons[i].Button, rect);
+        }
+        Place(_menu, frame.Menu);
+
+        var framed = new Rect2(frame.Viewport.Position - new Vector2(4, 4), frame.Viewport.Size + new Vector2(8, 8));
+        Place(_viewportFrame, framed);
         Place(_gameView, frame.Viewport);
         Place(_compass, frame.Compass);
         Place(Build, frame.Panel);
+        Build.ApplyHeight();
         Place(_debugView, frame.Viewport);
         Place(_llmView, frame.Viewport);
 
@@ -413,13 +662,11 @@ public partial class GameHud : CanvasLayer
         Place(_footer, frame.Footer);
         // Children are positioned in their parent's space, so frame rectangles are converted here.
         Place(_buildButton, frame.BuildButton, frame.Footer);
-        _buildButton.AddThemeFontSizeOverride("font_size", HudTheme.S(HudTheme.BodyUnits));
         Place(_feedPanel, frame.Feed, frame.Footer);
         Place(_inputPanel, frame.Input, frame.Footer);
 
         if (_newGame.Visible) _newGame.Position = (_root.Size - _newGame.Size) * 0.5f;
-        _viewportRect = HudTheme.R(frame.Viewport.Position.X, frame.Viewport.Position.Y,
-            frame.Viewport.Size.X, frame.Viewport.Size.Y);
+        _viewportRect = new Rect2(frame.Offset + HudTheme.V(frame.Viewport.Position), HudTheme.V(frame.Viewport.Size));
         ViewportRectChanged?.Invoke(_viewportRect);
     }
 
@@ -435,21 +682,10 @@ public partial class GameHud : CanvasLayer
     private static void Place(Control control, Rect2 units, Rect2 parent) =>
         Place(control, new Rect2(units.Position - parent.Position, units.Size));
 
-    private void UpdateMenuStyles()
+    private static Button AddSegment(Container parent, string text, Action callback)
     {
-        for (var i = 0; i < _menuButtons.Length; i++)
-        {
-            var (view, _, _, enabled) = MenuEntries[i];
-            var active = view == ActiveView;
-            HudTheme.Button(_menuButtons[i], active ? HudTheme.Cyan : HudTheme.Text, active);
-            if (!enabled) _menuButtons[i].Disabled = true;
-        }
-    }
-
-    private static Button AddMiniButton(Container parent, string text, Action callback)
-    {
-        var button = new Button { Text = text };
-        HudTheme.MiniButton(button, HudTheme.Text);
+        var button = new Button { Text = text, CustomMinimumSize = HudTheme.V(62, 0) };
+        HudTheme.Segment(button, HudTheme.Text, false);
         button.Pressed += callback;
         parent.AddChild(button);
         return button;
@@ -472,6 +708,7 @@ public partial class GameHud : CanvasLayer
             });
         }
         panel.AddChild(body);
+        panel.AddChild(new Scanlines());
         parent.AddChild(panel);
         return panel;
     }

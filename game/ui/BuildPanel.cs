@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -26,11 +27,13 @@ public partial class BuildPanel : PanelContainer
     private readonly HBoxContainer _slots = new();
     private readonly Label _hint = new();
     private string _tab = WallKind;
+    private (string Name, string Color)[] _materials = System.Array.Empty<(string, string)>();
 
     public BuildPanel()
     {
         Name = "BuildPanel";
         Visible = false;
+        ClipContents = true;
         AddThemeStyleboxOverride("panel", HudTheme.PanelFrame(modal: true));
         var body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
         body.AddThemeConstantOverride("separation", HudTheme.S(12));
@@ -59,6 +62,39 @@ public partial class BuildPanel : PanelContainer
         _slots.AddThemeConstantOverride("separation", HudTheme.S(16));
         body.AddChild(_slots);
         AddChild(body);
+        AddChild(new Scanlines());
+    }
+
+    /// <summary>
+    /// Re-applies the scale-dependent styling after the HUD rebuilt its frame: the panel frame, the
+    /// spacing and the tab sizes are baked at the scale they were created at.
+    /// </summary>
+    public void Restyle()
+    {
+        AddThemeStyleboxOverride("panel", HudTheme.PanelFrame(modal: true));
+        var body = GetChild<VBoxContainer>(0);
+        body.AddThemeConstantOverride("separation", HudTheme.S(12));
+        _slots.AddThemeConstantOverride("separation", HudTheme.S(16));
+        Rebuild();
+    }
+
+    /// <summary>The catalog's names and colours, so a slot can show the material it builds with.</summary>
+    public void SetMaterials(IEnumerable<(string Name, string Color)> materials)
+    {
+        _materials = materials.ToArray();
+        if (Visible) Rebuild();
+    }
+
+    /// <summary>
+    /// Sizes the panel to its content, docked to the bottom of the viewport: the full height when
+    /// there are slots to show, a shorter one for the empty state.
+    /// </summary>
+    public void ApplyHeight()
+    {
+        var units = _offered.Count > 0 ? HudLayout.PanelHeight : HudLayout.PanelEmptyHeight;
+        CustomMinimumSize = HudTheme.V(HudLayout.ViewportWidth, units);
+        Size = HudTheme.V(HudLayout.ViewportWidth, units);
+        Position = HudTheme.V(0, HudLayout.ViewportHeight - units);
     }
 
     /// <summary>The armed slot, or null when the next click builds nothing.</summary>
@@ -78,10 +114,10 @@ public partial class BuildPanel : PanelContainer
         return true;
     }
 
-    public event System.Action<Selection>? SlotSelected;
+    public event Action<Selection>? SlotSelected;
 
     /// <summary>The panel closed: the slots it shows are stale until they are asked for again.</summary>
-    public event System.Action? SlotsClosed;
+    public event Action? SlotsClosed;
 
     public void Open()
     {
@@ -154,20 +190,48 @@ public partial class BuildPanel : PanelContainer
         _offered.AddRange(slots.Select(slot => new Selection(_tab, slot.Subject)));
         if (slots.Length == 0)
         {
-            var empty = new Label { Text = _tab == WallKind ? "NO WALL SLOTS HERE" : "NO FLOOR SLOTS HERE" };
+            var empty = new Label { Text = "NOTHING BUILDABLE HERE" };
             HudTheme.Label(empty, HudTheme.Dim, HudTheme.SmallUnits);
             _slots.AddChild(empty);
+            ApplyHeight();
             return;
         }
         foreach (var (subject, available, reason) in slots)
         {
-            var button = new Button { Text = subject.ToUpperInvariant(), Disabled = !available };
-            button.CustomMinimumSize = HudTheme.V(260, 120);
+            var title = subject.ToUpperInvariant();
+            var button = new Button
+            {
+                Text = available || string.IsNullOrWhiteSpace(reason) ? title : $"{title}\n{reason.ToUpperInvariant()}",
+                Disabled = !available,
+                Alignment = HorizontalAlignment.Left,
+                ClipText = true,
+            };
+            button.CustomMinimumSize = HudTheme.V(440, HudLayout.SlotHeight);
+            button.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
             button.TooltipText = available ? $"Arm {subject}" : reason ?? "unavailable";
             HudTheme.Slot(button, Armed is { } armed && armed.Subject == subject);
+            if (BuildSwatch.ColorOf(subject, _materials) is { } swatch)
+            {
+                button.Icon = Swatch(new Color(swatch), available);
+                button.IconAlignment = HorizontalAlignment.Left;
+                button.AddThemeConstantOverride("h_separation", HudTheme.S(14));
+            }
             button.Pressed += () => Arm(new Selection(_tab, subject));
             _slots.AddChild(button);
         }
+        ApplyHeight();
+    }
+
+    /// <summary>A solid colour square with a 2-unit edge, drawn at the HUD scale.</summary>
+    private static ImageTexture Swatch(Color color, bool available)
+    {
+        var size = Math.Max(8, HudTheme.S(56));
+        var edge = Math.Max(1, HudTheme.S(2));
+        var image = Image.CreateEmpty(size, size, false, Image.Format.Rgba8);
+        var fill = available ? color : new Color(color.R, color.G, color.B, 0.35f);
+        image.Fill(HudTheme.LineHi);
+        image.FillRect(new Rect2I(edge, edge, size - 2 * edge, size - 2 * edge), fill);
+        return ImageTexture.CreateFromImage(image);
     }
 
     private void Arm(Selection selection)

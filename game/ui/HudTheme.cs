@@ -42,6 +42,34 @@ public static class HudTheme
 
     private static float _scale = 1f;
 
+    /// <summary>
+    /// Whether HUD motion (the feed's `glitch-in`) runs. Off for screenshots and for
+    /// `--reduce-motion`, so a capture or a motion-sensitive player sees a still HUD.
+    /// </summary>
+    public static bool Motion { get; set; } = true;
+
+    /// <summary>The interface face: JetBrains Mono, with Inter behind it for glyphs it lacks.</summary>
+    public static Font LoadBodyFont()
+    {
+        var inter = GD.Load<FontFile>("res://assets/fonts/Inter-VariableFont_opsz_wght.ttf")
+            ?? throw new InvalidOperationException("The HUD fallback font could not be loaded.");
+        var mono = GD.Load<FontFile>("res://assets/fonts/JetBrainsMono-VariableFont_wght.ttf");
+        if (mono is null) return inter;
+        mono.Fallbacks = new Godot.Collections.Array<Font> { inter };
+        return mono;
+    }
+
+    /// <summary>The same face at weight 700, for the clock and the brand.</summary>
+    public static Font LoadBoldFont(Font body)
+    {
+        var tag = TextServerManager.GetPrimaryInterface().NameToTag("wght");
+        return new FontVariation
+        {
+            BaseFont = body,
+            VariationOpentype = new Godot.Collections.Dictionary { { tag, 700 } },
+        };
+    }
+
     /// <summary>Design units to screen pixels: <c>window height / 1440</c>.</summary>
     public static float Scale => _scale;
 
@@ -57,7 +85,22 @@ public static class HudTheme
 
     public static Rect2 R(float x, float y, float w, float h) => new(x * _scale, y * _scale, w * _scale, h * _scale);
 
-    public static Theme CreateTheme(Font font) => new() { DefaultFont = font, DefaultFontSize = S(BodyUnits) };
+    public static Theme CreateTheme(Font font)
+    {
+        var theme = new Theme { DefaultFont = font, DefaultFontSize = S(BodyUnits) };
+        ApplyScale(theme);
+        return theme;
+    }
+
+    /// <summary>Re-applies the scale-dependent theme values after the HUD scale changed.</summary>
+    public static void ApplyScale(Theme theme)
+    {
+        theme.DefaultFontSize = S(BodyUnits);
+        // The tooltip that explains an unavailable action: the HUD's own panel, not the engine default.
+        theme.SetStylebox("panel", "TooltipPanel", Box(Panel, LineHi, 1f, S(1), S(12), S(8)));
+        theme.SetColor("font_color", "TooltipLabel", Text);
+        theme.SetFontSize("font_size", "TooltipLabel", S(SmallUnits));
+    }
 
     public static void Label(Label label, Color color, float units = BodyUnits)
     {
@@ -95,6 +138,32 @@ public static class HudTheme
         button.AddThemeStyleboxOverride("focus", Box(Panel, Cyan, 1f, S(1), S(7), S(2)));
         button.AddThemeStyleboxOverride("disabled", Box(Panel, Line, 0.72f, S(1), S(7), S(2)));
         button.AddThemeFontSizeOverride("font_size", S(TinyUnits));
+    }
+
+    /// <summary>One cell of the segmented speed control: equal-width, the selected one lit.</summary>
+    public static void Segment(Button button, Color color, bool selected)
+    {
+        button.AddThemeColorOverride("font_color", color);
+        button.AddThemeColorOverride("font_hover_color", Text);
+        button.AddThemeColorOverride("font_pressed_color", Bg);
+        button.AddThemeColorOverride("font_disabled_color", LineHi);
+        button.AddThemeStyleboxOverride("normal", Box(selected ? Bar : Panel, selected ? color : LineHi, 1f, S(selected ? 2 : 1), S(8), S(4)));
+        button.AddThemeStyleboxOverride("hover", Box(Bar, selected ? color : Dim, 1f, S(selected ? 2 : 1), S(8), S(4)));
+        button.AddThemeStyleboxOverride("pressed", Box(color, color, 1f, S(1), S(8), S(4)));
+        button.AddThemeStyleboxOverride("focus", Box(Panel, Cyan, 1f, S(2), S(8), S(4)));
+        button.AddThemeStyleboxOverride("disabled", Box(Panel, Line, 0.72f, S(1), S(8), S(4)));
+        button.AddThemeFontSizeOverride("font_size", S(SmallUnits));
+    }
+
+    /// <summary>A hotkey chip: a dim, bordered label such as `ALT+2` or `ENTER`.</summary>
+    public static PanelContainer Chip(string text, Color? color = null)
+    {
+        var chip = new PanelContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        chip.AddThemeStyleboxOverride("panel", Box(Bar, Line, 1f, S(1), S(7), S(1)));
+        var label = new Label { Text = text, MouseFilter = Control.MouseFilterEnum.Ignore };
+        Label(label, color ?? Dim, TinyUnits);
+        chip.AddChild(label);
+        return chip;
     }
 
     /// <summary>A build slot: the same states as a mini button, but tall and centred.</summary>
@@ -152,9 +221,10 @@ public static class HudTheme
     }
 
     /// <summary>A translucent HUD panel: square corners, a left accent, a title strip.</summary>
-    public static StyleBoxFlat PanelFrame(bool modal = false)
+    public static StyleBoxFlat PanelFrame(bool modal = false, float padY = 10, Color? accent = null)
     {
-        var frame = Box(modal ? ModalOverWorld : PanelOverWorld, Line, 1f, S(3), S(14), S(10));
+        var frame = Box(modal ? ModalOverWorld : PanelOverWorld, Line, 1f, S(3), S(14), S(padY));
+        if (accent is { } rule) frame.BorderColor = rule;
         frame.BorderWidthTop = S(1);
         frame.BorderWidthRight = S(1);
         frame.BorderWidthBottom = S(1);

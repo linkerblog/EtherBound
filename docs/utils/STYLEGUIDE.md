@@ -58,10 +58,10 @@ input without collapsing any size the `SubViewport` depends on.
 - `--prose` only for narrative text in scenes. Long prose in 13px monospace is tiring to read; the
   serif marks "this is the story" against "this is the system".
 
-**Not yet matched in Godot.** `GameHud`/`ActionMenuOverlay` currently use the engine's default
-theme font at the sizes above (10–12 px), not JetBrains Mono/IBM Plex Serif; loading those as
-Godot `FontFile` resources under `game/assets/` and setting them as the HUD `Theme`'s default fonts
-is open work, not a design change.
+**Partly matched in Godot.** `HudTheme.LoadBodyFont` loads JetBrains Mono
+(`game/assets/fonts/`, SIL OFL, licence beside it) as the HUD `Theme`'s default font with Inter
+behind it for glyphs it lacks, and `LoadBoldFont` gives the weight-700 face used by the brand and the
+clock. IBM Plex Serif is still not loaded: it waits for the scene layer ([Sec. 10]).
 
 ---
 
@@ -196,7 +196,10 @@ its count or `—`. Its last row is `LOAD 12.4 kg`, shown in `--dim` up to the f
 
 **Matched in Godot** (`GameHud.UpdateFrame`/`BuildGamePanels`): `DAY 1 · 04:05` in bold green,
 turning yellow (not blinking yet) while paused; `II`/`RESUME`, `x1`/`x3`/`x10` and `NEW` mini
-buttons. The `.scene` suffix has no equivalent yet (no scene system).
+buttons. The `.scene` suffix has no equivalent yet (no scene system). The header now shows `// LIVE
+SIMULATION` (yellow `// PAUSED` when paused) beside the brand, and the speed buttons are a
+segmented control: `II`/`▶`, `x1`, `x3`, `x10` as equal-width cells with the selected one lit,
+then a separate `NEW`.
 
 ---
 
@@ -413,14 +416,18 @@ refusal with its reason, a failure with its reason. An interruption the player c
 nothing. The words carry the meaning (`CAN'T`, `FAILED`), never only the colour.
 
 **Matched in Godot:** `GameHud.PushFeed(text, category)` colours `warn`/`fail`/`act`/`seen`/`ether`
-exactly as above and caps the feed at 8 rows; `.rumor` has no source yet (no rumor system), and the
-`glitch-in`/fade-to-`.old` entrance/exit animation [Sec. 15] is not built.
+exactly as above, with the game-time `HH:MM` stamp and a 2-unit left rule per category, in the footer
+slot (`FeedLog`). It shows the newest three rows, fading with age, and the mouse wheel scrolls
+through the last 100. A new row steps in with a four-step brightness flash (`glitch-in`, skipped when
+`HudTheme.Motion` is off: `--reduce-motion`, and always under `--shots`). `.rumor` has no source yet
+(no rumor system), and the fade-to-`.old` exit animation is not built.
 
 ---
 
-## 12. Meters — not yet built
+## 12. Meters — partly built
 
-ASCII bars for needs, health and Ether strain; no Godot implementation until needs/health exist.
+ASCII bars. **Matched in Godot** (`MeterBar`, cell counts from `HudMeter`) for the `ACT` progress
+and the `CARRY` load; the bars for needs, health and Ether strain wait until the sim exposes them.
 
 ```css
 .meter { display: grid; grid-template-columns: 70px 1fr; gap: 6px; font-size: 11px; }
@@ -439,8 +446,10 @@ function meter(pct, cells = 16) {
 }
 ```
 
-The `CARRY` panel [Sec. 5] is not a meter: `LOAD` is a plain kilogram figure that turns amber
-above the free 10 kg, the same warning colour as a `.bar.warn`.
+The `CARRY` panel [Sec. 5] shows its `LOAD` as the figure in kilograms plus a 16-cell bar scaled to
+40 kg (the single-object lift limit, not a sim cap): green up to the free 10 kg, `.bar.warn` yellow
+beyond. The `NEARBY` panel lists the actors whose projected position is inside the world viewport,
+nearest first (at most eight), so it never shows what Niko cannot see.
 
 ---
 
@@ -512,7 +521,9 @@ Relationship rows show each axis as a short meter [Sec. 12], not a single number
 
 The CRT and glitch effects from LiraMind are kept, but they are **events, not decoration**. No
 Godot implementation yet (would be a shader/`AnimationPlayer` pass over the HUD `CanvasLayer`, and
-requires Ether/damage/overwhelm state that doesn't exist yet either).
+requires Ether/damage/overwhelm state that doesn't exist yet either). The one built exception is the
+always-on scanline texture: `game/ui/panel_scanlines.gdshader`, laid over HUD panels by `Scanlines`
+at the alpha below and never over the 3D view.
 
 | Effect | When |
 |---|---|

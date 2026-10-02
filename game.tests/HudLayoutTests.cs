@@ -111,4 +111,57 @@ public sealed class HudLayoutTests
         var pixels = HudLayout.ViewportPixels(new Vector2(1280, 720));
         Assert.Equal(new Rect2(136, 68, 960, 576), pixels);
     }
+
+    [Fact]
+    public void A_wider_than_16_9_window_scales_by_height_and_centres_the_frame()
+    {
+        // A maximized 2560x1440 monitor loses height to the title bar and the taskbar.
+        var window = new Vector2(2560, 1369);
+        var frame = HudLayout.Solve(window);
+
+        Assert.Equal(1369f / 1440f, frame.Scale, E);
+        Assert.Equal(0.951f, frame.Scale, 0.001f);
+        Assert.Equal(0f, frame.Offset.Y, E);
+        Assert.Equal((2560f - 2560f * frame.Scale) * 0.5f, frame.Offset.X, E);
+        Assert.True(frame.Offset.X > 0);
+
+        // The scaled frame sits wholly inside the window: no rectangle goes past either edge.
+        var right = frame.Offset.X + frame.Footer.End.X * frame.Scale;
+        var bottom = frame.Offset.Y + frame.Footer.End.Y * frame.Scale;
+        Assert.True(right <= window.X + E);
+        Assert.True(bottom <= window.Y + E);
+        Assert.Equal(frame.Offset.X, window.X - frame.Offset.X - 2560f * frame.Scale, E);
+    }
+
+    [Fact]
+    public void A_taller_than_16_9_window_scales_by_width_and_centres_vertically()
+    {
+        var frame = HudLayout.Solve(new Vector2(1280, 800));
+
+        Assert.Equal(0.5f, frame.Scale, E);
+        Assert.Equal(0f, frame.Offset.X, E);
+        Assert.Equal(40f, frame.Offset.Y, E);
+    }
+
+    [Fact]
+    public void The_design_size_window_has_scale_one_and_no_offset()
+    {
+        var frame = HudLayout.Solve(new Vector2(2560, 1440));
+
+        Assert.Equal(1f, frame.Scale, E);
+        Assert.Equal(Vector2.Zero, frame.Offset);
+        Assert.Equal(new Rect2(32 + 200 + 40, 32 + 64 + 40, 1920, 1152), HudLayout.ViewportPixels(new Vector2(2560, 1440)));
+    }
+
+    [Fact]
+    public void The_viewport_in_pixels_includes_the_centring_offset()
+    {
+        var window = new Vector2(2560, 1369);
+        var frame = HudLayout.Solve(window);
+        var pixels = HudLayout.ViewportPixels(window);
+
+        Assert.Equal(frame.Viewport.Position.X * frame.Scale + frame.Offset.X, pixels.Position.X, E);
+        Assert.Equal(1920f * frame.Scale, pixels.Size.X, E);
+        Assert.Equal(1152f * frame.Scale, pixels.Size.Y, E);
+    }
 }

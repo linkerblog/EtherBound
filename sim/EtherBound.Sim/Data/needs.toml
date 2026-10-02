@@ -1,0 +1,29 @@
+# The needs every Extra carries (docs/Dev-011.md [Sec. 3]). A need is a level in 0..1, 1 = satisfied,
+# that falls linearly with game time: `empty_hours` awake takes it from 1 to 0. The brain seeks a
+# source below `threshold`; a `night_only` need (rest) is sought below `threshold` only at night and
+# below `urgent` at any hour, and `night_weight` scales its urgency between 22:00 and 06:00.
+# Rates, thresholds and weights are proposals, calibrated by the 1,000-Extra bench and play.
+
+[[needs]]
+key = "hunger"
+empty_hours = 16.0
+threshold = 0.5
+urgent = 0.2
+night_only = false
+night_weight = 1.0
+
+[[needs]]
+key = "thirst"
+empty_hours = 8.0
+threshold = 0.5
+urgent = 0.2
+night_only = false
+night_weight = 1.0
+
+[[needs]]
+key = "rest"
+empty_hours = 17.0
+threshold = 0.5
+urgent = 0.2
+night_only = true
+night_weight = 1.5

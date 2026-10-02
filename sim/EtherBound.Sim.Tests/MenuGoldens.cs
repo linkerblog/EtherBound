@@ -9,9 +9,9 @@ namespace EtherBound.Sim.Tests;
 
 /// <summary>
 /// Menus are built by the sim: the Dev-016 tiles and every lab bay match the Python output entry for
-/// entry. <c>build</c> is the one exception and is dropped from both sides of the comparison: the
-/// Python server never had a handler for it, so its entries are not in the frozen fixture and
-/// adding them would mean regenerating a golden that no longer has a producer.
+/// entry. The ops in <see cref="AfterCutOver"/> are the exception and are dropped from both sides of the
+/// comparison: the Python server never had a handler for them, so their entries are not in the frozen
+/// fixture and adding them would mean regenerating a golden that no longer has a producer.
 /// </summary>
 public class MenuGoldens
 {
@@ -20,7 +20,7 @@ public class MenuGoldens
     public MenuGoldens(ITestOutputHelper output) => _output = output;
 
     /// <summary>Ops added after the cut-over, which the frozen Python fixture cannot contain.</summary>
-    private static readonly HashSet<string> AfterCutOver = new(StringComparer.Ordinal) { "build" };
+    private static readonly HashSet<string> AfterCutOver = new(StringComparer.Ordinal) { "build", "eat", "drink", "sleep" };
 
     private static readonly (string Label, int Sx, int Sy, int? Sh, int Tx, int Ty)[] TestTiles =
     {

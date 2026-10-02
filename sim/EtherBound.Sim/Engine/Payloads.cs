@@ -30,7 +30,13 @@ public sealed record ActionResult(bool Accepted, string ActorId, GameAction Acti
 }
 
 public sealed record ActorState(string Id, string Kind, double X, double Y, int Z, int H, ActivityState? Activity,
-    IReadOnlyList<CarriedObject> Carried, double LoadKg, string? Name, Mind? Mind);
+    IReadOnlyList<CarriedObject> Carried, double LoadKg, string? Name, Mind? Mind, ActorNeeds? Needs = null);
+
+/// <summary>
+/// Something an actor could use to satisfy a need: a food object or a drinkable tile within perception,
+/// and a tile to stand on to reach it (<c>Need</c> is <c>hunger</c> or <c>thirst</c>).
+/// </summary>
+public sealed record Percept(string Need, int? ObjectId, int X, int Y, int H, int StandX, int StandY, int StandH);
 
 public sealed record WorldState(long Seed, int GameMinute, int Speed, bool Paused, IReadOnlyList<ActorState> Actors,
     int GenVersion, string Generator, JsonObject GenOptions);
@@ -70,7 +76,7 @@ public sealed record ChunkPayload(int Cx, int Cy, int Revision, Chunk Chunk, IRe
     public static ChunkPayload? Of(WorldGrid grid, int cx, int cy)
     {
         if (grid.Chunk(cx, cy) is not { } chunk) return null;
-        var levels = grid.Levels.Where(p => p.Key.Item1 == cx && p.Key.Item2 == cy).OrderBy(p => p.Key.Item3).Select(p => p.Value).ToList();
+        var levels = grid.LevelsOfChunk(cx, cy).OrderBy(l => l.Z).ToList();
         var objects = grid.ObjectsAtChunk(cx, cy).Select(o => new ObjectPayload(o.Id, o.Kind, o.X, o.Y, o.H, o.Quantity, o.Open)).ToList();
         return new ChunkPayload(cx, cy, chunk.Revision, chunk, levels, objects);
     }

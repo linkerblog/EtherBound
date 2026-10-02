@@ -58,6 +58,13 @@ public sealed class SimEvent
     public static SimEvent ObjectChanged(string actorId, int objectId, string kind, string op, JsonObject changes) =>
         new("object.changed", actorId, Json.Obj(("object_id", objectId), ("kind", kind), ("op", op), ("changes", changes)));
 
+    /// <summary>An actor ate or drank one unit; <c>level</c> is the need after it, null for an actor with no needs.</summary>
+    public static SimEvent ActorConsumed(string actorId, string op, string kind, int quantity, string need, double? level) =>
+        new("actor.consumed", actorId, Json.Obj(("op", op), ("kind", kind), ("quantity", quantity), ("need", need), ("level", level)));
+
+    public static SimEvent ActorSlept(string actorId, double? level) =>
+        new("actor.slept", actorId, Json.Obj(("level", level)));
+
     public static SimEvent Impact(string actorId, JsonObject target, double energy) =>
         new("impact", actorId, Json.Obj(("target", target), ("energy", energy)));
 

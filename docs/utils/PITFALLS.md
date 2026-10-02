@@ -95,6 +95,21 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
   stable ID order using the same 0.3 m radius and standing interval as terrain. Contact blocks motion
   but never pushes or damages; an existing overlap may only be escaped without worsening it. Keep
   the held-diagonal blocked-edge regression in `ActorMovementRules.cs`.
+- **A streaming world loads on reads, so a load must write nothing (Dev-010).** `Menu`, `Pick`, `Nav` and
+  `ChunksNear` are not journaled and can build a chunk; a row, an event or a `MarkChunk` from a load would make
+  state depend on what was read. Only a mutation persists a chunk. Never put objects in a streamed chunk:
+  `Session.AddObject` numbers by max+1, so ids would follow the order the player explored in.
+- **A lazy load must not bump `NavigationRevision`.** `WorldGrid` adopts a loaded chunk without invalidating
+  the standing and step caches (nothing was cached for its tiles), or every chunk Niko merely walks towards makes
+  each Extra replan. Eviction does invalidate, once per crossing. Evict only between operations: a chunk with an
+  uncommitted change must stay until its commit.
+- **`EnsureWorld` must not read an empty `chunk` table as a missing world for a streaming save.** A fresh endless
+  save has no rows until something is modified; regenerating there would also wipe the objects. The loader also
+  ignores the stored chunks while `NewGame` is wiping them (`_ignorePersisted`) and indexes the setup session's
+  objects, since neither the wipe nor the kit is committed yet when the spawn chunk loads.
+- **`ValueNoise` repeats every 256 lattice cells; the endless world uses `HashNoise`.** Do not reuse `ValueNoise`
+  for anything unbounded. The endless field is tuned by measurement (`ChunkGenBench`, `EndlessTraversalRules`):
+  a change to `TerrainField` changes its goldens and must ship as a new generator version, not in place.
 
 ## 3. Movement and the host channel
 
@@ -154,6 +169,36 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
   mean hundreds of rows a minute, which the event log retention item must eventually bound. The
   brain keeps its path cache and stall retry in memory only, re-derived from state, so a restart at
   any tick replays to the same log.
+
+- **A model call never runs on the sim thread, and its answer is a command, not a write.** Jev and the narrator
+  run in `Task.Run`; the result is enqueued back on the bounded `_commands` channel (`DeliverAsync`, never
+  `TryWrite`, which drops under load) and handled on the sim thread, where `engine.Submit` validates the action
+  again. `_responses` is `SingleWriter`, so a background thread must never write to it: streamed text goes through
+  a `NarrationDelta` command. A narration that ends after a new game is dropped by its epoch.
+- **Model events are filtered out of the player's action feed.** `llm.*` events carry the player's actor id, so
+  `host.player-events` skips them; otherwise they would sit in `pendingEvents` and ride along with the next action.
+- **A reopened save has no grid until `EnsureWorld`, and `EnsureWorld` is not a no-op.** A test that opens a
+  `WorldEngine` on a host's file to compare state must call `EnsureWorld(seed)` first, as the host does, or
+  `StateDump` hashes an empty grid. But `EnsureWorld` snaps or relocates an Extra that the real clock left mid-step,
+  so a full dump differed from a replay of the journal in about 1 run of 20 under load. Read the events and the
+  journal before it and compare only Niko, the objects and the terrain (`ReplayCheck.Essential`).
+
+- **The minimap is paced, and a first window is not.** `BuildMinimap` colours at most 9 chunks per publish after
+  the first window, nearest to Niko first, and sets `_mapPending` so the loop publishes again at once; a frame
+  per publish is therefore not one frame per change while it fills. A world's first window is built whole so
+  host tests that wait for "the next frame" see only the frame they caused. `StateDump` hashes only modified chunks
+  for a streaming grid, because the loaded set differs between a run and its replay.
+- **`ActorRow.Needs` is shared by clones: replace it, never edit it.** Every move clones every actor row, so
+  `Clone()` hands the same `JsonObject` to the copy (a deep copy cost a crowd 20 % per tick). `ctx.Actor.Needs[...] = x`
+  would change the committed store through the shared object, and `SameAs` would then be true by reference, so the
+  change would never be written. Build a new object (`ActorNeeds.With(...).ToJson()`) and assign it.
+- **Setting a goal does not end an activity; only a `Submit` does.** An Extra in a 15-minute `wait` that is given a
+  `seek` goal keeps waiting until its first move step interrupts the wait, so `TickActor` lets a `seek` goal through
+  a `wait`. A needy Extra that only waits or wanders re-decides on its scan minute; one doing anything else runs to the
+  end. The Menu and the perception scan are read on that minute or on arrival at a `seek` goal, not every idle tick.
+- **A need's source can be out of reach for good.** In a streaming world Extras live on a starting kit and shallow
+  water within 12 m; thirst has no source on most terrain, so the console shows `THI` near 0 % after a few game
+  hours. That is the design (`docs/PENDING.md`, supply), not a stuck brain.
 
 ## 4. Objects and physics
 
@@ -327,6 +372,11 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
   saving the screenshot regardless, which could silently save a blank frame on a slow tick; it now
   waits 5 seconds and logs a warning (`GD.PrintErr`) if the wait actually times out, so a future
   regression fails loud instead of shipping a quietly-wrong baseline.
+- **A timing test must leave a wide margin, because the suite runs in parallel.** The per-chunk idle-timeout test of
+  `ChatClientRules` first used 100 ms gaps against a 400 ms timeout and failed once in five runs; 150 ms gaps against
+  1 s passed 7 of 7. Host tests that wait on a model use a `ManualResetEventSlim`, never a sleep.
+- **Narration tests need a stand-in for the network, never a mock that answers.** `ScriptedChat` and `ScriptedJev`
+  stand in for the vendors; `NoJev` answers nothing at all, because an answering mock would run an arbitrary action.
 - **`dotnet test`/`dotnet build` are the only test runners now.** There is no Python or web test
   suite left to run; `npm run check` only touches `.NET`, Node syntax checks and the doc/version
   scripts.
@@ -340,6 +390,15 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
   too strong; the stage-0 calibration measures tops at exactly the sheet colour with it.
 - **Coplanar faces z-fight under the ortho camera.** A slab's or the ground's edge face in the plane
   of a wall's face shows as dark streaks; the mesher drops faces covered by a wall on that edge.
+- **A secret box is write-only and must not survive a HUD rebuild.** The key `LineEdit` (`Secret = true`) is cleared and
+  unfocused in the same handler that reads it, and nothing fills it from the runtime, so a scale change that rebuilds the
+  HUD, a capture or a screenshot can never show a key; only `LlmTabModel` talks to the runtime and it returns a status line.
+  The key also must not be a `GD.Print` argument or part of an exception message: `TypeSafeJev`, `OpenRouterChat` and
+  `LlmRuntime.SaveKey` scrub it from theirs.
+- **A wrapped `Label` must not also trim.** `AutowrapMode.WordSmart` with `TextOverrunBehavior.TrimEllipsis` leaves
+  the label a minimum height of 1 px, so a narration row shows only its stamp. `FeedLog` wraps with `NoTrimming`.
+- **A capture that pushes many feed rows in one frame sees stale scroll limits.** Push, wait a few frames, then
+  `ScrollFeedToEnd()` before the capture; otherwise the shot shows the oldest rows.
 - **Height is scaled on the render root, not in the meshes.** Meshes are built in metres
   (`x`, `h / 2`, `y`); the root's `Y` scale √(2/3) turns 0.5 m into 16 px. Snap the camera in that
   scaled space, and keep the SubViewport size even so tile corners land on pixel corners.

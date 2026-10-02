@@ -42,13 +42,13 @@ speed and a depth buffer.
 | Type contract | The sim's C# types are the only definition; the client links the sim assembly, so nothing is generated |
 | Persistence | SQLite with numbered migrations run by the sim. No "reset to change schema" |
 | Camera | Isometric 2:1, fixed (no rotation). Real 3D geometry, orthographic camera (yaw 45°, pitch 30°) rendered to a low-res buffer and scaled by whole factors: pixel art with depth, light, shadows and ambient occlusion. A 1 m tile is a 64×32 px diamond; 0.5 m of height is 16 px. Own pixel art: BitCanvas (`BitCanvas/`) generates seeded textures and furniture shapes; a shape may be proposed by an LLM as a validated primitive spec [Sec. 13]; the LimeZu packs remain a reference base |
-| Scale | 1 tile = 1 m, chunked |
+| Scale | 1 tile = 1 m, chunked. The terrain is endless: a streaming generator builds each chunk from the seed on demand [Sec. 5] |
 | Terrain | Fine heightmap surface (hills, slopes) + building floors + excavable underground |
 | Clock | 1 real s = 1 game min by default, configurable. Pause, x1/x3/x10. Autopause in scenes |
 | Distance | Walking only at start, accepting time distortion. No transport until core systems are consolidated |
 | Rolls | Carried over from NikoStory: d20 + stat + skill×2 against 0/10/14/18/22; natural 1 disaster, natural 20 critical, partial success with a cost |
 | Controls | WASD movement, right-click context menu, `V` radial menu, Enter opens free text |
-| LLM | OpenRouter (strategy, prose) + TypeSafe `choice` a.k.a. Jev (gates, tactics, interpretation) |
+| LLM | OpenRouter (strategy, prose) + TypeSafe `choice` a.k.a. Jev (gates, tactics, interpretation); both from C# in `sim/EtherBound.Llm/`, never from the sim [Sec. 13] |
 | Protagonist | Always Niko. Cannot die, only be incapacitated. Infinite progression |
 | Ether | Only Niko has it |
 | Adult content | Explicitly allowed [Sec. 12] |
@@ -91,6 +91,12 @@ Stairs and ramps are therefore ordinary graded tiles. A rise of 1 m or 1.5 m to 
 neighbour takes the `climb` op; anything higher needs a ladder or another vertical link.
 
 - **Grid:** 1 m tiles in chunks. Only existing levels are stored (sparse).
+- **Endless terrain (`Dev-010`):** a streaming generator (`infinite`) makes a chunk a pure function of
+  seed, options, version and coordinates, never of visit order. A pristine chunk is a cache, not
+  state: loading one writes nothing, far clean chunks are evicted, and only a modified chunk is
+  persisted. A save is pinned to the generator version it was created with. Deep water and rock never
+  cut the world: it stays walkable by construction. Bounded generators (`test`, `lab`) are unchanged.
+  The HUD minimap is a pure colour sampler of the same field around Niko.
 - **Surface:** heightmap in fine steps (about 0.5 m). Slopes cost movement time and energy, block
   line of sight, and give view from the top. Rendered as isometric terraces: every height step is a
   vertical face, so a 0.5 m step, a 1 to 1.5 m climb and a cliff read differently. Height shading
@@ -250,6 +256,8 @@ enforced by the engine as op preconditions, not only in prompts:
 OpenRouter serves Agent strategy and prose; Jev serves gates, tactics and free-text
 interpretation. NikoStory's lessons carry over, the token budget caps concurrent LLM Agents, and at
 authoring time only, an LLM may propose furniture specs that BitCanvas validates and renders.
+Jev is a hosted HTTP service, so its runtime is a small client outside the sim; a model never writes
+state and every decision is a logged event.
 
 Full text: `docs/utils/MINDS.md` [Sec. 13]
 
@@ -265,8 +273,9 @@ Full text: `docs/utils/MINDS.md` [Sec. 13]
 
 ## 15. Roadmap
 
-Phase 0 skeleton, Phase 1 core without LLM, Phase 2 a one-block vertical slice whose acceptances
-must produce unprogrammed behavior, Phase 3 minds, Phase 4 scale.
+Phase 0 skeleton, Phase 1 core without LLM, Phase 1.5 a playable loop (free text through Jev and a
+narrator, no NPC minds), Phase 1.6 endless terrain and minimap, Phase 2 a one-block vertical slice whose acceptances must produce
+unprogrammed behavior, Phase 3 minds, Phase 4 scale.
 
 Full text: `docs/utils/ROADMAP.md` [Sec. 15]
 

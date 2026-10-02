@@ -21,6 +21,20 @@ public static class Spawning
     {
         var spawn = spec.Spawn(seed, options);
         if (StandingHNear(grid, registry, spawn.X, spawn.Y) is not null) return spawn;
+        // A streaming grid holds only what has been read, so searching its loaded chunks proves nothing:
+        // look around the generator's own spawn instead.
+        if (grid.Streaming)
+        {
+            int sx = PyMath.Floor(spawn.X), sy = PyMath.Floor(spawn.Y);
+            for (var ring = 1; ring <= 64; ring++)
+            for (var dy = -ring; dy <= ring; dy++)
+            for (var dx = -ring; dx <= ring; dx++)
+            {
+                if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != ring) continue;
+                if (StandingHNear(grid, registry, sx + dx + 0.5, sy + dy + 0.5) is { } standing)
+                    return (sx + dx + 0.5, sy + dy + 0.5, standing);
+            }
+        }
         foreach (var (cx, cy) in grid.Chunks.Keys.OrderBy(k => k.Item1).ThenBy(k => k.Item2))
         for (var ly = 0; ly < ChunkConst.Size; ly++)
         for (var lx = 0; lx < ChunkConst.Size; lx++)

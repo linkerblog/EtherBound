@@ -192,14 +192,17 @@ public static class StateDump
         var world = session.World;
         using var bytes = new MemoryStream();
         var revisions = new JsonObject();
-        foreach (var chunk in engine.Grid.Chunks.Values.OrderBy(c => c.Cx).ThenBy(c => c.Cy))
+        // A streaming grid holds whatever was read, which differs between a run and its replay, so only
+        // the chunks a mutation changed (revision above zero) are part of its state.
+        foreach (var chunk in engine.Grid.Chunks.Values.Where(c => !engine.Grid.Streaming || c.Revision != 0).OrderBy(c => c.Cx).ThenBy(c => c.Cy))
         {
             bytes.Write(chunk.GroundBlob);
             bytes.Write(chunk.SurfaceBlob);
             bytes.Write(chunk.DugBlob);
             if (chunk.Revision != 0) revisions[$"{chunk.Cx},{chunk.Cy}"] = chunk.Revision;
         }
-        foreach (var level in engine.Grid.Levels.Values.OrderBy(l => l.Cx).ThenBy(l => l.Cy).ThenBy(l => l.Z))
+        foreach (var level in engine.Grid.Levels.Values.Where(l => !engine.Grid.Streaming || engine.Grid.Chunks[(l.Cx, l.Cy)].Revision != 0)
+                     .OrderBy(l => l.Cx).ThenBy(l => l.Cy).ThenBy(l => l.Z))
         {
             bytes.Write(level.FloorBlob);
             bytes.Write(level.FloorMatBlob);

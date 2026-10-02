@@ -25,6 +25,10 @@ public sealed class WorldMetaRow
         Paused == o.Paused && GenVersion == o.GenVersion && Generator == o.Generator && Json.Same(GenOptions, o.GenOptions);
 }
 
+/// <summary>One <c>llm_call</c> row: a model call's role, model, tokens, cost (null when the provider gave none) and text.</summary>
+public sealed record LlmCallRow(int Id, int GameMinute, string Role, string Model, int TokensIn, int TokensOut, double? CostUsd,
+    string Outcome, string? Error, string Prompt, string Response);
+
 /// <summary>An <c>actor</c> row. <c>Activity</c> and <c>Mind</c> are the stored JSON documents.</summary>
 public sealed class ActorRow
 {
@@ -39,14 +43,23 @@ public sealed class ActorRow
     public JsonObject? Activity { get; set; }
     public JsonObject? Mind { get; set; }
 
+    /// <summary>
+    /// Stored needs (<c>NULL</c> for an actor with none, like Niko); read through <c>ActorNeeds.Parse</c>. Replaced as a
+    /// whole and never edited in place, so a clone shares it: every move clones every actor, and a deep copy
+    /// per clone made a crowd measurably slower.
+    /// </summary>
+    public JsonObject? Needs { get; set; }
+
     public ActorRow Clone() => new()
     {
         Id = Id, Kind = Kind, Name = Name, X = X, Y = Y, Z = Z, H = H, MassKg = MassKg,
         Activity = (JsonObject?)Activity?.DeepClone(), Mind = (JsonObject?)Mind?.DeepClone(),
+        Needs = Needs,
     };
 
     public bool SameAs(ActorRow o) => Id == o.Id && Kind == o.Kind && Name == o.Name && X.Equals(o.X) && Y.Equals(o.Y) &&
-        Z == o.Z && H == o.H && MassKg.Equals(o.MassKg) && Json.Same(Activity, o.Activity) && Json.Same(Mind, o.Mind);
+        Z == o.Z && H == o.H && MassKg.Equals(o.MassKg) && Json.Same(Activity, o.Activity) && Json.Same(Mind, o.Mind) &&
+        (ReferenceEquals(Needs, o.Needs) || Json.Same(Needs, o.Needs));
 
     public int TileX => PyMath.Floor(X);
     public int TileY => PyMath.Floor(Y);

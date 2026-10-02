@@ -140,6 +140,10 @@ public partial class GeneratorPanel : PanelContainer
         Visible = true;
         _error.Text = "";
         if (_seed is not null && !_seed.HasFocus()) _seed.Value = _currentSeed;
+        // The endless world is what a new game offers first, even when the open save was made with another
+        // generator (the hidden panel follows the save's generator, which is right for the MAP form).
+        var endless = _generators.FindIndex(spec => spec.Key == "infinite");
+        if (endless >= 0 && _generator.Selected != endless) _generator.Selected = endless;
         SelectGenerator();
     }
 

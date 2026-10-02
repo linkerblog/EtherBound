@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Model clients (Jev, OpenRouter) and the code around them. The sim never references this project. -->
+  <PropertyGroup>
+    <RootNamespace>EtherBound.Llm</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\EtherBound.Sim\EtherBound.Sim.csproj" />
+    <InternalsVisibleTo Include="EtherBound.Sim.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Data\*.toml" LogicalName="EtherBound.Llm.Data.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Data\prompts\*.md" LogicalName="EtherBound.Llm.Data.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Tomlyn" Version="2.10.1" />
+  </ItemGroup>
+
+</Project>

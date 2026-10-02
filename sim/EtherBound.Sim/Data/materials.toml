@@ -212,6 +212,7 @@ flammable = false
 density = 1.0
 resistance = 0.0
 liquid = true
+hydration = 0.5
 tags = ["liquid"]
 
 [[materials]]

@@ -11,7 +11,7 @@ namespace EtherBound.Game.Ui;
 /// </summary>
 public partial class FeedLog : ScrollContainer
 {
-    private sealed record Row(HBoxContainer Box, ColorRect Rule, Label Stamp, Label Text);
+    internal sealed record Row(HBoxContainer Box, ColorRect Rule, Label Stamp, Label Text);
 
     private readonly VBoxContainer _column = new();
     private readonly List<Row> _rows = new();
@@ -29,7 +29,27 @@ public partial class FeedLog : ScrollContainer
 
     public int RowCount => _rows.Count;
 
-    public void Push(int gameMinute, string text, string category, bool animate = true)
+    /// <summary>A pushed row the caller may still change: narration grows while the model writes it (Dev-008).</summary>
+    public sealed class Handle
+    {
+        private readonly FeedLog _log;
+        private readonly Row _row;
+
+        internal Handle(FeedLog log, Row row) => (_log, _row) = (log, row);
+
+        public void SetText(string text)
+        {
+            if (!GodotObject.IsInstanceValid(_row.Text)) return;
+            var atBottom = _log.IsNearBottom();
+            _row.Text.Text = text;
+            if (atBottom) _log.CallDeferred(nameof(ScrollToEnd));
+        }
+
+        public void Remove() => _log.Drop(_row);
+    }
+
+    /// <summary>`wrap` lets a long line, such as narration, use as many lines as it needs instead of trimming to one.</summary>
+    public Handle Push(int gameMinute, string text, string category, bool animate = true, bool wrap = false)
     {
         var atBottom = IsNearBottom();
         var tone = FeedFormat.ToneOf(category);
@@ -51,15 +71,17 @@ public partial class FeedLog : ScrollContainer
         {
             Text = text,
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
-            ClipText = true,
-            TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
+            ClipText = !wrap,
+            AutowrapMode = wrap ? TextServer.AutowrapMode.WordSmart : TextServer.AutowrapMode.Off,
+            TextOverrunBehavior = wrap ? TextServer.OverrunBehavior.NoTrimming : TextServer.OverrunBehavior.TrimEllipsis,
             MouseFilter = MouseFilterEnum.Ignore,
         };
         HudTheme.Label(label, color, HudTheme.TinyUnits);
         box.AddChild(label);
 
         _column.AddChild(box);
-        _rows.Add(new Row(box, rule, stamp, label));
+        var added = new Row(box, rule, stamp, label);
+        _rows.Add(added);
         while (FeedFormat.Overflow(_rows.Count) > 0)
         {
             _column.RemoveChild(_rows[0].Box);
@@ -69,6 +91,15 @@ public partial class FeedLog : ScrollContainer
         Fade();
         if (atBottom) CallDeferred(nameof(ScrollToEnd));
         if (animate && HudTheme.Motion) StepIn(label);
+        return new Handle(this, added);
+    }
+
+    private void Drop(Row row)
+    {
+        if (!_rows.Remove(row)) return;
+        _column.RemoveChild(row.Box);
+        row.Box.QueueFree();
+        Fade();
     }
 
     /// <summary>Re-applies sizes after the HUD scale changed.</summary>
@@ -108,6 +139,9 @@ public partial class FeedLog : ScrollContainer
     }
 
     public void ScrollToTop() => ScrollVertical = 0;
+
+    /// <summary>Scrolls to the newest row once the layout has caught up; for a driver that pushed many rows in one frame.</summary>
+    public void ScrollToBottom() => CallDeferred(nameof(ScrollToEnd));
 
     private void ScrollToEnd() => ScrollVertical = (int)GetVScrollBar().MaxValue;
 

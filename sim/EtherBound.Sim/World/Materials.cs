@@ -6,10 +6,13 @@ namespace EtherBound.Sim.World;
 public sealed record Material(
     string Key, string Name, string Color, bool Walkable, double WalkCost, bool Solid, bool BlocksSight,
     bool Diggable, double DigCost, double? BuildCost, bool Flammable, double Density, double Resistance, bool Liquid,
-    IReadOnlyList<string> Tags, int Id)
+    IReadOnlyList<string> Tags, int Id, double? Hydration = null)
 {
     /// <summary>A material `build` can place: it carries a positive <c>build_cost</c> (Dev-036 [Sec. 1]).</summary>
     public bool Buildable => BuildCost is > 0;
+
+    /// <summary>A surface that can be drunk from (shallow water): thirst restored by one drink (Dev-011 D4).</summary>
+    public bool Drinkable => Hydration is > 0;
 }
 
 /// <summary>Static material definitions with save-compatible, append-only ids.</summary>
@@ -53,7 +56,7 @@ public sealed class MaterialRegistry
                 DataFiles.Number(raw["walk_cost"]), (bool)raw["solid"], (bool)raw["blocks_sight"],
                 (bool)raw["diggable"], DataFiles.Number(raw["dig_cost"]), BuildCost(raw), (bool)raw["flammable"],
                 DataFiles.Number(raw["density"]), DataFiles.Number(raw["resistance"]), (bool)raw["liquid"],
-                tags, id));
+                tags, id, Hydration(raw)));
         }
         return new MaterialRegistry(values);
     }
@@ -61,6 +64,14 @@ public sealed class MaterialRegistry
     // Absent `build_cost` means the material is not a building material, so `build` refuses the spot.
     private static double? BuildCost(TomlTable raw) =>
         raw.TryGetValue("build_cost", out var cost) ? DataFiles.Number(cost) : null;
+
+    private static double? Hydration(TomlTable raw)
+    {
+        if (!raw.TryGetValue("hydration", out var value)) return null;
+        var hydration = DataFiles.Number(value);
+        if (hydration is <= 0 or > 1) throw new InvalidDataException($"material {(string)raw["key"]}: hydration must be in (0, 1]");
+        return hydration;
+    }
 
     public int Count => Materials.Count;
 

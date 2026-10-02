@@ -1,0 +1,25 @@
+{
+  "generator": "infinite",
+  "gen_version": 1,
+  "seed": 7,
+  "options": {
+    "relief": 12,
+    "water": 0.5,
+    "mountains": 0.5
+  },
+  "note": "SHA-256 of ground_h, surface_mat and the compact strata JSON of each chunk. Regenerate only with a generator version change.",
+  "spawn": [
+    -135.5,
+    80.5,
+    26
+  ],
+  "chunks": {
+    "0,0": "9ad3721c6b0c47147e65491be0228084e9977ffd8618815de1f1fd4d8634a04e",
+    "-1,-1": "b93cf9bb9f8784f6cf7014691d0ff2a63864e105f4c8177ccc37ca8b4c04f8d8",
+    "5,-3": "9832794d29eaffe029590f6f210620dc05cdc406db2c3a9f4a556e65a29bc1a6",
+    "-7,9": "fd3885e01102bb3b4be19c70af2f5725d428dc71e828a16a15471acbe3c385d4",
+    "312,-318": "4bac59e254d9398684d4ad2d55948451e8922335ac192fd2f5a24b0fb7ed45dc",
+    "-313,320": "f51fcacfc043c64ad0561ba333cfbb8b675d4d9f672e15f7aa3eb09ed6bc7915",
+    "32768,-32768": "332d036f06a3bf8adea57952cf0ec9aeb7389afdd15a115c3ee2531bef349c66"
+  }
+}

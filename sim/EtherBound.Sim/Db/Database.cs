@@ -15,8 +15,8 @@ namespace EtherBound.Sim.Db;
 /// </summary>
 public sealed class Database : IDisposable
 {
-    public const string AlembicHead = "0010_replay_work";
-    public const string SimSchema = "sim-0010";
+    public const string AlembicHead = "0012_actor_needs";
+    public const string SimSchema = "sim-0012";
 
     /// <summary>
     /// The sim's migration chain, oldest first: each entry moves a save one step up and is the whole
@@ -27,6 +27,8 @@ public sealed class Database : IDisposable
     {
         ("0009_walls", "EtherBound.Sim.Db.Schema0009_walls.sql"),
         ("0010_replay_work", "EtherBound.Sim.Db.Schema0010_replay_work.sql"),
+        ("0011_llm_call", "EtherBound.Sim.Db.Schema0011_llm_call.sql"),
+        ("0012_actor_needs", "EtherBound.Sim.Db.Schema0012_actor_needs.sql"),
     };
 
     /// <summary>Every version the runner knows how to move through, oldest first.</summary>
@@ -184,7 +186,7 @@ public sealed class Database : IDisposable
         using (var command = Command("SELECT key, id FROM material"))
         using (var r = command.ExecuteReader())
             while (r.Read()) store.MaterialIds[r.GetString(0)] = r.GetInt32(1);
-        using (var command = Command("SELECT id, kind, name, x, y, z, h, mass_kg, activity, mind FROM actor"))
+        using (var command = Command("SELECT id, kind, name, x, y, z, h, mass_kg, activity, mind, needs FROM actor"))
         using (var r = command.ExecuteReader())
             while (r.Read())
             {
@@ -192,7 +194,7 @@ public sealed class Database : IDisposable
                 {
                     Id = r.GetString(0), Kind = r.GetString(1), Name = r.IsDBNull(2) ? null : r.GetString(2),
                     X = r.GetDouble(3), Y = r.GetDouble(4), Z = r.GetInt32(5), H = r.GetInt32(6), MassKg = r.GetDouble(7),
-                    Activity = JsonColumn(r, 8), Mind = JsonColumn(r, 9),
+                    Activity = JsonColumn(r, 8), Mind = JsonColumn(r, 9), Needs = JsonColumn(r, 10),
                 };
                 store.Actors[row.Id] = row;
             }
@@ -252,6 +254,46 @@ public sealed class Database : IDisposable
         return (chunks, levels);
     }
 
+    /// <summary>Keys of every stored chunk: for a streaming world, exactly the modified ones.</summary>
+    public HashSet<(int, int)> ChunkKeys()
+    {
+        var keys = new HashSet<(int, int)>();
+        using var command = Command("SELECT cx, cy FROM chunk");
+        using var r = command.ExecuteReader();
+        while (r.Read()) keys.Add((r.GetInt32(0), r.GetInt32(1)));
+        return keys;
+    }
+
+    /// <summary>One stored chunk with its levels, for a streaming world's loader.</summary>
+    public (Chunk Chunk, List<ChunkLevel> Levels)? ReadChunk(int cx, int cy)
+    {
+        Chunk? chunk = null;
+        using (var command = Command("SELECT ground_h, surface_mat, strata, revision, gen_version, dug FROM chunk WHERE cx = $cx AND cy = $cy"))
+        {
+            command.Parameters.AddWithValue("$cx", cx);
+            command.Parameters.AddWithValue("$cy", cy);
+            using var r = command.ExecuteReader();
+            if (r.Read())
+            {
+                var strata = JsonNode.Parse(r.GetString(2))!.AsArray()
+                    .Select(layer => new Stratum(Json.ToInt(layer![0]!), layer[1]!.GetValue<string>())).ToList();
+                chunk = Chunk.FromBlobs(cx, cy, Blob(r, 0)!, Blob(r, 1)!, strata, r.GetInt32(3), r.GetInt32(4), Blob(r, 5));
+            }
+        }
+        if (chunk is null) return null;
+        var levels = new List<ChunkLevel>();
+        using (var command = Command("SELECT z, floor_h, floor_mat, wall_n, wall_w, edge_flags, flags, slot_mask, slot_mat FROM chunk_level WHERE cx = $cx AND cy = $cy ORDER BY z"))
+        {
+            command.Parameters.AddWithValue("$cx", cx);
+            command.Parameters.AddWithValue("$cy", cy);
+            using var r = command.ExecuteReader();
+            while (r.Read())
+                levels.Add(ChunkLevel.FromBlobs(cx, cy, r.GetInt32(0), Blob(r, 1)!, Blob(r, 2)!, Blob(r, 3)!, Blob(r, 4)!,
+                    Blob(r, 5)!, Blob(r, 6)!, Blob(r, 7), Blob(r, 8)));
+        }
+        return (chunk, levels);
+    }
+
     public bool HasChunks()
     {
         using var command = Command("SELECT 1 FROM chunk LIMIT 1");
@@ -273,6 +315,77 @@ public sealed class Database : IDisposable
         while (r.Read())
             rows.Add(new EventRow(r.GetInt32(0), r.GetInt32(1), r.GetString(2), r.IsDBNull(3) ? null : r.GetString(3), Json.Parse(r.GetString(4))));
         return rows;
+    }
+
+    public List<EventRow> ReadLastEvents(string type, int limit)
+    {
+        using var command = Command("SELECT seq, game_minute, type, actor_id, data FROM event WHERE type = $type ORDER BY seq DESC LIMIT $limit");
+        command.Parameters.AddWithValue("$type", type);
+        command.Parameters.AddWithValue("$limit", limit);
+        var rows = new List<EventRow>();
+        using var r = command.ExecuteReader();
+        while (r.Read())
+            rows.Add(new EventRow(r.GetInt32(0), r.GetInt32(1), r.GetString(2), r.IsDBNull(3) ? null : r.GetString(3), Json.Parse(r.GetString(4))));
+        rows.Reverse();
+        return rows;
+    }
+
+    // --- llm_call (Dev-008): a billing and debugging log, never gameplay state -----------------
+
+    public void InsertLlmCall(LlmCallRow row)
+    {
+        using var command = Command("INSERT INTO llm_call (game_minute, role, model, tokens_in, tokens_out, cost_usd, outcome, error, " +
+            "prompt, response) VALUES ($minute, $role, $model, $in, $out, $cost, $outcome, $error, $prompt, $response)");
+        var p = command.Parameters;
+        p.AddWithValue("$minute", row.GameMinute);
+        p.AddWithValue("$role", row.Role);
+        p.AddWithValue("$model", row.Model);
+        p.AddWithValue("$in", row.TokensIn);
+        p.AddWithValue("$out", row.TokensOut);
+        p.AddWithValue("$cost", row.CostUsd is { } cost ? cost : DBNull.Value);
+        p.AddWithValue("$outcome", row.Outcome);
+        p.AddWithValue("$error", row.Error is { } error ? error : DBNull.Value);
+        p.AddWithValue("$prompt", row.Prompt);
+        p.AddWithValue("$response", row.Response);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>The newest rows, newest first.</summary>
+    public List<LlmCallRow> ReadLlmCalls(int limit, string? role = null)
+    {
+        using var command = Command("SELECT id, game_minute, role, model, tokens_in, tokens_out, cost_usd, outcome, error, prompt, response " +
+            $"FROM llm_call {(role is null ? "" : "WHERE role = $role ")}ORDER BY id DESC LIMIT $limit");
+        command.Parameters.AddWithValue("$limit", limit);
+        if (role is not null) command.Parameters.AddWithValue("$role", role);
+        var rows = new List<LlmCallRow>();
+        using var r = command.ExecuteReader();
+        while (r.Read())
+            rows.Add(new LlmCallRow(r.GetInt32(0), r.GetInt32(1), r.GetString(2), r.GetString(3), r.GetInt32(4), r.GetInt32(5),
+                r.IsDBNull(6) ? null : r.GetDouble(6), r.GetString(7), r.IsDBNull(8) ? null : r.GetString(8), r.GetString(9), r.GetString(10)));
+        return rows;
+    }
+
+    /// <summary>
+    /// Keeps the log from growing without bound while event retention is open: full text for the newest
+    /// <paramref name="keepFull"/> rows, text cut to <paramref name="cutTo"/> characters beyond that, and
+    /// no rows older than the newest <paramref name="keepRows"/>.
+    /// </summary>
+    public void PruneLlmCalls(int keepFull, int keepRows, int cutTo)
+    {
+        using var transaction = _connection.BeginTransaction();
+        using (var cut = Command("UPDATE llm_call SET prompt = substr(prompt, 1, $cut), response = substr(response, 1, $cut) " +
+            "WHERE id <= (SELECT COALESCE(MAX(id), 0) FROM llm_call) - $full AND (length(prompt) > $cut OR length(response) > $cut)", transaction))
+        {
+            cut.Parameters.AddWithValue("$cut", cutTo);
+            cut.Parameters.AddWithValue("$full", keepFull);
+            cut.ExecuteNonQuery();
+        }
+        using (var drop = Command("DELETE FROM llm_call WHERE id <= (SELECT COALESCE(MAX(id), 0) FROM llm_call) - $rows", transaction))
+        {
+            drop.Parameters.AddWithValue("$rows", keepRows);
+            drop.ExecuteNonQuery();
+        }
+        transaction.Commit();
     }
 
     /// <summary>Material rows as <c>sync_materials</c> leaves them: new keys inserted, resistance refreshed.</summary>
@@ -419,10 +532,11 @@ public sealed class Database : IDisposable
     }
 
     private void WriteActor(SqliteTransaction t, ActorRow a) =>
-        Exec(t, "INSERT OR REPLACE INTO actor (id, kind, x, y, z, h, activity, mass_kg, name, mind) " +
-            "VALUES ($id, $kind, $x, $y, $z, $h, $activity, $mass, $name, $mind)",
+        Exec(t, "INSERT OR REPLACE INTO actor (id, kind, x, y, z, h, activity, mass_kg, name, mind, needs) " +
+            "VALUES ($id, $kind, $x, $y, $z, $h, $activity, $mass, $name, $mind, $needs)",
             ("$id", a.Id), ("$kind", a.Kind), ("$x", a.X), ("$y", a.Y), ("$z", a.Z), ("$h", a.H),
-            ("$activity", a.Activity?.ToJsonString()), ("$mass", a.MassKg), ("$name", a.Name), ("$mind", a.Mind?.ToJsonString()));
+            ("$activity", a.Activity?.ToJsonString()), ("$mass", a.MassKg), ("$name", a.Name), ("$mind", a.Mind?.ToJsonString()),
+            ("$needs", a.Needs?.ToJsonString()));
 
     private void WriteObject(SqliteTransaction t, ObjectRow o) =>
         Exec(t, "INSERT OR REPLACE INTO object (id, kind, loc, x, y, h, cx, cy, container_id, actor_id, slot, quantity, state, integrity, owner) " +

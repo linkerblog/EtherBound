@@ -37,6 +37,8 @@ public static class HudLayout
     public const float PanelEmptyHeight = 240f;
     public const float TabHeight = 56f;
     public const float SlotHeight = 120f;
+    public const float PanelPadX = 14f;
+    public const float MinimapSize = 256f;
     public const int TilesAcross = 30;
     public const int TilesDown = 18;
     public const int TilePixels = 64;
@@ -48,7 +50,7 @@ public static class HudLayout
     /// </summary>
     public sealed record Frame(
         Rect2 Header, Rect2 Menu, Rect2 Viewport, Rect2 Status, Rect2 Footer,
-        Rect2 BuildButton, Rect2 Feed, Rect2 Input, Rect2 Compass, Rect2 Panel, float Scale, Vector2 Offset);
+        Rect2 BuildButton, Rect2 Feed, Rect2 Input, Rect2 Compass, Rect2 Panel, Rect2 Minimap, float Scale, Vector2 Offset);
 
     /// <summary>The scale at which the whole design frame fits a window.</summary>
     public static float ScaleFor(Vector2 window) => Math.Min(window.X / Width, window.Y / Height);
@@ -80,7 +82,10 @@ public static class HudLayout
         var compass = new Rect2(ViewportWidth - Gutter - CompassSize, ViewportHeight - Gutter - CompassSize,
             CompassSize, CompassSize);
         var panel = new Rect2(0, ViewportHeight - PanelHeight, ViewportWidth, PanelHeight);
-        return new Frame(header, menu, viewport, status, footer, build, feed, input, compass, panel, scale, offset);
+        // The minimap is a square filling the content of the `MAP` panel at the top of the status column:
+        // its own size, centred between the panel's side paddings, in the panel's content space.
+        var minimap = new Rect2((StatusWidth - 2 * PanelPadX - MinimapSize) * 0.5f, 0, MinimapSize, MinimapSize);
+        return new Frame(header, menu, viewport, status, footer, build, feed, input, compass, panel, minimap, scale, offset);
     }
 
     /// <summary>The i-th menu button, top to bottom in the left column, in the column's own space.</summary>

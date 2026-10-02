@@ -21,8 +21,11 @@ public sealed record HostCarriedObject(int Id, string Kind, string Name, int Qua
 
 public sealed record HostActivity(string Op, int StartedMinute, int EndsMinute);
 
+/// <summary>An actor's needs as levels in 0..1 (1 = satisfied) at the frame's game minute.</summary>
+public sealed record HostNeeds(double Hunger, double Thirst, double Rest);
+
 public sealed record HostActor(string Id, string Kind, string? Name, double X, double Y, int Z, int H,
-    HostActivity? Activity, ImmutableArray<HostCarriedObject> Carried, double LoadKg);
+    HostActivity? Activity, ImmutableArray<HostCarriedObject> Carried, double LoadKg, HostNeeds? Needs = null);
 
 public sealed record HostObject(int Id, string Kind, int X, int Y, int H, int Quantity, bool? Open);
 
@@ -53,6 +56,18 @@ public sealed record HostChunk(int Cx, int Cy, int Revision, ImmutableArray<shor
 }
 
 /// <summary>
+/// The minimap around Niko: <see cref="Chunks"/>² chunks from (<see cref="OriginCx"/>, <see cref="OriginCy"/>) as
+/// RGB cells, <see cref="CellsPerChunk"/> per chunk side and <see cref="TilesPerCell"/> tiles per cell. The host
+/// rebuilds it only when Niko changes chunk or a chunk in the window changes, and carries the same instance between
+/// frames otherwise, so the client repaints its texture by reference comparison.
+/// </summary>
+public sealed record HostMinimap(int OriginCx, int OriginCy, int Chunks, int CellsPerChunk, int TilesPerCell,
+    ImmutableArray<byte> Rgb)
+{
+    public int Cells => Chunks * CellsPerChunk;
+}
+
+/// <summary>
 /// A detached render/input snapshot. It contains no sim-owned arrays or mutable JSON nodes.
 /// <see cref="MovesApplied"/> counts every <c>Move</c> the host has handled, blocked ones included, so
 /// the client can tell which of its steps a frame already shows.
@@ -60,4 +75,4 @@ public sealed record HostChunk(int Cx, int Cy, int Revision, ImmutableArray<shor
 public sealed record WorldFrame(long Sequence, long Seed, int GameMinute, int Speed, bool Paused,
     string Generator, int GenVersion, string GenOptionsJson, ImmutableArray<HostGenerator> Generators,
     ImmutableArray<HostActor> Actors, ImmutableArray<HostMaterial> Materials, ImmutableArray<HostObjectKind> ObjectKinds,
-    ImmutableArray<HostChunk> Chunks, long MovesApplied);
+    ImmutableArray<HostChunk> Chunks, long MovesApplied, HostMinimap? Minimap = null);

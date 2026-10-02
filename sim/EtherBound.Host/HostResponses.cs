@@ -70,3 +70,27 @@ public sealed record HostSimulationEvent(int Sequence, int GameMinute, string Ty
 public sealed record HostEventsResponse(int RequestId, ImmutableArray<HostSimulationEvent> Events) : HostResponse(RequestId);
 
 public sealed record HostErrorResponse(int RequestId, string Message) : HostResponse(RequestId);
+
+public sealed record HostNarrationDelta(int RequestId, string Text) : HostResponse(RequestId);
+
+/// <summary>The narrator is retrying after a failed check: whatever the feed showed so far is void.</summary>
+public sealed record HostNarrationRestart(int RequestId) : HostResponse(RequestId);
+
+/// <summary>
+/// A narration ended. <c>Ok</c> carries the final text; every other status leaves the engine's own line standing.
+/// <see cref="HostResponse.RequestId"/> is the narration's id, 0 for a host-level notice (the spend cap).
+/// </summary>
+public sealed record HostNarrationDone(int RequestId, Llm.Narration.NarrationStatus Status, string? Text, string? Detail) : HostResponse(RequestId);
+
+public sealed record HostNarrationLine(int Sequence, int GameMinute, string Text);
+
+public sealed record HostNarrationHistory(int RequestId, ImmutableArray<HostNarrationLine> Lines) : HostResponse(RequestId);
+
+/// <summary>
+/// What became of a free-text line (Dev-007). <c>Accept</c> is followed by the ordinary
+/// <see cref="HostActionResponse"/> of the submitted action under the same request id; <c>Confirm</c>
+/// carries the action the client submits only if the player says yes; <c>Reject</c> and
+/// <c>Unavailable</c> carry a <see cref="Message"/> and change nothing.
+/// </summary>
+public sealed record HostInterpretResponse(int RequestId, Llm.InterpretKind Kind, string Label, string Message,
+    GameAction? Action) : HostResponse(RequestId);

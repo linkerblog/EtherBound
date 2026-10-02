@@ -9,11 +9,17 @@ public sealed record Wearable(string Slot);
 
 public sealed record Tool(double? Dig = null, double? StrikeSpeedMS = null, double? Build = null);
 
+/// <summary>Eating one unit restores this much hunger (<c>docs/Dev-011.md</c> [Sec. 3], D4).</summary>
+public sealed record Edible(double Satiety);
+
+/// <summary>Drinking one unit restores this much thirst.</summary>
+public sealed record Drinkable(double Hydration);
+
 /// <summary>A data-defined object kind from <c>objects.toml</c>.</summary>
 public sealed record ObjectKind(
     string Key, string Name, string Material, double Mass, double Bulk, int Height, bool Solid, bool Surface,
     bool Fixed, bool Stackable, Container? Container = null, bool Openable = false, Wearable? Wearable = null,
-    Tool? Tool = null)
+    Tool? Tool = null, Edible? Edible = null, Drinkable? Drinkable = null)
 {
     /// <summary>Litres of <paramref name="quantity"/> of a kind; contents do not add bulk.</summary>
     public double TotalBulk(int quantity) => Bulk * quantity;
@@ -33,7 +39,7 @@ public sealed class ObjectCatalog
     private static readonly HashSet<string> KindKeys = new()
     {
         "key", "name", "material", "mass", "bulk", "height", "solid", "surface", "fixed", "stackable",
-        "container", "openable", "wearable", "tool",
+        "container", "openable", "wearable", "tool", "edible", "drinkable",
     };
 
     private static readonly Dictionary<string, HashSet<string>> ComponentKeys = new()
@@ -42,6 +48,8 @@ public sealed class ObjectCatalog
         ["openable"] = new(),
         ["wearable"] = new() { "slot" },
         ["tool"] = new() { "dig", "strike_speed_m_s", "build" },
+        ["edible"] = new() { "satiety" },
+        ["drinkable"] = new() { "hydration" },
     };
 
     private readonly Dictionary<string, ObjectKind> _byKey;
@@ -122,14 +130,26 @@ public sealed class ObjectCatalog
             if (dig is null && strike is null && build is null) throw new InvalidDataException($"object kind {key}: tool requires a capability");
             tool = new Tool(dig, strike, build);
         }
+        Edible? edible = Table(raw, "edible", key) is { } edibleTable
+            ? new Edible(RequiredFraction(edibleTable, "satiety", key, "edible")) : null;
+        Drinkable? drinkable = Table(raw, "drinkable", key) is { } drinkableTable
+            ? new Drinkable(RequiredFraction(drinkableTable, "hydration", key, "drinkable")) : null;
         return new ObjectKind(key, (string)raw["name"], material, DataFiles.Number(raw["mass"]), DataFiles.Number(raw["bulk"]),
-            height, solid, surface, Flag("fixed"), stackable, container, openable, wearable, tool);
+            height, solid, surface, Flag("fixed"), stackable, container, openable, wearable, tool, edible, drinkable);
     }
 
     private static double Positive(TomlTable table, string field, string key, string component)
     {
         var value = DataFiles.Number(table[field]);
         if (value <= 0) throw new InvalidDataException($"object kind {key}: {component}.{field} must be positive");
+        return value;
+    }
+
+    private static double RequiredFraction(TomlTable table, string field, string key, string component)
+    {
+        var value = table.TryGetValue(field, out var raw) ? DataFiles.Number(raw)
+            : throw new InvalidDataException($"object kind {key}: {component}.{field} is required");
+        if (value is <= 0 or > 1) throw new InvalidDataException($"object kind {key}: {component}.{field} must be in (0, 1]");
         return value;
     }
 

@@ -39,6 +39,16 @@ public class Architecture
     }
 
     [Fact]
+    public void The_sim_never_references_the_llm_assembly_nor_the_network()
+    {
+        Assert.DoesNotContain(SimAssembly.Assembly.GetReferencedAssemblies(), a => a.Name == "EtherBound.Llm");
+        Assert.Contains(Host.HostAssembly.Assembly.GetReferencedAssemblies(), a => a.Name == "EtherBound.Llm");
+        var offenders = Sources(SimRoot).Where(s => Regex.IsMatch(s.Text, @"EtherBound\.Llm|System\.Net\.Http|HttpClient"))
+            .Select(s => s.Relative);
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
     public void Database_access_stays_inside_engine_and_db()
     {
         var database = new Regex(@"\b(Microsoft\.Data\.Sqlite|EtherBound\.Sim\.Db)\b");
@@ -48,6 +58,26 @@ public class Architecture
             .Where(s => database.IsMatch(s.Text))
             .Select(s => s.Relative);
         Assert.Empty(offenders);
+    }
+
+    /// <summary>
+    /// A mind proposes and the engine writes (Dev-011): in <c>Minds/</c> the only things asked of the engine
+    /// are <c>Submit</c> and <c>SetGoal</c> to act, and reads. No session, store, database or engine class.
+    /// </summary>
+    [Fact]
+    public void Minds_act_only_through_submit_and_set_goal()
+    {
+        var comments = new Regex(@"//.*$", RegexOptions.Multiline);
+        var allowed = new HashSet<string> { "Submit", "SetGoal", "GetTickState", "GetState", "Grid", "Menu", "Percepts" };
+        var minds = Sources(SimRoot).Where(s => s.Relative.StartsWith("Minds/", StringComparison.Ordinal)).ToList();
+        Assert.NotEmpty(minds);
+        foreach (var (relative, text) in minds)
+        {
+            var code = comments.Replace(text, "");
+            Assert.False(Regex.IsMatch(code, @"\b(WorldEngine|WorldStore|Session|ActionContext|OpHandler|Database|OpenSession|RecordDecision)\b"), relative);
+            var used = Regex.Matches(code, @"_engine\.(\w+)").Select(m => m.Groups[1].Value).ToHashSet();
+            Assert.True(used.IsSubsetOf(allowed), $"{relative} calls {string.Join(", ", used.Except(allowed))}");
+        }
     }
 
     [Fact]

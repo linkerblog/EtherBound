@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using EtherBound.Host;
+using EtherBound.Llm;
 using EtherBound.Game.Spike;
 using EtherBound.Game.Ui;
 using EtherBound.Sim.Core;
@@ -44,6 +45,9 @@ public partial class WorldClient : Node
     private StandardMaterial3D _playerActorMaterial = null!, _extraActorMaterial = null!;
     private Task<Dictionary<string, DecodedSprites>>? _spriteDecode;
     private SimulationHost? _host;
+    private LlmRuntime? _llm;
+    private readonly FreeTextFlow _freeText = new();
+    private readonly NarrationNotices _narrationNotices = new();
     private PixelView _view = null!;
     private Node3D _root = null!;
     private WorldDump? _world;
@@ -105,12 +109,13 @@ public partial class WorldClient : Node
             DisplayServer.WindowSetSize(new Vector2I(parsedW, parsedH));
 
         var seed = _args.TryGetValue("seed", out var rawSeed) && long.TryParse(rawSeed, out var parsedSeed) ? parsedSeed : 7;
-        var generator = _args.GetValueOrDefault("generator", "test");
+        var generator = _args.GetValueOrDefault("generator", "infinite");
         var databasePath = _args.GetValueOrDefault("database", Path.Combine(OS.GetUserDataDir(), "etherbound.db"));
         var bootstrap = GetNode<SimulationBootstrap>("/root/SimulationBootstrap");
         _hostStartedAt = Stopwatch.GetTimestamp();
+        _llm = LlmRuntime.Create(OS.GetUserDataDir());
         _host = new SimulationHost(databasePath, seed, generator,
-            loadCatalogs: () => bootstrap.Catalogs.GetAwaiter().GetResult());
+            loadCatalogs: () => bootstrap.Catalogs.GetAwaiter().GetResult(), llm: _llm);
         GD.Print($"world client started: seed {seed}, generator {generator}");
 
         var sprites = Path.Combine(ProjectSettings.GlobalizePath("res://"), "assets", "sprites");
@@ -175,7 +180,8 @@ public partial class WorldClient : Node
             if (_host?.TryNewGame(requestId, request.Seed, request.Generator, request.OptionsJson, request.Paused) != true)
                 _gameHud.PushFeed("SIM BUSY", "warn");
         };
-        _gameHud.FreeTextSubmitted += text => _gameHud.PushFeed($"> {text}", "info");
+        _gameHud.FreeTextSubmitted += SubmitFreeText;
+        _gameHud.SetLlm(_llm);
         _gameHud.ViewChanged += _ =>
         {
             _actionMenu.Close();
@@ -191,7 +197,39 @@ public partial class WorldClient : Node
         _gameHud.ViewportRectChanged += rect => _view?.SetTargetRect(rect);
         _gameHud.BuildSlotsRequested += RequestBuildSlots;
         AddChild(_gameHud);
+        // The story the log already holds comes back to the feed; an empty answer costs nothing.
+        if (_host?.TryRequestNarrationHistory(++_requestId) != true) _gameHud.PushFeed("SIM BUSY", "warn");
     }
+
+    /// <summary>
+    /// Free text (Dev-007): the line goes to Jev through the host, which returns one of Niko's own actions; a
+    /// pending "did you mean" is answered here. Nothing is simulated on the client.
+    /// </summary>
+    private void SubmitFreeText(string text)
+    {
+        if (_host is null) return;
+        var submission = _freeText.Submit(text, _host.FreeTextAvailable);
+        switch (submission.Step)
+        {
+            case FreeTextFlow.Step.Ask:
+                PushFreeTextFeed(FreeTextFlow.EchoOf(submission.Text));
+                if (!_host.TryInterpretText(++_requestId, submission.Text)) _gameHud.PushFeed("SIM BUSY", "warn");
+                break;
+            case FreeTextFlow.Step.Unavailable:
+                PushFreeTextFeed(FreeTextFlow.EchoOf(submission.Text));
+                PushFreeTextFeed(FreeTextFlow.UnavailableLine());
+                break;
+            case FreeTextFlow.Step.Confirmed:
+                PushFreeTextFeed(FreeTextFlow.ConfirmedLine(submission.Confirmed!));
+                if (!_host.TrySubmitAction(++_requestId, submission.Confirmed!.Action)) _gameHud.PushFeed("SIM BUSY", "warn");
+                break;
+            case FreeTextFlow.Step.Dropped:
+                PushFreeTextFeed(FreeTextFlow.DroppedLine());
+                break;
+        }
+    }
+
+    private void PushFreeTextFeed(FreeTextFlow.FeedLine line) => _gameHud.PushFeed(line.Text, line.Category);
 
     /// <summary>
     /// The build panel asks for the slots `Menu.Build` offers; the radial menu already lists the
@@ -735,7 +773,23 @@ public partial class WorldClient : Node
                 case HostEventsResponse events:
                     ShowSimulationEvents(events.Events);
                     break;
+                case HostInterpretResponse interpreted:
+                    PushFreeTextFeed(_freeText.Present(interpreted));
+                    break;
+                case HostNarrationDelta piece:
+                    _gameHud.StreamNarration(piece.RequestId, piece.Text);
+                    break;
+                case HostNarrationRestart restart:
+                    _gameHud.RestartNarration(restart.RequestId);
+                    break;
+                case HostNarrationDone narrated:
+                    FinishNarration(narrated);
+                    break;
+                case HostNarrationHistory history:
+                    _gameHud.RestoreNarration(history.Lines.Select(line => (line.GameMinute, line.Text)));
+                    break;
                 case HostNewGameResponse game when game.RequestId == _pendingNewGameRequest:
+                    _freeText.Reset();
                     ShowSimulationEvents(game.Events);
                     _pendingNewGameRequest = 0;
                     _gameHud.CloseNewGame();
@@ -752,6 +806,17 @@ public partial class WorldClient : Node
                     break;
             }
         }
+    }
+
+    /// <summary>
+    /// A narration ended: the text replaces what streamed, anything else removes the half-written row so the engine's
+    /// own line stands. A failure is said once per kind, never on every action.
+    /// </summary>
+    private void FinishNarration(HostNarrationDone done)
+    {
+        _gameHud.FinishNarration(done.RequestId, done.Status == Llm.Narration.NarrationStatus.Ok ? done.Text : null);
+        var notice = _narrationNotices.Notice(done.Status, done.Detail);
+        if (notice is not null) _gameHud.PushFeed(notice, "warn");
     }
 
     private bool ShowSimulationEvents(IReadOnlyList<HostSimulationEvent> events)
@@ -871,6 +936,9 @@ public partial class WorldClient : Node
             await Frames(8);
             GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, $"spawn-x{scale}.png"));
         }
+        // The minimap panel in the status column, over the endless terrain around the spawn.
+        await Frames(4);
+        GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "minimap.png"));
 
         _pendingRadialRequest = ++_requestId;
         _host?.TryRequestRadialMenu(_pendingRadialRequest);
@@ -898,8 +966,18 @@ public partial class WorldClient : Node
             ("BUILD FAILED · NO MATERIAL", "fail"), ("VIEW: AROUND NIKO", "seen"), ("NOTHING HERE", "warn"),
         })
             _gameHud.PushFeed(text, category);
-        await Frames(4);
+        await Frames(3);
+        _gameHud.ScrollFeedToEnd();
+        await Frames(3);
         GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "feed-latest.png"));
+        // Narration streams into one wrapping row (Dev-008).
+        _gameHud.StreamNarration(1, "Niko studies the ground. It is cold asphalt, ");
+        _gameHud.StreamNarration(1, "damp from the night. He crouches without a word and keeps looking.");
+        _gameHud.FinishNarration(1, "Niko studies the ground. It is cold asphalt, damp from the night. He crouches without a word and keeps looking. A shovel lies close by, its handle worn smooth, and a closed chest waits beside it.");
+        await Frames(3);
+        _gameHud.ScrollFeedToEnd();
+        await Frames(6);
+        GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "feed-narration.png"));
         _gameHud.ScrollFeedToTop();
         await Frames(3);
         GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "feed-history.png"));
@@ -935,9 +1013,11 @@ public partial class WorldClient : Node
         _gameHud.ShowConsoleSection("npcs");
         await Frames(4);
         GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "dev-console-npcs.png"));
+        _llm?.Record(new Llm.CallRecord("narrator", "provider/model", 420, 38, 0.00031, "ok", null, "", ""));
+        _llm?.Record(new Llm.CallRecord("jev", "jev-latest", 1500, 0, 0.000063, "ok", null, "", ""));
         _gameHud.SwitchView("LLM");
-        await Frames(8);
-        GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "llm-placeholder.png"));
+        await Frames(12);
+        GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "llm-tab.png"));
         GetTree().Quit();
     }
 

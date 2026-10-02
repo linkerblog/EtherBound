@@ -16,6 +16,8 @@
     <EmbeddedResource Include="Db\Schema0008.sql" LogicalName="EtherBound.Sim.Db.Schema0008.sql" />
     <EmbeddedResource Include="Db\Schema0009_walls.sql" LogicalName="EtherBound.Sim.Db.Schema0009_walls.sql" />
     <EmbeddedResource Include="Db\Schema0010_replay_work.sql" LogicalName="EtherBound.Sim.Db.Schema0010_replay_work.sql" />
+    <EmbeddedResource Include="Db\Schema0011_llm_call.sql" LogicalName="EtherBound.Sim.Db.Schema0011_llm_call.sql" />
+    <EmbeddedResource Include="Db\Schema0012_actor_needs.sql" LogicalName="EtherBound.Sim.Db.Schema0012_actor_needs.sql" />
   </ItemGroup>
 
   <ItemGroup>

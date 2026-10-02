@@ -90,7 +90,7 @@ public static class OpCatalog
         new MoveOp(), new ClimbOp(), new WaitOp(), new InspectOp(), new DigOp(), new BuildOp(),
         new TakeOp(), new DropOp(), new PutOp(), new OpenOp(), new CloseOp(), new WearOp(), new RemoveOp(),
         new PhysicsOp("push"), new PhysicsOp("pull"), new PhysicsOp("drag"), new PhysicsOp("throw"),
-        new PhysicsOp("hit"), new PhysicsOp("break"));
+        new PhysicsOp("hit"), new PhysicsOp("break"), new EatOp(), new DrinkOp(), new SleepOp());
 
     private static List<OpSpec> Load()
     {

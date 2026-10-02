@@ -13,6 +13,9 @@ public sealed class WorldStore
     public Dictionary<string, int> MaterialIds { get; } = new();
     public Dictionary<(string ActorId, string ActionKey), int> ActivityWork { get; } = new();
     public int MaxEventSeq { get; set; }
+
+    /// <summary>Keys of the chunks the database holds; in a streaming world, the modified ones.</summary>
+    public HashSet<(int, int)> PersistedChunks { get; } = new();
     public Database? Db { get; set; }
 }
 
@@ -280,6 +283,8 @@ public sealed class Session
             if (changes.WipeActors) _store.Actors.Clear();
         }
         if (changes.WipeActivityWork) _store.ActivityWork.Clear();
+        if (changes.Wipe) _store.PersistedChunks.Clear();
+        foreach (var chunk in changes.Chunks) _store.PersistedChunks.Add((chunk.Cx, chunk.Cy));
         if (changes.Meta is not null) _store.Meta = changes.Meta.Clone();
         foreach (var id in changes.DeletedActors) _store.Actors.Remove(id);
         foreach (var row in changes.InsertedActors.Concat(changes.UpdatedActors)) _store.Actors[row.Id] = row.Clone();

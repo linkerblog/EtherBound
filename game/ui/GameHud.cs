@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EtherBound.Host;
+using EtherBound.Llm;
 using EtherBound.Sim.Core;
 using Godot;
 
@@ -29,18 +30,33 @@ public partial class GameHud : CanvasLayer
         new("GAME", "GAME", "ALT+1", true),
         new("INVENTORY", "INVENTORY", "—", false),
         new("DEBUG", "DEBUG", "ALT+2", true),
+        new("LLM", "LLM", "ALT+3", true),
     };
 
     private readonly Dictionary<int, Button> _speedButtons = new();
     private readonly List<MenuCell> _menuButtons = new();
-    private readonly List<(int Minute, string Text, string Category)> _feedHistory = new();
+    private sealed class FeedEntry
+    {
+        public FeedEntry(int minute, string text, string category) => (Minute, Text, Category) = (minute, text, category);
+
+        public int Minute { get; }
+        public string Text { get; set; }
+        public string Category { get; }
+    }
+
+    private readonly List<FeedEntry> _feedHistory = new();
+    private FeedEntry? _liveEntry;
+    private FeedLog.Handle? _liveRow;
+    private int _liveId;
+    private LlmRuntime? _llm;
     private readonly List<Control> _carryRows = new();
     private readonly List<Control> _nearbyRows = new();
     private Theme _theme = null!;
     private Font _bold = null!;
     private Control _root = null!, _frameRoot = null!;
     private PanelContainer _header = null!, _clockPanel = null!, _feedPanel = null!, _inputPanel = null!;
-    private PanelContainer _activityPanel = null!, _carryPanel = null!, _nearbyPanel = null!, _statusPanel = null!;
+    private PanelContainer _mapPanel = null!, _activityPanel = null!, _carryPanel = null!, _nearbyPanel = null!, _statusPanel = null!;
+    private MinimapPanel _minimap = null!;
     private Control _menu = null!, _gameView = null!, _debugView = null!, _llmView = null!, _statusColumn = null!, _footer = null!;
     private ViewportFrame _viewportFrame = null!;
     private Label _clockText = null!, _subtitle = null!, _activityText = null!, _loadText = null!;
@@ -147,6 +163,7 @@ public partial class GameHud : CanvasLayer
         }
         UpdateCarry(player);
         UpdateActivity(frame, player);
+        _minimap.SetMap(frame.Minimap, player.X, player.Y);
 
         _newGame.UpdateFrame(frame);
         _console.UpdateFrame(frame);
@@ -181,9 +198,72 @@ public partial class GameHud : CanvasLayer
     {
         if (string.IsNullOrWhiteSpace(text)) return;
         var minute = _frame?.GameMinute ?? 0;
-        _feedHistory.Add((minute, text, category));
-        if (FeedFormat.Overflow(_feedHistory.Count) > 0) _feedHistory.RemoveRange(0, FeedFormat.Overflow(_feedHistory.Count));
+        _feedHistory.Add(new FeedEntry(minute, text, category));
+        TrimHistory();
         _feed?.Push(minute, text, category);
+    }
+
+    private void TrimHistory()
+    {
+        if (FeedFormat.Overflow(_feedHistory.Count) > 0) _feedHistory.RemoveRange(0, FeedFormat.Overflow(_feedHistory.Count));
+    }
+
+    /// <summary>Narration the log already holds, shown again after a restart; each line keeps the minute it was written at.</summary>
+    public void RestoreNarration(IEnumerable<(int Minute, string Text)> lines)
+    {
+        foreach (var (minute, text) in lines)
+        {
+            _feedHistory.Add(new FeedEntry(minute, text, "narr"));
+            _feed?.Push(minute, text, "narr", animate: false, wrap: true);
+        }
+        TrimHistory();
+    }
+
+    /// <summary>
+    /// Narration streams into one row that grows as the model writes (Dev-008). It is the engine's line that stays
+    /// if the narration later fails, so a row that did not end well is removed rather than left half written.
+    /// </summary>
+    public void StreamNarration(int id, string piece)
+    {
+        if (_liveEntry is null || _liveId != id)
+        {
+            FinishNarration(_liveId, null);
+            var minute = _frame?.GameMinute ?? 0;
+            _liveEntry = new FeedEntry(minute, "", "narr");
+            _liveId = id;
+            _feedHistory.Add(_liveEntry);
+            TrimHistory();
+            _liveRow = _feed?.Push(minute, "", "narr", wrap: true);
+        }
+        _liveEntry.Text += piece;
+        _liveRow?.SetText(_liveEntry.Text.TrimStart());
+    }
+
+    /// <summary>The model is retrying after a failed check: what was shown so far is void.</summary>
+    public void RestartNarration(int id)
+    {
+        if (_liveEntry is null || _liveId != id) return;
+        _liveEntry.Text = "";
+        _liveRow?.SetText("");
+    }
+
+    /// <summary>Ends the live narration: <paramref name="text"/> replaces what streamed, null removes the row.</summary>
+    public void FinishNarration(int id, string? text)
+    {
+        if (_liveEntry is null || _liveId != id) return;
+        if (text is null)
+        {
+            _feedHistory.Remove(_liveEntry);
+            _liveRow?.Remove();
+        }
+        else
+        {
+            _liveEntry.Text = text;
+            _liveRow?.SetText(text);
+        }
+        _liveEntry = null;
+        _liveRow = null;
+        _liveId = 0;
     }
 
     public void ShowNewGame()
@@ -193,6 +273,9 @@ public partial class GameHud : CanvasLayer
     }
 
     public void CloseNewGame() => _newGame?.CloseNew();
+
+    /// <summary>Gives the LLM tab the runtime it reads and edits; the tab is rebuilt with the rest of the HUD.</summary>
+    public void SetLlm(LlmRuntime? runtime) => _llm = runtime;
 
     public void ShowGeneratorError(string message) => _newGame.ShowError(message);
 
@@ -215,6 +298,9 @@ public partial class GameHud : CanvasLayer
 
     /// <summary>Scrolls the feed to its oldest row; for the screenshot driver.</summary>
     public void ScrollFeedToTop() => _feed.ScrollToTop();
+
+    /// <summary>Scrolls the feed to its newest row; for the screenshot driver.</summary>
+    public void ScrollFeedToEnd() => _feed.ScrollToBottom();
 
     /// <summary>Selects a console section; for the screenshot driver.</summary>
     public void ShowConsoleSection(string key) => _console.ShowSection(key);
@@ -286,7 +372,12 @@ public partial class GameHud : CanvasLayer
         _root.AddChild(_newGame);
         Build.Restyle();
 
-        foreach (var (minute, text, category) in _feedHistory) _feed.Push(minute, text, category, animate: false);
+        _liveRow = null;
+        foreach (var entry in _feedHistory)
+        {
+            var handle = _feed.Push(entry.Minute, entry.Text, entry.Category, animate: false, wrap: entry.Category == "narr");
+            if (entry == _liveEntry) _liveRow = handle;
+        }
         ApplyView();
         UpdateMenuStyles();
         UpdateBuildButton();
@@ -387,16 +478,7 @@ public partial class GameHud : CanvasLayer
         _console.RegenerateRequested += request => NewGameRequested?.Invoke(request);
         _debugView = _console;
         _frameRoot.AddChild(_debugView);
-        _llmView = new PanelContainer { Name = "LlmView", MouseFilter = Control.MouseFilterEnum.Pass };
-        _llmView.AddThemeStyleboxOverride("panel", HudTheme.PanelFrame(modal: true));
-        var placeholder = new Label
-        {
-            Text = "NO MODEL CONNECTED",
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        HudTheme.Label(placeholder, HudTheme.Dim);
-        _llmView.AddChild(placeholder);
+        _llmView = new LlmPanel(_llm) { Visible = false };
         _frameRoot.AddChild(_llmView);
 
         _statusColumn = new Control { Name = "StatusColumn", MouseFilter = Control.MouseFilterEnum.Pass };
@@ -404,6 +486,11 @@ public partial class GameHud : CanvasLayer
         // The column is a plain Control, so the stack needs anchors to take its width and height.
         stack.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         stack.AddThemeConstantOverride("separation", HudTheme.S(24));
+
+        // The map is first, so it stays at the top of the column whatever the other panels show.
+        _mapPanel = CreatePanel(stack, "MAP");
+        _minimap = new MinimapPanel { CustomMinimumSize = HudTheme.V(HudLayout.MinimapSize, HudLayout.MinimapSize) };
+        Content(_mapPanel).AddChild(_minimap);
 
         _activityPanel = CreatePanel(stack, "ACT");
         _activityText = new Label { Text = "", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, ClipText = true };

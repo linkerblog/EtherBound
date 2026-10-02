@@ -150,7 +150,7 @@ public sealed class OpsRules : IDisposable
     {
         using var engine = NewEngine();
         Place(engine, Grass.X, Grass.Y);
-        Assert.Equal(new[] { "wait", "inspect", "dig", "build", "build", "build", "build", "build" }, MenuOpOrder(engine, Grass.X, Grass.Y));
+        Assert.Equal(new[] { "sleep", "wait", "inspect", "dig", "build", "build", "build", "build", "build" }, MenuOpOrder(engine, Grass.X, Grass.Y));
         var build = Menu.Build(engine.OpenSession(), engine.Grid, engine.Registry, 0, Ids.Player, Grass.X + 0.5, Grass.Y + 0.5, 0).Entries
             .Where(e => e.Op == "build").ToList();
         Assert.Equal(new[] { "tile", "edge", "edge", "edge", "edge" }, build.Select(e => e.Action.Target!.Kind));

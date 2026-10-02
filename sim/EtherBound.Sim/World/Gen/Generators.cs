@@ -52,6 +52,15 @@ public sealed class GeneratorSpec
     public required IReadOnlyList<OptionField> Fields { get; init; }
     public IReadOnlyList<GeneratorBay> Bays { get; init; } = Array.Empty<GeneratorBay>();
 
+    /// <summary>
+    /// Set only by a streaming generator (Dev-010): chunks are a pure function of seed, options and
+    /// coordinates, built on demand and persisted only once modified. <see cref="Generate"/> then
+    /// returns just the spawn and its kit.
+    /// </summary>
+    public Func<long, IGeneratorOptions, MaterialRegistry, IChunkSource>? Stream { get; init; }
+
+    public bool Streaming => Stream is not null;
+
     public IGeneratorOptions Defaults => Parse(null);
 }
 
@@ -59,6 +68,9 @@ public sealed class GeneratorSpec
 public static class Generators
 {
     public const string Default = "test";
+
+    // The spawn search only asks which materials are walkable, so a registry with the catalog's own ids serves.
+    private static readonly Lazy<MaterialRegistry> SpawnRegistry = new(() => MaterialRegistry.Load());
 
     private static readonly string[] LabFeatures = { "none", "relief" };
 
@@ -73,6 +85,22 @@ public static class Generators
             Generate = (seed, _, registry) => TestWorld.Generate(seed, registry),
             Spawn = (_, _) => (TestWorld.SpawnPoint.X, TestWorld.SpawnPoint.Y, 2),
             Fields = Array.Empty<OptionField>(),
+        },
+        ["infinite"] = new()
+        {
+            Key = "infinite",
+            Name = "Endless world",
+            Version = EndlessWorld.GenVersion,
+            Parse = ParseEndless,
+            Generate = (seed, options, registry) => EndlessWorld.Generate(seed, (EndlessOptions)options, registry),
+            Spawn = (seed, options) => EndlessWorld.Spawn(new TerrainField(seed, (EndlessOptions)options, SpawnRegistry.Value)),
+            Stream = (seed, options, registry) => new EndlessSource(seed, (EndlessOptions)options, registry),
+            Fields = new[]
+            {
+                new OptionField("relief", "Relief", "int", 12, 0, 24),
+                new OptionField("water", "Water", "float", 0.5, 0, 1, 0.05),
+                new OptionField("mountains", "Mountains", "float", 0.5, 0, 1, 0.05),
+            },
         },
         ["lab"] = new()
         {
@@ -113,6 +141,13 @@ public static class Generators
             Float(relief, "gain", 0.5, 0.1, 0.9, 0.05),
             Int(relief, "edge", 4, 0, 12));
         return new LabOptions(feature, spawnBay, options);
+    }
+
+    private static EndlessOptions ParseEndless(JsonObject? raw)
+    {
+        raw ??= new JsonObject();
+        return new EndlessOptions(Int(raw, "relief", 12, 0, 24), Float(raw, "water", 0.5, 0, 1, 0.05),
+            Float(raw, "mountains", 0.5, 0, 1, 0.05));
     }
 
     private static string Choice(JsonObject raw, string key, string fallback, IReadOnlyList<string> choices)

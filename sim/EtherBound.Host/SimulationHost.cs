@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Collections.Immutable;
 using System.Text.Json.Nodes;
 using System.Threading.Channels;
+using EtherBound.Llm;
 using EtherBound.Sim;
 using EtherBound.Sim.Clock;
 using EtherBound.Sim.Core;
@@ -14,7 +15,7 @@ using EtherBound.Sim.Events;
 namespace EtherBound.Host;
 
 /// <summary>Owns the only sim thread and publishes detached frames for the client to draw.</summary>
-public sealed class SimulationHost : IDisposable
+public sealed partial class SimulationHost : IDisposable
 {
     /// <summary>WASD steps per second; the client paces its <c>Move</c> commands and interpolation by it.</summary>
     public const int MoveHz = 20;
@@ -33,7 +34,20 @@ public sealed class SimulationHost : IDisposable
     private readonly long _seed;
     private readonly string _generator;
     private readonly int _chunkRadius;
+
+    // The minimap's per-chunk cells and the last assembled image; both belong to the sim thread.
+    public const int MinimapRadiusChunks = 4;
+    private readonly Dictionary<(int Cx, int Cy), (int Revision, byte[] Cells)> _mapChunks = new();
+    private MapSampler? _mapSampler;
+    private HostMinimap? _minimap;
+    private (int Cx, int Cy)? _streamingChunk;
+    private bool _mapPending;
+
+    // Colouring a whole window on every chunk crossing would be a hitch, so after the first window the work
+    // is spread over a few publishes: unfinished chunks draw dark until their turn.
+    private const int MapChunksPerPublish = 9;
     private readonly Func<WorldEngineCatalogs> _loadCatalogs;
+    private readonly LlmRuntime? _llm;
     private readonly Channel<Command> _commands = Channel.CreateBounded<Command>(new BoundedChannelOptions(256)
     {
         SingleReader = true,
@@ -59,11 +73,12 @@ public sealed class SimulationHost : IDisposable
     private long _movesApplied;
 
     public SimulationHost(string databasePath = ":memory:", long seed = 7, string generator = "test", int chunkRadius = 2,
-        Func<WorldEngineCatalogs>? loadCatalogs = null)
+        Func<WorldEngineCatalogs>? loadCatalogs = null, LlmRuntime? llm = null)
     {
         if (chunkRadius < 0) throw new ArgumentOutOfRangeException(nameof(chunkRadius));
         _startedAt = Stopwatch.GetTimestamp();
         _loadCatalogs = loadCatalogs ?? WorldEngine.LoadCatalogs;
+        _llm = llm;
         _databasePath = databasePath;
         _seed = seed;
         _generator = generator;
@@ -173,25 +188,13 @@ public sealed class SimulationHost : IDisposable
             }
             var worldReady = Stopwatch.GetTimestamp();
             new ExtrasBrain(engine).Attach(engine.Bus);
-            var pendingEvents = new List<HostSimulationEvent>();
             engine.Bus.Subscribe("*", e =>
             {
-                if (!e.Logged || e.ActorId != Ids.Player) return;
-                pendingEvents.Add(new HostSimulationEvent(e.Seq, e.GameMinute, e.Type, e.ActorId, e.Data.ToJsonString()));
+                // Model decisions are log entries, not things Niko did: they never reach the action feed.
+                if (!e.Logged || e.ActorId != Ids.Player || e.Type.StartsWith("llm.", StringComparison.Ordinal)) return;
+                _pendingEvents.Add(new HostSimulationEvent(e.Seq, e.GameMinute, e.Type, e.ActorId, e.Data.ToJsonString()));
             }, "host.player-events", Phase.Replication);
-
-            ImmutableArray<HostSimulationEvent> TakeEvents()
-            {
-                var events = ImmutableArray.CreateRange(pendingEvents);
-                pendingEvents.Clear();
-                return events;
-            }
-
-            void QueueEvents()
-            {
-                var events = TakeEvents();
-                if (!events.IsEmpty) _responses.Writer.TryWrite(new HostEventsResponse(0, events));
-            }
+            StartLlm(engine);
 
             var clock = new SimClock();
             clock.Load(state.Speed, state.Paused);
@@ -252,6 +255,10 @@ public sealed class SimulationHost : IDisposable
                                 state = engine.NewGame(start.Seed, start.Generator, options, start.Paused);
                                 clock.Load(state.Speed, state.Paused);
                                 chunks.Clear();
+                                _mapChunks.Clear();
+                                _minimap = null;
+                                _streamingChunk = null;
+                                ResetLlmForNewWorld();
                                 var newGameEvents = TakeEvents();
                                 if (start.RequestId > 0)
                                     _responses.Writer.TryWrite(new HostNewGameResponse(start.RequestId, start.Seed, state.Generator, newGameEvents));
@@ -261,6 +268,7 @@ public sealed class SimulationHost : IDisposable
                                 break;
                             case SubmitAction action:
                                 var result = engine.Submit(Ids.Player, action.Action);
+                                NoteInspection(result);
                                 _responses.Writer.TryWrite(new HostActionResponse(action.RequestId,
                                     HostActionResult.Copy(action.RequestId, result), TakeEvents()));
                                 changed = true;
@@ -276,6 +284,27 @@ public sealed class SimulationHost : IDisposable
                                 break;
                             case PickRay pick:
                                 _responses.Writer.TryWrite(new HostPickResponse(pick.RequestId, ToHostPick(engine.Pick(pick.Ray))));
+                                break;
+                            case InterpretText ask:
+                                HandleInterpretText(engine, ask);
+                                break;
+                            case InterpretFailed failed:
+                                HandleInterpretFailed(engine, failed);
+                                break;
+                            case InterpretDone done:
+                                changed |= HandleInterpretDone(engine, done);
+                                break;
+                            case NarrationDelta delta:
+                                _responses.Writer.TryWrite(new HostNarrationDelta(delta.Request, delta.Text));
+                                break;
+                            case NarrationRestart restart:
+                                _responses.Writer.TryWrite(new HostNarrationRestart(restart.Request));
+                                break;
+                            case NarrationDone narrated:
+                                HandleNarrationDone(engine, narrated);
+                                break;
+                            case NarrationHistoryQuery history:
+                                HandleNarrationHistory(engine, history);
                                 break;
                             case MenuRay menuRay:
                                 var hit = engine.Pick(menuRay.Ray);
@@ -294,9 +323,11 @@ public sealed class SimulationHost : IDisposable
                     }
                 }
 
-                if (changed) Publish(engine, engine.GetState(), materials, objectKinds, generators, chunks);
+                MaybeNarrate(engine);
+                if (changed || _mapPending) Publish(engine, engine.GetState(), materials, objectKinds, generators, chunks);
+                MaintainStreaming(engine);
                 if (Volatile.Read(ref _disposed) == 0)
-                    _wake.WaitOne(Math.Clamp((int)Math.Ceiling(clock.UntilNextTick * 1000), 1, 1000));
+                    _wake.WaitOne(_mapPending ? 1 : Math.Clamp((int)Math.Ceiling(clock.UntilNextTick * 1000), 1, 1000));
             }
         }
         catch (Exception error)
@@ -344,11 +375,14 @@ public sealed class SimulationHost : IDisposable
             ImmutableArray.CreateRange(state.Actors.Select(a => new HostActor(a.Id, a.Kind, a.Name, a.X, a.Y, a.Z, a.H,
                 a.Activity is { } activity ? new HostActivity(activity.Op, activity.StartedMinute, activity.EndsMinute) : null,
                 ImmutableArray.CreateRange(a.Carried.Select(item => new HostCarriedObject(item.Id, item.Kind, item.Name, item.Quantity, item.Slot))),
-                a.LoadKg))),
+                a.LoadKg,
+                a.Needs is { } needs ? new HostNeeds(needs.Level(NeedCatalog.Hunger, state.GameMinute),
+                    needs.Level(NeedCatalog.Thirst, state.GameMinute), needs.Level(NeedCatalog.Rest, state.GameMinute)) : null))),
             System.Collections.Immutable.ImmutableArray.CreateRange(materials),
             System.Collections.Immutable.ImmutableArray.CreateRange(objectKinds),
             System.Collections.Immutable.ImmutableArray.CreateRange(payloads.Select(p => chunks[(p.Cx, p.Cy)])),
-            _movesApplied);
+            _movesApplied,
+            BuildMinimap(engine, cx, cy));
         if (frame.Sequence == 1)
         {
             Volatile.Write(ref _snapshotBuildMilliseconds, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
@@ -358,9 +392,78 @@ public sealed class SimulationHost : IDisposable
         _frameChanged.Set();
     }
 
+    /// <summary>
+    /// Keeps a streaming world's memory and latency in check from the sim thread: it forgets chunks far from
+    /// every actor when Niko changes chunk, and loads one chunk of the next ring per turn so a crossing finds it ready.
+    /// Both are pure cache work, so neither touches state or the replay.
+    /// </summary>
+    private void MaintainStreaming(WorldEngine engine)
+    {
+        if (!engine.Grid.Streaming) return;
+        var player = engine.OpenSession().GetActor(Ids.Player);
+        if (player is null) return;
+        var at = (Cx: PyMath.FloorDiv(player.TileX, ChunkConst.Size), Cy: PyMath.FloorDiv(player.TileY, ChunkConst.Size));
+        if (_streamingChunk != at)
+        {
+            _streamingChunk = at;
+            engine.EvictFarChunks();
+        }
+        engine.PrefetchChunk(at.Cx, at.Cy, _chunkRadius + 1);
+    }
+
+    private HostMinimap BuildMinimap(WorldEngine engine, int cx, int cy)
+    {
+        _mapSampler ??= new MapSampler(engine.Registry);
+        var side = 2 * MinimapRadiusChunks + 1;
+        int originCx = cx - MinimapRadiusChunks, originCy = cy - MinimapRadiusChunks;
+        var changed = _minimap is null || _minimap.OriginCx != originCx || _minimap.OriginCy != originCy;
+        var window = new List<(int Cx, int Cy)>();
+        for (var dy = 0; dy < side; dy++)
+        for (var dx = 0; dx < side; dx++) window.Add((originCx + dx, originCy + dy));
+        // Nearest to Niko first, so the part of the map he is looking at fills before the edges.
+        window.Sort((a, b) => Math.Max(Math.Abs(a.Cx - cx), Math.Abs(a.Cy - cy)).CompareTo(Math.Max(Math.Abs(b.Cx - cx), Math.Abs(b.Cy - cy))));
+        var computed = 0;
+        // A new world's first window is built whole, so no stray frame follows the first one; later changes
+        // (a chunk crossing brings 9 or 17 new chunks) are paced.
+        var budget = _minimap is null ? int.MaxValue : MapChunksPerPublish;
+        _mapPending = false;
+        foreach (var key in window)
+        {
+            var revision = engine.MapRevision(key.Cx, key.Cy);
+            if (_mapChunks.TryGetValue(key, out var cached) && cached.Revision == revision) continue;
+            if (computed >= budget)
+            {
+                _mapPending = true;
+                continue;
+            }
+            _mapChunks[key] = (revision, _mapSampler.Chunk(engine.SurfaceAt, key.Cx, key.Cy));
+            computed++;
+            changed = true;
+        }
+        var inWindow = window.ToHashSet();
+        foreach (var key in _mapChunks.Keys.Where(key => !inWindow.Contains(key)).ToArray()) _mapChunks.Remove(key);
+        if (!changed) return _minimap!;
+
+        const int cell = MapSampler.CellsPerChunk;
+        var width = side * cell;
+        var rgb = new byte[width * width * MapSampler.BytesPerCell];
+        for (var dy = 0; dy < side; dy++)
+        for (var dx = 0; dx < side; dx++)
+        {
+            if (!_mapChunks.TryGetValue((originCx + dx, originCy + dy), out var entry)) continue;
+            var cells = entry.Cells;
+            for (var row = 0; row < cell; row++)
+                Buffer.BlockCopy(cells, row * cell * MapSampler.BytesPerCell, rgb,
+                    ((dy * cell + row) * width + dx * cell) * MapSampler.BytesPerCell, cell * MapSampler.BytesPerCell);
+        }
+        return _minimap = new HostMinimap(originCx, originCy, side, cell, MapSampler.TilesPerCell,
+            System.Runtime.InteropServices.ImmutableCollectionsMarshal.AsImmutableArray(rgb));
+    }
+
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+        CancelLlmWork();
         _commands.Writer.TryComplete();
         _wake.Set();
         if (!ReferenceEquals(Thread.CurrentThread, _thread)) _thread.Join();

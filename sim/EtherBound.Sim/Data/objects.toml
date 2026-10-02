@@ -121,6 +121,9 @@ bulk = 0.3
 height = 0
 stackable = true
 
+[kinds.edible]
+satiety = 0.2
+
 [[kinds]]
 key = "rubble"
 name = "Rubble"

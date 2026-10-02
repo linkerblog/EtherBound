@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using EtherBound.Sim.Core;
 using EtherBound.Sim.Events;
+using EtherBound.Sim.Rng;
 using EtherBound.Sim.World;
 using EtherBound.Sim.World.Gen;
 
@@ -100,9 +101,40 @@ public static class WorldSetup
         return null;
     }
 
-    public static List<SimEvent> CreateExtras(Session session, WorldGrid grid, MaterialRegistry registry, long seed, (double X, double Y, int H) spawn)
+    public const int KitMinApples = 2;
+    public const int KitMaxApples = 4;
+
+    /// <summary>
+    /// An Extra's starting needs, seeded per actor so the same seed gives the same crowd (Dev-011 D1):
+    /// each level in [0.8, 1.0], so nobody is hungry in the first two game hours.
+    /// </summary>
+    public static ActorNeeds StartingNeeds(long seed, string actorId, int minute)
+    {
+        var rng = new RngStreams(seed).Stream($"needs:{actorId}");
+        var needs = ActorNeeds.Full(minute);
+        foreach (var spec in NeedCatalog.Default.Specs)
+            needs = needs.With(spec.Key, NeedModel.StartLevel(rng.Random()), minute);
+        return needs;
+    }
+
+    /// <summary>
+    /// A worn, open backpack with a few apples. A streaming world places no objects, so its Extras bring
+    /// their own food (Dev-011 D6); the bounded worlds lay theirs out and their object lists are pinned.
+    /// </summary>
+    public static void GiveFoodKit(Session session, string actorId, int apples)
+    {
+        var pack = session.AddObject(new ObjectRow { Kind = "backpack", Loc = "worn", State = Json.Obj(("open", true)) });
+        ObjectHelpers.SetWorn(pack, actorId, "back");
+        var food = session.AddObject(new ObjectRow { Kind = "apple", Loc = "in", Quantity = apples });
+        ObjectHelpers.SetIn(food, pack.Id);
+    }
+
+    public static List<SimEvent> CreateExtras(Session session, WorldGrid grid, MaterialRegistry registry, long seed, (double X, double Y, int H) spawn,
+        bool foodKit = false)
     {
         var events = new List<SimEvent>();
+        var minute = session.World.GameMinute;
+        var kit = new RngStreams(seed).Stream("population:kit");
         foreach (var generated in Population.Populate(grid, registry, spawn, seed))
         {
             session.AddActor(new ActorRow
@@ -110,10 +142,28 @@ public static class WorldSetup
                 Id = generated.Id, Kind = "extra", Name = generated.Name, X = generated.X, Y = generated.Y, H = generated.H,
                 Z = PyMath.FloorDiv(generated.H, 6),
                 Mind = new Mind(new TilePos(generated.AnchorX, generated.AnchorY, generated.AnchorH)).ToJson(),
+                Needs = StartingNeeds(seed, generated.Id, minute).ToJson(),
             });
+            if (foodKit) GiveFoodKit(session, generated.Id, kit.RandInt(KitMinApples, KitMaxApples));
             events.Add(SimEvent.ActorSpawned(generated.Id, "extra", new TilePos(generated.AnchorX, generated.AnchorY, generated.AnchorH), "created", generated.Name));
         }
         return events;
+    }
+
+    /// <summary>
+    /// An Extra saved before <c>0012_actor_needs</c> has no needs: give it the same seeded start as a new
+    /// one, and its food kit in a streaming world. Nothing else about it changes, and no event is written.
+    /// </summary>
+    private static void BackfillNeeds(Session session, long seed, bool foodKit)
+    {
+        var minute = session.World.GameMinute;
+        var kit = new RngStreams(seed).Stream("population:kit");
+        foreach (var extra in session.Actors().Where(a => a.Kind == "extra" && a.Needs is null))
+        {
+            extra.Needs = StartingNeeds(seed, extra.Id, minute).ToJson();
+            var carriesPack = session.Objects().Any(o => o.ActorId == extra.Id && o.Loc == "worn");
+            if (foodKit && !carriesPack) GiveFoodKit(session, extra.Id, kit.RandInt(KitMinApples, KitMaxApples));
+        }
     }
 
     /// <summary>Create or settle Niko and the Extras, emitting one actor.spawned per change.</summary>
@@ -138,10 +188,11 @@ public static class WorldSetup
         {
             foreach (var extra in extras)
                 if (SettleActor(grid, extra, spawn) is { } settled) events.Add(settled);
+            BackfillNeeds(session, seed, spec.Streaming);
         }
         else
         {
-            events.AddRange(CreateExtras(session, grid, registry, seed, spawn));
+            events.AddRange(CreateExtras(session, grid, registry, seed, spawn, spec.Streaming));
         }
         return events;
     }

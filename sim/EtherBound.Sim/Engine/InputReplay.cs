@@ -46,6 +46,9 @@ public static class InputReplay
                         engine.SetGoal(payload.Str("actor_id"), payload["goal"] is JsonObject goal ? GoalSpot.Parse(goal) : null,
                             payload.Str("reason"));
                         break;
+                    case "record_decision":
+                        engine.RecordDecision(payload.Str("actor_id"), payload.Str("kind"), (JsonObject)payload["data"]!);
+                        break;
                     default:
                         throw new InvalidOperationException($"unknown input journal kind: {input.Kind}");
                 }

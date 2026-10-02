@@ -66,6 +66,23 @@ changes go here first, then the code.
 - Reactions need **knowledge**: X reacts only once X learns of the event, and the reaction becomes a
   persistent goal that survives days of routine.
 
+### Needs and utility (`Dev-011`)
+
+- **Three needs, lazily decaying.** `hunger`, `thirst` and `rest` are levels in 0..1 (1 = satisfied) on
+  the actor row, stored as `{level, at}`; the current value is a pure function of the game clock, so time
+  passing writes nothing and a paused clock freezes it. Rates, thresholds and night weight are data
+  (`Data/needs.toml`). Only an op that satisfies a need writes. Niko has no needs yet; the ops work for him.
+- **Ops, not hooks.** `eat` (an `edible` component), `drink` (a `drinkable` component or a liquid
+  material with `hydration`, like shallow water) and `sleep` (self) are ordinary handlers on the shared
+  action API; a satisfied need is a committed `actor.consumed` or `actor.slept` event.
+- **Utility among what the engine offers.** An idle Extra scores its options as urgency x gain minus
+  distance / 30 (rest is weighted up at night and sought only below a lower level by day), picks the best
+  with the usual randomness among near-ties, walks there as a `seek` goal and, at the point of use,
+  submits the entry its own `Menu` offers. Nothing is found in reach: it wanders as before. Starvation
+  does not exist yet; consequences wait for vitals.
+- **Perception is a proxy for now.** `Percepts` lists what is within 12 m without line of sight. The
+  knowledge Dev replaces its body, not its callers. Traits will shift weights per tag here.
+
 ### Relationships
 
 - Multi-axis (affection, trust, respect, fear, attraction) and asymmetric.
@@ -116,6 +133,13 @@ It also runs long arcs (a gang growing, a neighborhood gentrifying) and grants r
 
 - OpenRouter for Agent strategy and prose; TypeSafe `choice` (Jev) for gates, tactics, free-text
   interpretation and relationship ambiguity.
+- **Runtime (settled `Dev-007`, `Dev-008`).** Jev is a hosted HTTP service, not a library: a thin C# client in
+  `sim/EtherBound.Llm/`, which the sim never references, so the sim keeps its determinism rules. Free text is one
+  `choice` over the engine's own generated menu entries plus a `noul` "does it fit"; the confidence decides
+  between running, asking and doing nothing, and the engine validates the action again on arrival. With no key
+  free text is off: a mock that answered its first option would run an arbitrary action. The narrator is a role
+  with its own model, reasoning flag and idle timeout; it sees only what Niko perceived and proposes text only.
+  Every decision is an event (`llm.interpreted`, `llm.narrated`) journaled for replay; every call is in `llm_call`.
 - Carry over NikoStory's measured lessons: do not pass `reasoning` to a non-reasoning model, keep
   prose models out of state, benchmark before switching a model into the loop.
 - Token budget is a design input: cap concurrent LLM Agents.

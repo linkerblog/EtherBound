@@ -36,6 +36,22 @@ public sealed class HostRules
     }
 
     [Fact]
+    public void Frames_carry_each_extras_needs_at_the_frame_minute_and_none_for_niko()
+    {
+        using var host = new SimulationHost(seed: 7, generator: "lab");
+        Assert.True(host.WaitUntilReady(TimeSpan.FromSeconds(30)));
+        var frame = host.LatestFrame!;
+        Assert.Null(frame.Actors.Single(actor => actor.Id == Ids.Player).Needs);
+        var extras = frame.Actors.Where(actor => actor.Kind == "extra").ToList();
+        Assert.NotEmpty(extras);
+        foreach (var extra in extras)
+        {
+            var needs = extra.Needs!;
+            foreach (var level in new[] { needs.Hunger, needs.Thirst, needs.Rest }) Assert.InRange(level, 0.8, 1.0);
+        }
+    }
+
+    [Fact]
     public void Frames_count_every_move_the_host_handled_even_one_that_goes_nowhere()
     {
         using var host = new SimulationHost(seed: 7, generator: "lab");

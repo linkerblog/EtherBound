@@ -164,4 +164,20 @@ public sealed class HudLayoutTests
         Assert.Equal(1920f * frame.Scale, pixels.Size.X, E);
         Assert.Equal(1152f * frame.Scale, pixels.Size.Y, E);
     }
+    [Fact]
+    public void The_minimap_is_a_square_that_fits_the_status_column_inside_its_padding()
+    {
+        var frame = HudLayout.Solve(new Vector2(2560, 1440));
+        var inner = frame.Status.Size.X - 2 * HudLayout.PanelPadX;
+
+        Assert.Equal(HudLayout.MinimapSize, frame.Minimap.Size.X, E);
+        Assert.Equal(frame.Minimap.Size.X, frame.Minimap.Size.Y, E);
+        Assert.True(frame.Minimap.End.X <= inner + E);
+        Assert.True(frame.Minimap.Position.X >= 0f);
+        // Centred between the paddings, and the scale only multiplies it.
+        Assert.Equal((inner - frame.Minimap.Size.X) * 0.5f, frame.Minimap.Position.X, E);
+        Assert.Equal(HudLayout.MinimapSize, HudLayout.Solve(new Vector2(1920, 1080)).Minimap.Size.X, E);
+        // The panel leaves room below it: the map, one gutter and the other panels share the column's height.
+        Assert.True(frame.Minimap.Size.Y + 3 * HudLayout.Gutter < frame.Status.Size.Y);
+    }
 }

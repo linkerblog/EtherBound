@@ -88,8 +88,12 @@ public partial class DevConsole : PanelContainer
     {
         var builder = new StringBuilder();
         foreach (var actor in frame.Actors)
+        {
+            var (hunger, thirst, rest) = NeedFormat.Cells(actor.Needs);
             builder.Append(actor.Id).Append('|').Append(actor.Name).Append('|').Append(actor.X).Append(',')
-                .Append(actor.Y).Append(',').Append(actor.H).Append('|').Append(actor.Activity?.Op).Append('\n');
+                .Append(actor.Y).Append(',').Append(actor.H).Append('|').Append(actor.Activity?.Op).Append('|')
+                .Append(hunger).Append(',').Append(thirst).Append(',').Append(rest).Append('\n');
+        }
         return builder.ToString();
     }
 
@@ -162,7 +166,7 @@ public partial class DevConsole : PanelContainer
         body.AddChild(_summary);
         var head = new HBoxContainer();
         head.AddThemeConstantOverride("separation", HudTheme.S(12));
-        foreach (var (text, width) in new[] { ("NAME", 380f), ("KIND", 160f), ("TILE", 260f), ("H", 90f), ("ACTIVITY", 240f) })
+        foreach (var (text, width) in new[] { ("NAME", 380f), ("KIND", 160f), ("TILE", 260f), ("H", 90f), ("HUN", 110f), ("THI", 110f), ("RST", 110f), ("ACTIVITY", 240f) })
         {
             var cell = new Label { Text = text, CustomMinimumSize = HudTheme.V(width, 0) };
             HudTheme.Label(cell, HudTheme.LineHi, HudTheme.SmallUnits);
@@ -193,12 +197,16 @@ public partial class DevConsole : PanelContainer
         {
             var row = new HBoxContainer();
             row.AddThemeConstantOverride("separation", HudTheme.S(12));
+            var (hunger, thirst, rest) = NeedFormat.Cells(actor.Needs);
             foreach (var (text, width) in new[]
             {
                 (actor.Name ?? actor.Id, 380f),
                 (actor.Kind.ToUpperInvariant(), 160f),
                 ($"{actor.X:0.0}, {actor.Y:0.0}", 260f),
                 (actor.H.ToString(), 90f),
+                (hunger, 110f),
+                (thirst, 110f),
+                (rest, 110f),
                 (actor.Activity is { } activity ? $"{activity.Op.ToUpperInvariant()} {activity.EndsMinute - activity.StartedMinute} MIN" : "—", 240f),
             })
             {

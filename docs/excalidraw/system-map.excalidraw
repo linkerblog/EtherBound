@@ -20,7 +20,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 3 },
+      "roundness": {
+        "type": 3
+      },
       "seed": 1001,
       "version": 1,
       "versionNonce": 2001,
@@ -47,7 +49,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 3 },
+      "roundness": {
+        "type": 3
+      },
       "seed": 1002,
       "version": 1,
       "versionNonce": 2002,
@@ -74,7 +78,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 3 },
+      "roundness": {
+        "type": 3
+      },
       "seed": 1003,
       "version": 1,
       "versionNonce": 2003,
@@ -101,7 +107,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 3 },
+      "roundness": {
+        "type": 3
+      },
       "seed": 1004,
       "version": 1,
       "versionNonce": 2004,
@@ -128,7 +136,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 3 },
+      "roundness": {
+        "type": 3
+      },
       "seed": 1005,
       "version": 1,
       "versionNonce": 2005,
@@ -155,7 +165,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 3 },
+      "roundness": {
+        "type": 3
+      },
       "seed": 1006,
       "version": 1,
       "versionNonce": 2006,
@@ -182,7 +194,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 3 },
+      "roundness": {
+        "type": 3
+      },
       "seed": 1007,
       "version": 1,
       "versionNonce": 2007,
@@ -209,7 +223,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 3 },
+      "roundness": {
+        "type": 3
+      },
       "seed": 1008,
       "version": 1,
       "versionNonce": 2008,
@@ -236,7 +252,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 3 },
+      "roundness": {
+        "type": 3
+      },
       "seed": 1009,
       "version": 1,
       "versionNonce": 2009,
@@ -263,7 +281,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 3 },
+      "roundness": {
+        "type": 3
+      },
       "seed": 1010,
       "version": 1,
       "versionNonce": 2010,
@@ -290,7 +310,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 3 },
+      "roundness": {
+        "type": 3
+      },
       "seed": 1011,
       "version": 1,
       "versionNonce": 2011,
@@ -317,7 +339,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 3 },
+      "roundness": {
+        "type": 3
+      },
       "seed": 1012,
       "version": 1,
       "versionNonce": 2012,
@@ -344,7 +368,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 3 },
+      "roundness": {
+        "type": 3
+      },
       "seed": 1013,
       "version": 1,
       "versionNonce": 2013,
@@ -371,7 +397,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 3 },
+      "roundness": {
+        "type": 3
+      },
       "seed": 1014,
       "version": 1,
       "versionNonce": 2014,
@@ -398,7 +426,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 3 },
+      "roundness": {
+        "type": 3
+      },
       "seed": 1015,
       "version": 1,
       "versionNonce": 2015,
@@ -425,7 +455,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 3 },
+      "roundness": {
+        "type": 3
+      },
       "seed": 1016,
       "version": 1,
       "versionNonce": 2016,
@@ -452,7 +484,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 2 },
+      "roundness": {
+        "type": 2
+      },
       "seed": 1101,
       "version": 1,
       "versionNonce": 2101,
@@ -461,7 +495,16 @@
       "updated": 1790570000000,
       "link": null,
       "locked": false,
-      "points": [[0, 0], [160, 0]],
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          160,
+          0
+        ]
+      ],
       "lastCommittedPoint": null,
       "startBinding": null,
       "endBinding": null,
@@ -485,7 +528,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 2 },
+      "roundness": {
+        "type": 2
+      },
       "seed": 1102,
       "version": 1,
       "versionNonce": 2102,
@@ -494,7 +539,16 @@
       "updated": 1790570000000,
       "link": null,
       "locked": false,
-      "points": [[0, 0], [160, 0]],
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          160,
+          0
+        ]
+      ],
       "lastCommittedPoint": null,
       "startBinding": null,
       "endBinding": null,
@@ -518,7 +572,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 2 },
+      "roundness": {
+        "type": 2
+      },
       "seed": 1103,
       "version": 1,
       "versionNonce": 2103,
@@ -527,7 +583,16 @@
       "updated": 1790570000000,
       "link": null,
       "locked": false,
-      "points": [[0, 0], [120, 0]],
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          120,
+          0
+        ]
+      ],
       "lastCommittedPoint": null,
       "startBinding": null,
       "endBinding": null,
@@ -551,7 +616,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 2 },
+      "roundness": {
+        "type": 2
+      },
       "seed": 1104,
       "version": 1,
       "versionNonce": 2104,
@@ -560,7 +627,16 @@
       "updated": 1790570000000,
       "link": null,
       "locked": false,
-      "points": [[0, 0], [120, 0]],
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          120,
+          0
+        ]
+      ],
       "lastCommittedPoint": null,
       "startBinding": null,
       "endBinding": null,
@@ -584,7 +660,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 2 },
+      "roundness": {
+        "type": 2
+      },
       "seed": 1105,
       "version": 1,
       "versionNonce": 2105,
@@ -593,7 +671,16 @@
       "updated": 1790570000000,
       "link": null,
       "locked": false,
-      "points": [[0, 0], [40, 0]],
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          40,
+          0
+        ]
+      ],
       "lastCommittedPoint": null,
       "startBinding": null,
       "endBinding": null,
@@ -617,7 +704,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 2 },
+      "roundness": {
+        "type": 2
+      },
       "seed": 1106,
       "version": 1,
       "versionNonce": 2106,
@@ -626,7 +715,16 @@
       "updated": 1790570000000,
       "link": null,
       "locked": false,
-      "points": [[0, 0], [0, 30]],
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          30
+        ]
+      ],
       "lastCommittedPoint": null,
       "startBinding": null,
       "endBinding": null,
@@ -650,7 +748,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 2 },
+      "roundness": {
+        "type": 2
+      },
       "seed": 1107,
       "version": 1,
       "versionNonce": 2107,
@@ -659,7 +759,16 @@
       "updated": 1790570000000,
       "link": null,
       "locked": false,
-      "points": [[0, 0], [40, 0]],
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          40,
+          0
+        ]
+      ],
       "lastCommittedPoint": null,
       "startBinding": null,
       "endBinding": null,
@@ -683,7 +792,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 2 },
+      "roundness": {
+        "type": 2
+      },
       "seed": 1108,
       "version": 1,
       "versionNonce": 2108,
@@ -692,7 +803,16 @@
       "updated": 1790570000000,
       "link": null,
       "locked": false,
-      "points": [[0, 0], [0, 90]],
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          90
+        ]
+      ],
       "lastCommittedPoint": null,
       "startBinding": null,
       "endBinding": null,
@@ -716,7 +836,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 2 },
+      "roundness": {
+        "type": 2
+      },
       "seed": 1109,
       "version": 1,
       "versionNonce": 2109,
@@ -725,7 +847,16 @@
       "updated": 1790570000000,
       "link": null,
       "locked": false,
-      "points": [[0, 0], [0, 90]],
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          90
+        ]
+      ],
       "lastCommittedPoint": null,
       "startBinding": null,
       "endBinding": null,
@@ -749,7 +880,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 2 },
+      "roundness": {
+        "type": 2
+      },
       "seed": 1110,
       "version": 1,
       "versionNonce": 2110,
@@ -758,7 +891,16 @@
       "updated": 1790570000000,
       "link": null,
       "locked": false,
-      "points": [[0, 0], [40, 80]],
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          40,
+          80
+        ]
+      ],
       "lastCommittedPoint": null,
       "startBinding": null,
       "endBinding": null,
@@ -782,7 +924,9 @@
       "opacity": 100,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 2 },
+      "roundness": {
+        "type": 2
+      },
       "seed": 1111,
       "version": 1,
       "versionNonce": 2111,
@@ -791,7 +935,16 @@
       "updated": 1790570000000,
       "link": null,
       "locked": false,
-      "points": [[0, 0], [0, 60]],
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          60
+        ]
+      ],
       "lastCommittedPoint": null,
       "startBinding": null,
       "endBinding": null,
@@ -860,13 +1013,13 @@
       "updated": 1790570000000,
       "link": null,
       "locked": false,
-      "text": "Current architecture | Dev-004 | 30 Sep 2026\nSingle-player | C# simulation + Godot client in one process | client presents snapshots; it never simulates",
+      "text": "Current architecture | Dev-007 + Dev-008 + Dev-010 | 02 Oct 2026\nSingle-player | C# simulation + Godot client in one process | client presents snapshots; it never simulates",
       "fontSize": 16,
       "fontFamily": 3,
       "textAlign": "center",
       "verticalAlign": "top",
       "containerId": null,
-      "originalText": "Current architecture | Dev-004 | 30 Sep 2026\nSingle-player | C# simulation + Godot client in one process | client presents snapshots; it never simulates",
+      "originalText": "Current architecture | Dev-007 + Dev-008 | 01 Oct 2026\nSingle-player | C# simulation + Godot client in one process | client presents snapshots; it never simulates",
       "autoResize": true,
       "lineHeight": 1.25
     },
@@ -1112,7 +1265,7 @@
       "updated": 1790570000000,
       "link": null,
       "locked": false,
-      "text": "game.ui | HudTheme: the only colours, fonts, styleboxes\nHudLayout: 2560x1440 design frame, 32 margins, 40 gutters\nGameHud: header + left menu | status column | footer: BUILD, feed, input\nBuildPanel: filters Menu.Build entries -> build op | DevConsole: seed, NPCs\nWorld draws into GameViewport | mouse input gated to it, movement is not",
+      "text": "game.ui | HudTheme: the only colours, fonts, styleboxes\nHudLayout: 2560x1440 design frame, 32 margins, 40 gutters\nGameHud: header, menu | status: MAP, CARRY, NEARBY | footer\nBuildPanel: filters Menu.Build entries -> build op | DevConsole: seed, NPCs\nWorld draws into GameViewport | mouse input gated to it, movement is not",
       "fontSize": 12,
       "fontFamily": 2,
       "textAlign": "left",
@@ -1220,13 +1373,13 @@
       "updated": 1790570000000,
       "link": null,
       "locked": false,
-      "text": "one dedicated sim thread\nbounded command channel\nMove | Clock | NewGame\nSubmitAction | Menu / Pick queries\nMoveHz 20 | logic clock 1 Hz\nimmutable, revisioned WorldFrame\nactors/chunks + H/V slot arrays\ncatalogs | generators | request responses\nHostActionResponse.Events | HostEventsResponse\nlogged player events; no clock ticks\nActorMotion | StepPlayout",
+      "text": "one dedicated sim thread\nbounded command channel\nMove | Clock | NewGame\nSubmitAction | Menu / Pick queries\nMoveHz 20 | logic clock 1 Hz\nimmutable, revisioned WorldFrame\nactors/chunks + Minimap 9x9 chunks\ncatalogs | generators | request responses\nHostActionResponse.Events | HostEventsResponse\nlogged player events; no clock ticks\nActorMotion | StepPlayout | evict + prefetch\nInterpretText -> Jev | narration deltas\nLlm: runtime held here, sim never sees it",
       "fontSize": 12,
       "fontFamily": 2,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
-      "originalText": "one dedicated sim thread\nbounded command channel\nMove | Clock | NewGame\nSubmitAction | Menu / Pick queries\nMoveHz 20 | logic clock 1 Hz\nimmutable, revisioned WorldFrame\nactors/chunks + H/V slot arrays\ncatalogs | generators | request responses\nHostActionResponse.Events | HostEventsResponse\nlogged player events; no clock ticks\nActorMotion | StepPlayout",
+      "originalText": "one dedicated sim thread\nbounded command channel\nMove | Clock | NewGame\nSubmitAction | Menu / Pick queries\nMoveHz 20 | logic clock 1 Hz\nimmutable, revisioned WorldFrame\nactors/chunks + H/V slot arrays\ncatalogs | generators | request responses\nHostActionResponse.Events | HostEventsResponse\nlogged player events; no clock ticks\nActorMotion | StepPlayout\nInterpretText -> Jev | narration deltas\nLlm: runtime held here, sim never sees it",
       "autoResize": true,
       "lineHeight": 1.25
     },
@@ -1364,7 +1517,7 @@
       "updated": 1790570000000,
       "link": null,
       "locked": false,
-      "text": "ONLY writer of authoritative world state\nSubmit(actorId, action, deltaSeconds) | one API\ninput journal -> replay through same API\nop + typed target + modifiers\nvalidate -> resolve -> commit -> enqueue events\nactor body contact blocks movement\ndig/build work resumes by actor + target\nops.toml catalog | registered handlers\nactivities advance only on clock ticks\nSI physics | full action-time trajectories\ngenerated menus | Pick(ray) | SetGoal\nNewGame | EnsureWorld | deterministic\ngame clock: 1s = 1 min | pause / x1 / x3 / x10\ncurrent: move / inspect / wait / dig / climb / build",
+      "text": "ONLY writer of authoritative world state\nSubmit(actorId, action, deltaSeconds) | one API\ninput journal -> replay through same API\nop + typed target + modifiers\nvalidate -> resolve -> commit -> enqueue events\nactor body contact blocks movement\ndig/build work resumes by actor + target\nops.toml catalog | registered handlers\nactivities advance only on clock ticks\nSI physics | full action-time trajectories\ngenerated menus | Pick(ray) | SetGoal\nNewGame | EnsureWorld | chunk loader (writes nothing)\ngame clock: 1s = 1 min | pause / x1 / x3 / x10\ncurrent: move / inspect / wait / dig / climb / build",
       "fontSize": 12,
       "fontFamily": 2,
       "textAlign": "left",
@@ -1472,13 +1625,13 @@
       "updated": 1790570000000,
       "link": null,
       "locked": false,
-      "text": "sim.minds | ExtrasBrain",
+      "text": "sim.minds | ExtrasBrain, needs",
       "fontSize": 15,
       "fontFamily": 2,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
-      "originalText": "sim.minds | ExtrasBrain",
+      "originalText": "sim.minds | ExtrasBrain, needs",
       "autoResize": true,
       "lineHeight": 1.25
     },
@@ -1508,13 +1661,13 @@
       "updated": 1790570000000,
       "link": null,
       "locked": false,
-      "text": "six deterministic Extras\nsubscribed to clock.ticked\nchooses wander / wait\nproposes moves through Submit()\nengine validates every step",
+      "text": "six deterministic Extras\nsubscribed to clock.ticked\nneeds: hunger | thirst | rest\nutility: eat | drink | sleep | wander\nreads Menu, acts via Submit()\nengine validates every step",
       "fontSize": 12,
       "fontFamily": 2,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
-      "originalText": "six deterministic Extras\nsubscribed to clock.ticked\nchooses wander / wait\nproposes moves through Submit()\nengine validates every step",
+      "originalText": "six deterministic Extras\nsubscribed to clock.ticked\nneeds: hunger | thirst | rest\nutility: eat | drink | sleep | wander\nreads Menu, acts via Submit()\nengine validates every step",
       "autoResize": true,
       "lineHeight": 1.25
     },
@@ -1580,7 +1733,7 @@
       "updated": 1790570000000,
       "link": null,
       "locked": false,
-      "text": "1m tiles | 32m chunks\n0.5m heights | 3m z bands\nstanding: 0.5m max step\n2m headroom | open edge\nedge walls + H/V interior slots\nA*: (spot, region) on split tiles\nmaterials | objects | grid\ntest v5 | lab v1 | GenCanvas",
+      "text": "1m tiles | 32m chunks\n0.5m heights | 3m z bands\nstanding: 0.5m max step\n2m headroom | open edge\nedge walls + H/V interior slots\nA*: (spot, region) on split tiles\nmaterials | objects | grid | MapSampler\ntest v5 | lab v1 | infinite v1 (streams)",
       "fontSize": 16,
       "fontFamily": 3,
       "textAlign": "left",
@@ -1724,13 +1877,13 @@
       "updated": 1790570000000,
       "link": null,
       "locked": false,
-      "text": "data/etherbound.db | Microsoft.Data.Sqlite\nmigrations 0001-0010 | stepwise runner\nupgrades a save in place, one txn per step\nWAL | state + event log transactional\nworld_meta | actors | chunks | levels\nobjects | materials | events | wall_slot\nactivity_work | input_journal (run-length inputs)",
+      "text": "data/etherbound.db | Microsoft.Data.Sqlite\nmigrations 0001-0011 | stepwise runner\nupgrades a save in place, one txn per step\nWAL | state + event log transactional\nworld_meta | actors | chunks | levels\nobjects | materials | events | wall_slot\nactivity_work | input_journal (run-length inputs)\nllm_call (billing log) | llm.* decision events",
       "fontSize": 11,
       "fontFamily": 2,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
-      "originalText": "data/etherbound.db | Microsoft.Data.Sqlite\nmigrations 0001-0010 | stepwise runner\nupgrades a save in place, one txn per step\nWAL | state + event log transactional\nworld_meta | actors | chunks | levels\nobjects | materials | events | wall_slot\nactivity_work | input_journal (run-length inputs)",
+      "originalText": "data/etherbound.db | Microsoft.Data.Sqlite\nmigrations 0001-0011 | stepwise runner\nupgrades a save in place, one txn per step\nWAL | state + event log transactional\nworld_meta | actors | chunks | levels\nobjects | materials | events | wall_slot\nactivity_work | input_journal (run-length inputs)\nllm_call (billing log) | llm.* decision events",
       "autoResize": true,
       "lineHeight": 1.25
     },
@@ -1796,13 +1949,13 @@
       "updated": 1790570000000,
       "link": null,
       "locked": false,
-      "text": "Agent brains | LLM + Jev runtime\nstoryteller | narrative scenes\nneeds | traits / utility | rolls | health\nwitnesses | knowledge | rumors\norganizations | jobs | economy | law\nwater simulation | city generator\nitem degradation | many catalog ops",
+      "text": "Agent brains | LLM-driven NPC minds\nstoryteller | narrative scenes\ntraits | rolls | health\nwitnesses | knowledge | rumors\norganizations | jobs | economy | law\nwater simulation | city generator\nitem degradation | many catalog ops",
       "fontSize": 12,
       "fontFamily": 2,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
-      "originalText": "Agent brains | LLM + Jev runtime\nstoryteller | narrative scenes\nneeds | traits / utility | rolls | health\nwitnesses | knowledge | rumors\norganizations | jobs | economy | law\nwater simulation | city generator\nitem degradation | many catalog ops",
+      "originalText": "Agent brains | LLM-driven NPC minds\nstoryteller | narrative scenes\ntraits | rolls | health\nwitnesses | knowledge | rumors\norganizations | jobs | economy | law\nwater simulation | city generator\nitem degradation | many catalog ops",
       "autoResize": true,
       "lineHeight": 1.25
     },
@@ -2129,12 +2282,159 @@
       "originalText": "asset export",
       "autoResize": true,
       "lineHeight": 1.25
+    },
+    {
+      "id": "llm-card",
+      "type": "rectangle",
+      "x": 780,
+      "y": 700,
+      "width": 330,
+      "height": 251,
+      "angle": 0,
+      "strokeColor": "#e8590c",
+      "backgroundColor": "#ffe8cc",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 9001,
+      "version": 1,
+      "versionNonce": 10001,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1790570000000,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "llm-heading",
+      "type": "text",
+      "x": 804,
+      "y": 716,
+      "width": 255,
+      "height": 24,
+      "angle": 0,
+      "strokeColor": "#1e1e1e",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 9002,
+      "version": 1,
+      "versionNonce": 10002,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1790570000000,
+      "link": null,
+      "locked": false,
+      "text": "sim.llm | EtherBound.Llm",
+      "fontSize": 15,
+      "fontFamily": 2,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "originalText": "sim.llm | EtherBound.Llm",
+      "autoResize": true,
+      "lineHeight": 1.25
+    },
+    {
+      "id": "llm-details",
+      "type": "text",
+      "x": 804,
+      "y": 746,
+      "width": 290,
+      "height": 186,
+      "angle": 0,
+      "strokeColor": "#1e1e1e",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 9003,
+      "version": 1,
+      "versionNonce": 10003,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1790570000000,
+      "link": null,
+      "locked": false,
+      "text": "IJev: TypeSafeJev (HTTP) | ScriptedJev | NoJev\nFreeTextInterpreter: Menu entries -> one choice\nconfidence: run | ask | blocked | nothing\nOpenRouterChat (SSE) | roles + llm.json\nNarrator: perceived facts -> 2-3 sentences\nchecks + 1 retry | spend cap | llm_call log\nkeys: write-only LLM tab -> llm.json, hot swap\nproposes only: engine validates + commits",
+      "fontSize": 12,
+      "fontFamily": 2,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "originalText": "IJev: TypeSafeJev (HTTP) | ScriptedJev | NoJev\nFreeTextInterpreter: Menu entries -> one choice\nconfidence: run | ask | blocked | nothing\nOpenRouterChat (SSE) | roles + llm.json\nNarrator: perceived facts -> 2-3 sentences\nchecks + 1 retry | spend cap | llm_call log\nkeys: write-only LLM tab -> llm.json, hot swap\nproposes only: engine validates + commits",
+      "autoResize": true,
+      "lineHeight": 1.25
+    },
+    {
+      "id": "host-to-llm",
+      "type": "arrow",
+      "x": 945,
+      "y": 670,
+      "width": 0,
+      "height": 30,
+      "angle": 0,
+      "strokeColor": "#1e1e1e",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": {
+        "type": 2
+      },
+      "seed": 9004,
+      "version": 1,
+      "versionNonce": 10004,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1790570000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          30
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": "triangle"
     }
   ],
   "appState": {
     "viewBackgroundColor": "#ffffff",
     "gridSize": null,
-    "zoom": { "value": 0.55 },
+    "zoom": {
+      "value": 0.55
+    },
     "scrollX": 0,
     "scrollY": 0
   },

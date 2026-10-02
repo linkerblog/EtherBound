@@ -9,8 +9,9 @@ namespace EtherBound.Sim.Minds;
 /// <summary>
 /// The deterministic routine brain of an Extra (<c>minds/extras.py</c>). It only proposes: every
 /// step goes through <see cref="IEnginePort.Submit"/> and every goal through
-/// <see cref="IEnginePort.SetGoal"/>. It keeps no state the engine cannot rebuild, so a restart at
-/// any tick reproduces the same run.
+/// <see cref="IEnginePort.SetGoal"/>; everything else it asks the engine is a read (the tick state, the
+/// grid, a <c>Menu</c>, <c>Percepts</c>). It keeps no state the engine cannot rebuild, so a restart at
+/// any tick reproduces the same run. Needs (Dev-011) are ranked by <see cref="NeedsUtility"/>.
 /// </summary>
 public sealed class ExtrasBrain : ISystem
 {
@@ -65,12 +66,20 @@ public sealed class ExtrasBrain : ISystem
 
     private void TickActor(ActorState actor, WorldState state, double tickSeconds)
     {
-        if (actor.Activity is not null)
+        var waiting = actor.Activity is { Op: "wait" };
+        if (actor.Activity is not null && !waiting)
         {
             _retried.Remove(actor.Id);
             return;
         }
         if (actor.Mind is not { } mind) return;
+        // A needy Extra that is only waiting or wandering re-decides on its scan minute, so a source in
+        // reach is not ignored for a quarter of an hour. Anything it is really doing runs to its end.
+        if ((waiting && mind.Goal is null || mind.Goal is { Kind: "wander" }) && actor.Needs is { } needy &&
+            NeedsUtility.ScanDue(actor.Id, state.GameMinute) && SeekNeeds(actor, state, mind, needy))
+            return;
+        // Once it has a seek goal the first step submits a move, which ends the wait it was in.
+        if (waiting && mind.Goal is not { Kind: NeedsUtility.SeekKind }) return;
         if (mind.Goal is not { } goal)
         {
             Routine(actor, state, mind);
@@ -81,7 +90,11 @@ public sealed class ExtrasBrain : ISystem
             _plans.Remove(actor.Id);
             _retried.Remove(actor.Id);
             _engine.SetGoal(actor.Id, null, "arrived");
-            _engine.Submit(actor.Id, GameAction.Wait());
+            // Someone who walked to a source uses it at once, without waiting for a scan minute; a wanderer
+            // (or a seeker that finds nothing left) rests a while first.
+            var used = goal.Kind == NeedsUtility.SeekKind && actor.Needs is { } hungry &&
+                SeekNeeds(actor, state, mind with { Goal = null }, hungry, arrived: true);
+            if (!used) _engine.Submit(actor.Id, GameAction.Wait());
             return;
         }
         var plan = PlanFor(actor, goal);
@@ -112,6 +125,7 @@ public sealed class ExtrasBrain : ISystem
 
     private void Routine(ActorState actor, WorldState state, Mind mind)
     {
+        if (actor.Needs is { } needs && SeekNeeds(actor, state, mind, needs)) return;
         var rng = new RngStreams(state.Seed).Stream($"extras:{actor.Id}:{state.GameMinute}");
         if (rng.Random() < WanderChance && ChooseWander(actor, mind, rng) is { } plan)
         {
@@ -120,6 +134,52 @@ public sealed class ExtrasBrain : ISystem
             return;
         }
         _engine.Submit(actor.Id, GameAction.Wait());
+    }
+
+    /// <summary>
+    /// The utility step (Dev-011): when a need wants a source, rank what the engine offers here, what
+    /// the perception proxy shows and the Extra's home, and act on the best that works. False leaves the
+    /// Extra to its wander roll. The Menu and the wider perception scan are read on the Extra's scan minute, or
+    /// on arrival at a goal it chose to walk to.
+    /// </summary>
+    private bool SeekNeeds(ActorState actor, WorldState state, Mind mind, ActorNeeds needs, bool arrived = false)
+    {
+        var urgencies = NeedsUtility.Urgencies(needs, state.GameMinute);
+        if (urgencies.Count == 0) return false;
+        var options = new List<NeedOption>(NeedsUtility.FromRest(actor, mind, urgencies));
+        // Reading the Menu costs a session, so a hungry or thirsty Extra does it on its scan minute (one in five)
+        // and the moment it arrives somewhere, not on every idle tick; resting needs neither.
+        if (urgencies.Keys.Any(need => need != NeedCatalog.Rest) && (arrived || NeedsUtility.ScanDue(actor.Id, state.GameMinute)))
+        {
+            var menu = _engine.Menu(actor.Id, actor.X, actor.Y, actor.Z, 1);
+            var offered = NeedsUtility.FromMenu(menu, urgencies).ToList();
+            options.AddRange(offered);
+            var unmet = urgencies.Keys.Any(need => need != NeedCatalog.Rest && offered.All(o => o.Need != need));
+            if (unmet)
+                options.AddRange(NeedsUtility.FromPercepts(actor, _engine.Percepts(actor.Id, NeedsUtility.PerceptionRadiusM), urgencies));
+        }
+        if (options.Count == 0) return false;
+        var rng = new RngStreams(state.Seed).Stream($"needs:{actor.Id}:{state.GameMinute}");
+        foreach (var option in NeedsUtility.Rank(options, rng))
+        {
+            if (option.Action is { } action)
+            {
+                if (!_engine.Submit(actor.Id, action).Accepted) continue;
+                // It stopped wandering to do this; the old goal would otherwise resume afterwards.
+                if (mind.Goal is not null)
+                {
+                    _plans.Remove(actor.Id);
+                    _engine.SetGoal(actor.Id, null, "interrupted");
+                }
+                return true;
+            }
+            var goal = option.Goal!;
+            if (!_engine.Grid.StandingSurfaces(goal.X, goal.Y).Any(s => s.H == goal.H)) continue;
+            if (!Recompute(actor.Id, actor.X, actor.Y, actor.H, goal)) continue;
+            _engine.SetGoal(actor.Id, goal, "chosen");
+            return true;
+        }
+        return false;
     }
 
     private Plan? ChooseWander(ActorState actor, Mind mind, PyRandom rng)

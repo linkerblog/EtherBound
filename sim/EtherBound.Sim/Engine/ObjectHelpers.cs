@@ -101,7 +101,10 @@ public static class ObjectHelpers
     }
 
     public static List<TileObject> TileObjects(Session session, ObjectCatalog catalog, int cx, int cy) =>
-        session.Objects().Where(o => o.Loc == "tile" && o.Cx == cx && o.Cy == cy)
+        TileObjects(session.Objects(), catalog, cx, cy);
+
+    public static List<TileObject> TileObjects(IEnumerable<ObjectRow> rows, ObjectCatalog catalog, int cx, int cy) =>
+        rows.Where(o => o.Loc == "tile" && o.Cx == cx && o.Cy == cy)
             .Select(o => new TileObject(o.Id, o.Kind, o.X!.Value, o.Y!.Value, o.H!.Value, o.Quantity,
                 catalog.Get(o.Kind) is { Openable: true } ? o.IsOpen : null))
             .ToList();

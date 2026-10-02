@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\EtherBound.Sim\EtherBound.Sim.csproj" />
+    <ProjectReference Include="..\EtherBound.Llm\EtherBound.Llm.csproj" />
     <InternalsVisibleTo Include="EtherBound.Sim.Tests" />
   </ItemGroup>
 

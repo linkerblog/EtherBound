@@ -1,0 +1,54 @@
+# Provisional values for the LLM layer (Dev-007, Dev-008). Every number here is a first guess that the
+# benches (sim/EtherBound.Llm.Bench) are meant to confirm or move.
+
+[jev]
+model = "jev-latest"
+endpoint = "https://api.typesafe.ai/v1/systemone"
+timeout_s = 15
+# Documented in NikoStory: USD per million input tokens; output is free.
+price_per_million_input = 0.042
+
+[interpret]
+# A choice at or above `accept` runs; between `confirm` and `accept` the player is asked.
+accept = 0.75
+confirm = 0.40
+# The `fits` noul: below this the text asks for something no candidate covers.
+fits = 0.5
+max_candidates = 40
+max_text_chars = 300
+# The text stored in the llm.interpreted event.
+log_text_chars = 200
+
+[openrouter]
+endpoint = "https://openrouter.ai/api/v1/chat/completions"
+# The Test button's call: key info, no tokens spent. Written from memory, to be confirmed on the first live run.
+key_info_endpoint = "https://openrouter.ai/api/v1/auth/key"
+
+# Roles are declared here and nowhere else. An empty model switches the role off until the LLM tab or
+# ETHERBOUND_<ROLE>_MODEL sets one. The narrator's default was chosen from the bench of 01/10/2026 (Dev-008 [Sec. 6]):
+# among the models that passed it, the fastest to a first token (0.25 s p50, 0.57 s p95), with no rejections, no
+# invented details and a cost of $0.000027 a narration.
+[roles.narrator]
+model = "google/gemma-4-31b-it"
+reasoning = false
+idle_ms = 20000
+# A cap on the worst case, not a target: a model that reasons by default spends part of it thinking, and at 300
+# four narrations in twenty came back empty (Dev-008 [Sec. 4]).
+max_tokens = 1000
+
+[narration]
+max_chars = 400
+# How many earlier narrations the model sees, and the checks compare against.
+recent = 3
+# The most distinct nearby things the packet names.
+max_nearby = 6
+# Rows shown again from the log when the game opens.
+history_lines = 30
+
+[spend]
+# The narrator stops for the session once the provider-reported cost reaches this.
+cap_usd = 1.0
+# llm_call retention: full text for the newest rows, cut text beyond, no rows past the newest `keep_rows`.
+keep_full = 200
+keep_rows = 5000
+cut_text_chars = 500

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>EtherBound.Llm.Bench</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\EtherBound.Sim\EtherBound.Sim.csproj" />
+    <ProjectReference Include="..\EtherBound.Llm\EtherBound.Llm.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -25,15 +25,19 @@ public sealed class WorldGrid
     private readonly Dictionary<(int, int), IReadOnlyList<StandingSurface>> _standingCache = new();
     private readonly Dictionary<(int, int, int, int, int?), bool> _stepCache = new();
     private readonly Func<int, int, (Chunk Chunk, IEnumerable<ChunkLevel> Levels)?>? _chunkLoader;
+    private readonly Func<int, int, IEnumerable<TileObject>>? _objectIndexer;
     private readonly HashSet<(int, int)> _missingChunks = new();
 
+    /// <param name="chunkLoader">Streaming worlds (Dev-010): builds a chunk the first time something reads it.</param>
+    /// <param name="objectIndexer">Gives a freshly loaded chunk its tile-object index, since only loaded chunks have one.</param>
     public WorldGrid(IEnumerable<Chunk>? chunks = null, IEnumerable<ChunkLevel>? levels = null,
         MaterialRegistry? registry = null, Func<int, int, (Chunk, IEnumerable<ChunkLevel>)?>? chunkLoader = null,
-        ObjectCatalog? catalog = null)
+        ObjectCatalog? catalog = null, Func<int, int, IEnumerable<TileObject>>? objectIndexer = null)
     {
         Registry = registry ?? MaterialRegistry.Load();
         Catalog = catalog ?? ObjectCatalog.Load();
         _chunkLoader = chunkLoader;
+        _objectIndexer = objectIndexer;
         foreach (var chunk in chunks ?? Array.Empty<Chunk>()) AddChunk(chunk);
         foreach (var level in levels ?? Array.Empty<ChunkLevel>()) AddLevel(level);
     }
@@ -83,9 +87,40 @@ public sealed class WorldGrid
         if ((loadedChunk.Cx, loadedChunk.Cy) != (cx, cy)) throw new InvalidOperationException("chunk loader returned a different chunk");
         var levels = loadedLevels.ToList();
         if (levels.Any(l => (l.Cx, l.Cy) != (cx, cy))) throw new InvalidOperationException("chunk loader returned levels from another chunk");
-        AddChunk(loadedChunk);
-        foreach (var level in levels) AddLevel(level);
+        // A loaded chunk changes nothing the caches already answered (nothing was cached for its tiles),
+        // so, unlike a modification, it must not bump the navigation revision: Extras would replan on
+        // every chunk the player merely walks towards.
+        _chunks[(cx, cy)] = loadedChunk;
+        foreach (var level in levels)
+        {
+            _levels[(level.Cx, level.Cy, level.Z)] = level;
+            if (!_levelsByChunk.TryGetValue((cx, cy), out var list)) _levelsByChunk[(cx, cy)] = list = new();
+            list.Add(level);
+        }
+        if (_objectIndexer is not null)
+        {
+            var objects = _objectIndexer(cx, cy).ToArray();
+            if (objects.Length > 0) _objectChunks[(cx, cy)] = objects;
+        }
         return loadedChunk;
+    }
+
+    public IReadOnlyList<ChunkLevel> LevelsOfChunk(int cx, int cy) => ChunkLevels(cx, cy);
+
+    /// <summary>Whether the grid builds chunks on demand instead of holding a fixed set.</summary>
+    public bool Streaming => _chunkLoader is not null;
+
+    /// <summary>
+    /// Forgets a loaded chunk, its levels and its object index; the loader rebuilds it on the next read.
+    /// Only the engine calls this, and only for a chunk with nothing uncommitted.
+    /// </summary>
+    public void Evict(int cx, int cy)
+    {
+        if (!_chunks.Remove((cx, cy))) return;
+        foreach (var level in ChunkLevels(cx, cy)) _levels.Remove((level.Cx, level.Cy, level.Z));
+        _levelsByChunk.Remove((cx, cy));
+        _objectChunks.Remove((cx, cy));
+        InvalidateNavigation();
     }
 
     public ChunkLevel? Level(int cx, int cy, int z) => _levels.GetValueOrDefault((cx, cy, z));

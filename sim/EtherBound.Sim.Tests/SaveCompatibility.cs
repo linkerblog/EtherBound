@@ -7,7 +7,7 @@ namespace EtherBound.Sim.Tests;
 
 /// <summary>
 /// A save written by the Python server at <c>0008_extra</c> opens in the C# sim, is upgraded in
-/// place to <c>0010_replay_work</c> by the migration runner, reads back the same state and log, and
+/// place to <c>0012_actor_needs</c> by the migration runner, reads back the same state and log, and
 /// survives a write and a reopen.
 /// </summary>
 public sealed class SaveCompatibility : IDisposable
@@ -82,7 +82,7 @@ public sealed class SaveCompatibility : IDisposable
         Assert.Equal(DatabaseHead, Scalar("SELECT version_num FROM alembic_version"));
     }
 
-    private const string DatabaseHead = "0010_replay_work";
+    private const string DatabaseHead = "0012_actor_needs";
 
     [Fact]
     public void A_0008_save_is_upgraded_in_place_and_keeps_its_wall_rows()
@@ -93,9 +93,10 @@ public sealed class SaveCompatibility : IDisposable
             engine.EnsureWorld(0);
         }
         Assert.Equal(DatabaseHead, Scalar("SELECT version_num FROM alembic_version"));
-        Assert.Equal("sim-0010", Scalar("SELECT version FROM sim_schema"));
+        Assert.Equal("sim-0012", Scalar("SELECT version FROM sim_schema"));
         Assert.Equal("1", Scalar("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'input_journal'"));
         Assert.Equal("1", Scalar("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'activity_work'"));
+        Assert.Equal("1", Scalar("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'llm_call'"));
         Assert.Equal("1", Scalar("SELECT COUNT(*) FROM pragma_table_info('chunk_level') WHERE name = 'slot_mask'"));
         Assert.Equal("1", Scalar("SELECT COUNT(*) FROM pragma_table_info('chunk_level') WHERE name = 'slot_mat'"));
         // Every wall_integrity row became a wall_slot row and the old table is gone.
@@ -212,6 +213,52 @@ public sealed class SaveCompatibility : IDisposable
         Assert.Equal("memory", db.PragmaValue("journal_mode"));
     }
 
+    /// <summary>
+    /// A save an older build left at <c>0011_llm_call</c> has Extras with no needs: opening it moves it to
+    /// the head, gives each Extra the seeded start, writes no event and leaves a second open unchanged.
+    /// </summary>
+    [Fact]
+    public void A_0011_save_gains_needs_for_its_extras_and_a_second_open_changes_nothing()
+    {
+        using (var engine = new WorldEngine(_path)) engine.EnsureWorld(0);
+        SqliteConnection.ClearAllPools();
+        Exec("ALTER TABLE actor DROP COLUMN needs; UPDATE alembic_version SET version_num = '0011_llm_call'");
+        Assert.Equal("0", Scalar("SELECT COUNT(*) FROM pragma_table_info('actor') WHERE name = 'needs'"));
+        var extras = Scalar("SELECT COUNT(*) FROM actor WHERE kind = 'extra'");
+        Assert.NotEqual("0", extras);
+
+        int events;
+        using (var upgraded = new WorldEngine(_path))
+        {
+            upgraded.EnsureWorld(0);
+            events = upgraded.ReadEvents(0, 100000).Count;
+            Assert.All(upgraded.GetState().Actors.Where(a => a.Kind == "extra"), a => Assert.NotNull(a.Needs));
+            Assert.Null(upgraded.GetState().Actors.First(a => a.Id == Ids.Player).Needs);
+        }
+        SqliteConnection.ClearAllPools();
+        Assert.Equal(DatabaseHead, Scalar("SELECT version_num FROM alembic_version"));
+        Assert.Equal("0", Scalar("SELECT COUNT(*) FROM actor WHERE kind = 'extra' AND needs IS NULL"));
+        Assert.Equal("1", Scalar("SELECT COUNT(*) FROM actor WHERE kind = 'player' AND needs IS NULL"));
+        var stored = Scalar("SELECT group_concat(needs, '|') FROM (SELECT needs FROM actor WHERE kind = 'extra' ORDER BY id)");
+
+        using (var again = new WorldEngine(_path))
+        {
+            again.EnsureWorld(0);
+            Assert.Equal(events, again.ReadEvents(0, 100000).Count);
+        }
+        SqliteConnection.ClearAllPools();
+        Assert.Equal(stored, Scalar("SELECT group_concat(needs, '|') FROM (SELECT needs FROM actor WHERE kind = 'extra' ORDER BY id)"));
+    }
+
+    private void Exec(string sql)
+    {
+        using var connection = new SqliteConnection($"Data Source={_path}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.ExecuteNonQuery();
+    }
+
     [Fact]
     public void A_write_round_trips_and_stays_at_the_head()
     {
@@ -230,6 +277,6 @@ public sealed class SaveCompatibility : IDisposable
             AssertSameState(before, StateDump.Of(reopened));
         }
         Assert.Equal(DatabaseHead, Scalar("SELECT version_num FROM alembic_version"));
-        Assert.Equal("sim-0010", Scalar("SELECT version FROM sim_schema"));
+        Assert.Equal("sim-0012", Scalar("SELECT version FROM sim_schema"));
     }
 }

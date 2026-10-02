@@ -22,13 +22,16 @@ public interface IEnginePort
     void SetGoal(string actorId, GoalSpot? goal, string reason);
 
     MenuPayload Menu(string actorId, double x, double y, int z, int radius = 0);
+
+    /// <summary>A read: what within <paramref name="radiusM"/> of the actor could satisfy hunger or thirst.</summary>
+    IReadOnlyList<Percept> Percepts(string actorId, int radiusM);
 }
 
 /// <summary>
 /// The only component allowed to validate and commit world state changes (<c>engine/world.py</c>).
 /// Every call runs on the sim thread; events are dispatched after the commit, outside the change.
 /// </summary>
-public sealed class WorldEngine : IEnginePort, IDisposable
+public sealed partial class WorldEngine : IEnginePort, IDisposable
 {
     public const int ChunkRadius = 2;
 
@@ -41,6 +44,13 @@ public sealed class WorldEngine : IEnginePort, IDisposable
     private WorldState? _tickSnapshot;
 
     private readonly string _materialsToml;
+
+    // Streaming worlds (Dev-010): the current world's chunk source, the session a setup call is
+    // still building (its objects are not committed yet) and whether the stored chunks belong to a
+    // world that this setup is wiping.
+    private IChunkSource? _source;
+    private Session? _setupSession;
+    private bool _ignorePersisted;
 
     public WorldEngine(string databasePath = ":memory:", MaterialRegistry? registry = null, EventBus? bus = null,
         ObjectCatalog? catalog = null, string? materialsToml = null)
@@ -84,6 +94,9 @@ public sealed class WorldEngine : IEnginePort, IDisposable
     public ObjectCatalog Catalog { get; }
     public WorldGrid Grid { get; private set; }
     public EventBus Bus { get; }
+
+    /// <summary>The pure terrain sampler of a streaming world (the minimap reads it), or null for a bounded one.</summary>
+    public IChunkSource? Source => _source;
 
     public void Dispose() => _db.Dispose();
 
@@ -156,13 +169,20 @@ public sealed class WorldEngine : IEnginePort, IDisposable
             session.RecordInput("ensure_world", Json.Obj(("seed", Json.Of(seed)), ("generator", Json.Of(spec.Key)),
                 ("gen_version", Json.Of(spec.Version)), ("options", options.Dump())));
         var hasChunks = _db.HasChunks();
-        var regenerate = fallback || !hasChunks || world.GenVersion < spec.Version;
+        // A streaming save is pinned to the version it was made with and stores only modified chunks, so
+        // an empty chunk table is normal and never a reason to regenerate (and wipe the objects).
+        var streaming = spec.Streaming && !fallback;
+        var regenerate = fallback || (!streaming && (!hasChunks || world.GenVersion < spec.Version));
+        _setupSession = session;
+        try
+        {
         if (regenerate)
         {
             var carried = WorldSetup.CarriedObjects(session);
             session.Wipe(actors: false, events: false);
             session.KeepObjects(carried);
             var generated = spec.Generate(world.Seed, options, Registry);
+            _source = null;
             Grid = WorldSetup.CommitWorld(session, generated, Registry, Catalog);
             WorldSetup.CommitObjects(session, generated.Objects);
             world.GenVersion = generated.GenVersion;
@@ -170,9 +190,16 @@ public sealed class WorldEngine : IEnginePort, IDisposable
             world.GenOptions = options.Dump();
             events.Add(SimEvent.WorldGenerated(world.Seed, generated.GenVersion, spec.Key, world.GenOptions));
         }
+        else if (streaming)
+        {
+            _store.PersistedChunks.Clear();
+            _store.PersistedChunks.UnionWith(_db.ChunkKeys());
+            Grid = NewStreamingGrid(spec, options, world.Seed);
+        }
         else
         {
             var (chunks, levels) = _db.LoadGrid();
+            _source = null;
             Grid = new WorldGrid(chunks, levels, Registry, catalog: Catalog);
         }
         session.UseGrid(Grid);
@@ -182,6 +209,91 @@ public sealed class WorldEngine : IEnginePort, IDisposable
         if (regenerate) events.Add(SimEvent.ClockChanged(world.Speed, world.Paused));
         _nextSeq = _store.MaxEventSeq + 1;
         Publish(session, world, events);
+        }
+        finally
+        {
+            _setupSession = null;
+        }
+    }
+
+    /// <summary>
+    /// A grid whose chunks are built on demand (Dev-010). A pristine chunk is a cache, not state, so
+    /// loading one writes nothing: no row, no event, no dirty mark. Only a chunk a mutation changed is
+    /// stored, and the stored row wins over the generator from then on.
+    /// </summary>
+    private WorldGrid NewStreamingGrid(GeneratorSpec spec, IGeneratorOptions options, long seed)
+    {
+        var source = _source = spec.Stream!(seed, options, Registry);
+        return new WorldGrid(null, null, Registry, (cx, cy) => LoadStreamedChunk(source, cx, cy), Catalog, IndexChunkObjects);
+    }
+
+    private (Chunk, IEnumerable<ChunkLevel>)? LoadStreamedChunk(IChunkSource source, int cx, int cy)
+    {
+        if (!_ignorePersisted && _store.PersistedChunks.Contains((cx, cy)) && _db.ReadChunk(cx, cy) is { } saved)
+            return (saved.Chunk, saved.Levels);
+        return source.Generate(cx, cy) is { } generated ? (generated.Chunk, generated.Levels) : null;
+    }
+
+    /// <summary>Tile objects of a chunk being loaded: the setup session's while one is building, else the committed rows.</summary>
+    private IEnumerable<TileObject> IndexChunkObjects(int cx, int cy) =>
+        ObjectHelpers.TileObjects(_setupSession is { } session ? session.Objects() : _store.Objects.Values, Catalog, cx, cy);
+
+    /// <summary>
+    /// The ground of a tile for the minimap, without loading anything pristine: a loaded chunk answers
+    /// from itself, so a dug hole or a built floor shows, and an unloaded pristine one from the pure
+    /// source. Null where nothing exists (outside a bounded world).
+    /// </summary>
+    public TerrainCell? SurfaceAt(int x, int y)
+    {
+        var (cx, cy, lx, ly) = WorldGrid.ChunkCoords(x, y);
+        if (Grid.Chunks.TryGetValue((cx, cy), out var chunk))
+            return new TerrainCell(chunk.GroundH[Chunk.Index(lx, ly)], chunk.SurfaceMat[Chunk.Index(lx, ly)]);
+        if (_source is not null && !_store.PersistedChunks.Contains((cx, cy))) return _source.Sample(x, y);
+        return Grid.GroundAt(x, y) is { } ground ? new TerrainCell(ground.GroundH, ground.SurfaceMat) : null;
+    }
+
+    /// <summary>The revision that tells the minimap a chunk changed: a loaded or stored chunk's own, else 0 (pristine).</summary>
+    public int MapRevision(int cx, int cy)
+    {
+        if (Grid.Chunks.TryGetValue((cx, cy), out var chunk)) return chunk.Revision;
+        return _store.PersistedChunks.Contains((cx, cy)) ? Grid.Chunk(cx, cy)?.Revision ?? 0 : 0;
+    }
+
+    /// <summary>Chunks farther than this many chunks from every actor are forgotten (and rebuilt if read again).</summary>
+    public const int EvictRadius = 4;
+
+    /// <summary>
+    /// Drops loaded chunks away from every actor. Nothing is lost: each commit already stored what a
+    /// mutation changed, and a pristine chunk regenerates identically. Called between operations, when no
+    /// session holds uncommitted changes.
+    /// </summary>
+    public int EvictFarChunks(int keepRadius = EvictRadius)
+    {
+        if (!Grid.Streaming) return 0;
+        var keep = new HashSet<(int, int)>();
+        foreach (var actor in _store.Actors.Values)
+        {
+            int ax = PyMath.FloorDiv(actor.TileX, ChunkConst.Size), ay = PyMath.FloorDiv(actor.TileY, ChunkConst.Size);
+            for (var dy = -keepRadius; dy <= keepRadius; dy++)
+            for (var dx = -keepRadius; dx <= keepRadius; dx++) keep.Add((ax + dx, ay + dy));
+        }
+        var victims = Grid.Chunks.Keys.Where(key => !keep.Contains(key)).ToList();
+        foreach (var (cx, cy) in victims) Grid.Evict(cx, cy);
+        return victims.Count;
+    }
+
+    /// <summary>Loads the next missing chunk within <paramref name="radius"/> of (cx, cy), nearest first; false when all are loaded.</summary>
+    public bool PrefetchChunk(int cx, int cy, int radius)
+    {
+        if (!Grid.Streaming) return false;
+        for (var ring = 0; ring <= radius; ring++)
+        for (var dy = -ring; dy <= ring; dy++)
+        for (var dx = -ring; dx <= ring; dx++)
+        {
+            if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != ring || Grid.Chunks.ContainsKey((cx + dx, cy + dy))) continue;
+            if (Grid.Chunk(cx + dx, cy + dy) is not null) return true;
+        }
+        return false;
     }
 
     public WorldState NewGame(long seed, string generator = Generators.Default, JsonObject? options = null, bool paused = false)
@@ -191,6 +303,10 @@ public sealed class WorldEngine : IEnginePort, IDisposable
         var session = NewSession();
         var world = session.HasWorld ? session.World : new WorldMetaRow();
         if (!session.HasWorld) session.CreateWorld(world);
+        _setupSession = session;
+        _ignorePersisted = true;
+        try
+        {
         session.Wipe(actors: true, events: true, inputs: true);
         session.RecordInput("new_game", Json.Obj(("seed", Json.Of(seed)), ("generator", Json.Of(spec.Key)),
             ("gen_version", Json.Of(spec.Version)), ("options", resolved.Dump()), ("paused", Json.Of(paused))));
@@ -199,7 +315,15 @@ public sealed class WorldEngine : IEnginePort, IDisposable
         world.Speed = 1;
         world.Paused = paused;
         var generated = spec.Generate(seed, resolved, Registry);
-        Grid = WorldSetup.CommitWorld(session, generated, Registry, Catalog);
+        if (spec.Streaming)
+        {
+            Grid = NewStreamingGrid(spec, resolved, seed);
+        }
+        else
+        {
+            _source = null;
+            Grid = WorldSetup.CommitWorld(session, generated, Registry, Catalog);
+        }
         session.UseGrid(Grid);
         WorldSetup.CommitObjects(session, generated.Objects);
         world.GenVersion = generated.GenVersion;
@@ -211,6 +335,12 @@ public sealed class WorldEngine : IEnginePort, IDisposable
         RefreshLoad(session);
         events.Add(SimEvent.ClockChanged(world.Speed, world.Paused));
         Publish(session, world, events, firstSeq: 1);
+        }
+        finally
+        {
+            _setupSession = null;
+            _ignorePersisted = false;
+        }
         var state = GetState();
         Bus.Drain();
         return state;
@@ -330,9 +460,10 @@ public sealed class WorldEngine : IEnginePort, IDisposable
             {
                 world.GameMinute += 1;
                 // Completions come before clock.ticked, in actor-id order: replay needs it.
-                var events = CompleteActivities(session, world);
+                var events = CompleteActivities(session, world, out var changesLoad);
                 events.Add(SimEvent.ClockTicked());
                 Publish(session, world, events);
+                if (changesLoad) RefreshLoad(session);
             }
             else
             {
@@ -351,8 +482,9 @@ public sealed class WorldEngine : IEnginePort, IDisposable
         }
     }
 
-    private List<SimEvent> CompleteActivities(Session session, WorldMetaRow world)
+    private List<SimEvent> CompleteActivities(Session session, WorldMetaRow world, out bool changesLoad)
     {
+        changesLoad = false;
         var events = new List<SimEvent>();
         foreach (var actor in session.Actors())
         {
@@ -372,6 +504,7 @@ public sealed class WorldEngine : IEnginePort, IDisposable
             }
             events.AddRange(handler.Complete(ctx, action));
             events.Add(SimEvent.ActivityFinished(actor.Id, running.Op, "completed"));
+            changesLoad |= handler.ChangesLoad;
         }
         return events;
     }
@@ -557,7 +690,7 @@ public sealed class WorldEngine : IEnginePort, IDisposable
         var session = NewSession();
         var world = session.World;
         var actors = session.Actors().Select(a => new ActorState(a.Id, a.Kind, a.X, a.Y, a.Z, a.H, ActivityState.From(a.Activity),
-            Carried(a.Id), LoadKg(a.Id), a.Name, a.Mind is { } m ? Mind.Parse(m) : null)).ToList();
+            Carried(a.Id), LoadKg(a.Id), a.Name, a.Mind is { } m ? Mind.Parse(m) : null, ActorNeeds.Parse(a.Needs))).ToList();
         return new WorldState(world.Seed, world.GameMinute, world.Speed, world.Paused, actors, world.GenVersion, world.Generator,
             (JsonObject)world.GenOptions.DeepClone());
     }

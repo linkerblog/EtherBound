@@ -49,6 +49,21 @@ Open decisions and loose ends. When one is settled, record the decision where it
 - [ ] **Infra03 CI on GitHub Actions**: run the checks on push now that the remote exists. The
       number was earmarked as Infra02 by archive entry `Infra01.md`; Infra02 became the agent
       context diet. No plan exists yet.
+- [ ] **Dev-004 manual checks (HUD layout, build panel, dev console).** Captures at the design size
+      exist (`--shots DIR --shots-size 2560x1440`, run against an isolated `--database`):
+      `spawn-x2.png`, `build-walls.png`, `build-floors.png`, `build-selected.png`,
+      `dev-console.png`, `dev-console-npcs.png`, `llm-placeholder.png`. Open: compare `HUD / Base`
+      (11:53) against `spawn-x2.png` for the 2 px match and confirm the derived `Header` 64, footer
+      80 and status column 296, chosen so the frame sums to 2560×1440; see the selected `BuildSlot`
+      and a real submit on a surface with `build_cost` (the default `test` world has none, so at
+      seed 7 the only slot is a disabled `Asphalt wall`); press `D`, `W`, `A`, `S` with the console
+      closed; and confirm that opening the build panel or the console does not stop movement.
+      `HudLayoutTests.cs` covers the frame arithmetic instead of a screenshot.
+- [ ] **Dev-004: Figma side.** Update the Figma frames with the panels from D3 and export the
+      `EtherBound/Colors` tokens. The implementing session had no Figma access, so the palette comes
+      from the tokens already documented in `utils/STYLEGUIDE.md` [Sec. 3] and the derived widths
+      above stay unconfirmed. Do not draw HP/EP until the sim exposes vitals: the `STATUS` panel
+      stays hidden.
 
 **Deprecated at cut-over** (archive entry `Dev-025.md`, section 3.7): Dev-014 (AI furniture as a
 primitive spec), Dev-016 (context menu polish), Dev-021 (wall lines and heights), Dev-023 (server
@@ -87,7 +102,9 @@ construction, recipes and supply, Jev runtime); the op list is settled in archiv
 and the Matter primitive in `Dev-012.md`. Dev-025's seven stages replaced the Python/FastAPI server
 and Phaser/React client with deterministic C# and Godot (~87× faster per tick at 1,000 Extras);
 `legacy-python-web-stack.zip` preserves the old source. The manual parity/export and walking-feel
-checks were verified and closed on 29/09/2026. Replay, actor collision, resumable work, event delivery
+checks were verified and closed on 29/09/2026. Dev-004 rebuilt the HUD as the Figma layout and left
+its Figma-side update and a short list of visual checks open above. Replay, actor collision, resumable
+work, event delivery
 and blocked-edge movement are implemented; first-frame actor updates are within budget. Dev-014/016/
 021/023/024 are deprecated: their rendering ideas were absorbed by the port, except the future `build`
 op, implemented in phase 1 (archive entry `Dev-036.md`). The remaining first-host-frame, worst-case

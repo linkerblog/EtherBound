@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -78,6 +79,8 @@ public partial class WorldClient : Node
     private int _requestId;
     private int _pendingContextRequest;
     private int _pendingRadialRequest;
+    private int _pendingBuildRequest;
+    private int _pendingBuildSlotsRequest;
     private int _pendingNewGameRequest;
     private Vector2 _contextPosition;
     private string? _lastFault;
@@ -91,8 +94,12 @@ public partial class WorldClient : Node
         for (var i = 0; i < raw.Length; i++)
             if (raw[i].StartsWith("--")) _args[raw[i][2..]] = i + 1 < raw.Length && !raw[i + 1].StartsWith("--") ? raw[++i] : "";
         _levelOnlyView = _args.ContainsKey("shots-level-only") && _args.ContainsKey("shots");
-        // Screenshots keep the project's fixed 1280x720 so every capture has the same size.
+        // Screenshots keep the project's fixed 1280x720 so every capture has the same size, unless
+        // `--shots-size WxH` asks for the design frame (2560x1440) the Figma comparison needs.
         if (!_args.ContainsKey("shots")) DisplayServer.WindowSetMode(DisplayServer.WindowMode.Maximized);
+        else if (_args.TryGetValue("shots-size", out var shotSize) && shotSize.Split('x') is [var shotW, var shotH]
+            && int.TryParse(shotW, out var parsedW) && int.TryParse(shotH, out var parsedH))
+            DisplayServer.WindowSetSize(new Vector2I(parsedW, parsedH));
 
         var seed = _args.TryGetValue("seed", out var rawSeed) && long.TryParse(rawSeed, out var parsedSeed) ? parsedSeed : 7;
         var generator = _args.GetValueOrDefault("generator", "test");
@@ -108,6 +115,8 @@ public partial class WorldClient : Node
 
         _view = new PixelView();
         AddChild(_view);
+        // The design's page background, visible in the frame margins outside the world viewport.
+        _view.SetBackdrop(HudTheme.Bg);
         _root = new Node3D { Scale = new Vector3(1, PixelView.VerticalScale, 1) };
         _view.Viewport.AddChild(_root);
         _trajectoryAnimator = new TrajectoryAnimator();
@@ -115,6 +124,8 @@ public partial class WorldClient : Node
         BuildActorMaterials();
         BuildEnvironment();
         BuildHud();
+        // The HUD owns the layout: the 3D view renders into the `GameViewport` rectangle it solves.
+        _view.SetTargetRect(_gameHud.ViewportRect);
         _readyCompletedAt = Stopwatch.GetTimestamp();
     }
 
@@ -174,7 +185,48 @@ public partial class WorldClient : Node
             var requestId = ++_requestId;
             if (_host?.TrySubmitAction(requestId, action) != true) _gameHud.PushFeed("SIM BUSY", "warn");
         };
+        _gameHud.ViewportRectChanged += rect => _view?.SetTargetRect(rect);
+        _gameHud.BuildSlotsRequested += RequestBuildSlots;
         AddChild(_gameHud);
+    }
+
+    /// <summary>
+    /// The build panel asks for the slots `Menu.Build` offers; the radial menu already lists the
+    /// entries for Niko's tile and its open neighbours, so the panel is a filter over that read.
+    /// </summary>
+    private void RequestBuildSlots()
+    {
+        if (_host is null) return;
+        _pendingBuildSlotsRequest = ++_requestId;
+        if (_host.TryRequestRadialMenu(_pendingBuildSlotsRequest) != true)
+        {
+            _pendingBuildSlotsRequest = 0;
+            _gameHud.PushFeed("SIM BUSY", "warn");
+        }
+    }
+
+    /// <summary>
+    /// Resolves an armed build slot against the menu the sim returned for the clicked ray: the entry
+    /// is the sim's own `build` action, so nothing is constructed on the client. A slot with no
+    /// matching entry is reported, never guessed into an action.
+    /// </summary>
+    private void ResolveBuild(HostMenuResponse response)
+    {
+        if (_gameHud.ArmedBuild is not { } armed) return;
+        var match = (response.Menu?.Entries ?? ImmutableArray<HostMenuEntry>.Empty).FirstOrDefault(entry =>
+            entry.Op == "build" && entry.Action.Target?.Kind == armed.Kind && entry.Subject == armed.Subject);
+        if (match is null)
+        {
+            _gameHud.PushFeed("CAN'T BUILD HERE", "warn");
+            return;
+        }
+        if (!match.Available)
+        {
+            _gameHud.PushFeed($"CAN'T BUILD · {(match.Reason ?? "unavailable").ToUpperInvariant()}", "warn");
+            return;
+        }
+        var requestId = ++_requestId;
+        if (_host?.TrySubmitAction(requestId, match.Action) != true) _gameHud.PushFeed("SIM BUSY", "warn");
     }
 
     public override void _Process(double delta)
@@ -636,7 +688,9 @@ public partial class WorldClient : Node
             || !Input.IsMouseButtonPressed(MouseButton.Right)
             || _gameHud.ActiveView != "GAME" || _gameHud.InputHasFocus || _gameHud.NewGameVisible)
             return null;
-        var (origin, direction) = _view.RayFromScreen(GetViewport().GetMousePosition());
+        var mouse = GetViewport().GetMousePosition();
+        if (!_gameHud.ViewportRect.HasPoint(mouse)) return null;
+        var (origin, direction) = _view.RayFromScreen(mouse);
         var basis = _root.GlobalTransform.Basis;
         return Cutaway.CursorTerrain(_world, _root.ToLocal(origin), (basis.Inverse() * direction).Normalized());
     }
@@ -656,6 +710,14 @@ public partial class WorldClient : Node
                 case HostMenuResponse radial when radial.RequestId == _pendingRadialRequest:
                     _pendingRadialRequest = 0;
                     if (radial.Menu is not null) _actionMenu.ShowRadial(radial.Menu, PlayerScreenPosition());
+                    break;
+                case HostMenuResponse slots when slots.RequestId == _pendingBuildSlotsRequest:
+                    _pendingBuildSlotsRequest = 0;
+                    if (slots.Menu is not null) _gameHud.ApplyBuildMenu(slots.Menu);
+                    break;
+                case HostMenuResponse build when build.RequestId == _pendingBuildRequest:
+                    _pendingBuildRequest = 0;
+                    ResolveBuild(build);
                     break;
                 case HostActionResponse action:
                     if (!action.Result.Trajectory.IsDefaultOrEmpty) _trajectoryAnimator.Play(action.Result.Trajectory);
@@ -703,9 +765,27 @@ public partial class WorldClient : Node
 
     public override void _UnhandledInput(InputEvent e)
     {
+        // Mouse input reaches the world only inside the viewport rectangle; keyboard movement stays
+        // window-wide, so opening the build panel or the console never stops WASD.
+        if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } left
+            && _gameHud.ArmedBuild is not null && _gameHud.ActiveView == "GAME"
+            && _gameHud.ViewportRect.HasPoint(left.Position))
+        {
+            var (origin, direction) = _view.RayFromScreen(left.Position);
+            var target = new WorldRay(origin.X, origin.Z, origin.Y, direction.X, direction.Z, direction.Y);
+            _pendingBuildRequest = ++_requestId;
+            if (_host?.TryRequestMenuAtRay(_pendingBuildRequest, target) != true)
+            {
+                _pendingBuildRequest = 0;
+                _gameHud.PushFeed("SIM BUSY", "warn");
+            }
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Right } mouse)
         {
             if (_gameHud.ActiveView != "GAME" || _gameHud.InputHasFocus || _gameHud.NewGameVisible) return;
+            if (!_gameHud.ViewportRect.HasPoint(mouse.Position)) return;
             _actionMenu.Close();
             var (origin, direction) = _view.RayFromScreen(mouse.Position);
             var ray = new WorldRay(origin.X, origin.Z, origin.Y, direction.X, direction.Z, direction.Y);
@@ -784,11 +864,30 @@ public partial class WorldClient : Node
         await Frames(4);
         GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "new-game.png"));
         _gameHud.CloseNewGame();
+
+        // The build panel and its two tabs (A2), then the armed state of a slot.
+        _gameHud.Build.Open();
+        RequestBuildSlots();
+        if (!await WaitUntil(() => _gameHud.Build.SlotCount > 0, 300)) GD.PrintErr("shots: build slots did not arrive in time");
+        await Frames(3);
+        GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "build-walls.png"));
+        _gameHud.Build.ShowTab(BuildPanel.FloorKind);
+        await Frames(3);
+        GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "build-floors.png"));
+        _gameHud.Build.ShowTab(BuildPanel.WallKind);
+        _gameHud.Build.ArmFirst();
+        await Frames(3);
+        GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "build-selected.png"));
+        _gameHud.Build.Close();
+
         _gameHud.SwitchView("DEBUG");
+        await Frames(8);
+        GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "dev-console.png"));
+        _gameHud.ShowConsoleSection("npcs");
         await Frames(4);
-        GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "debug-map.png"));
+        GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "dev-console-npcs.png"));
         _gameHud.SwitchView("LLM");
-        await Frames(4);
+        await Frames(8);
         GetViewport().GetTexture().GetImage().SavePng(Path.Combine(directory, "llm-placeholder.png"));
         GetTree().Quit();
     }

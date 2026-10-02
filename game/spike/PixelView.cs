@@ -21,8 +21,11 @@ public sealed partial class PixelView : Node
     public readonly SubViewport Viewport = new();
     public readonly Camera3D Camera = new();
     private readonly TextureRect _display = new();
+    private readonly ColorRect _backdrop = new();
     private readonly CanvasLayer _layer = new();
     private readonly Vector3 _right, _up, _back;
+    private Rect2 _target;
+    private Vector2 _origin;
     public int Scale { get; private set; } = 2;
     public Vector2 Remainder { get; private set; }
 
@@ -51,6 +54,10 @@ public sealed partial class PixelView : Node
         _display.TextureFilter = CanvasItem.TextureFilterEnum.Nearest;
         _display.Texture = Viewport.GetTexture();
         _display.StretchMode = TextureRect.StretchModeEnum.Scale;
+        // The page behind the world, drawn first in this canvas so it covers the window clear colour.
+        _backdrop.MouseFilter = Control.MouseFilterEnum.Ignore;
+        _backdrop.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        _layer.AddChild(_backdrop);
         _layer.AddChild(_display);
         AddChild(_layer);
         GetViewport().SizeChanged += Resize;
@@ -63,15 +70,31 @@ public sealed partial class PixelView : Node
         Resize();
     }
 
+    /// <summary>Colour of the page behind the world, visible in the HUD's margins and gutters.</summary>
+    public void SetBackdrop(Color color) => _backdrop.Color = color;
+
+    /// <summary>
+    /// Renders into a window-pixel rectangle (the HUD's `GameViewport`) instead of the whole window.
+    /// An empty rectangle means the window, which is the behaviour without a HUD.
+    /// </summary>
+    public void SetTargetRect(Rect2 rect)
+    {
+        _target = rect;
+        Resize();
+    }
+
     private void Resize()
     {
         var window = GetViewport().GetVisibleRect().Size;
+        var rect = _target.Size.X >= 1 && _target.Size.Y >= 1 ? _target : new Rect2(Vector2.Zero, window);
+        _origin = rect.Position;
         // Even sizes keep the camera centre on a pixel corner, where tile corners project.
-        var w = (int)Math.Ceiling(window.X / Scale / 2) * 2 + Margin * 2;
-        var h = (int)Math.Ceiling(window.Y / Scale / 2) * 2 + Margin * 2;
+        var w = (int)Math.Ceiling(rect.Size.X / Scale / 2) * 2 + Margin * 2;
+        var h = (int)Math.Ceiling(rect.Size.Y / Scale / 2) * 2 + Margin * 2;
         Viewport.Size = new Vector2I(w, h);
         Camera.Size = h / PixelsPerUnit;
         _display.Size = new Vector2(w, h) * Scale;
+        _display.Position = _origin;
     }
 
     /// <summary>Centres the camera on a point in render space (already vertically scaled).</summary>
@@ -85,7 +108,7 @@ public sealed partial class PixelView : Node
         Camera.Position = _right * (sr / PixelsPerUnit) + _up * (su / PixelsPerUnit)
             + _back * (target.Dot(_back) + Distance);
         // Whole screen pixels only: at x1 the remainder rounds away, at x4 it moves in quarter art pixels.
-        _display.Position = (new Vector2(-Margin - Remainder.X, -Margin + Remainder.Y) * Scale).Round();
+        _display.Position = (_origin + new Vector2(-Margin - Remainder.X, -Margin + Remainder.Y) * Scale).Round();
     }
 
     public (Vector3 Origin, Vector3 Direction) RayFromScreen(Vector2 screenPosition)

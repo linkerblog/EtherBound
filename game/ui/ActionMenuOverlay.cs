@@ -11,10 +11,10 @@ public partial class ActionMenuOverlay : Control
 {
     private sealed record VerbGroup(string Op, string Label, List<HostMenuEntry> Entries);
 
-    // Matches GameHud.UiScale: the overlay is designed at 100% and scaled to stay aligned with the HUD.
-    private static float Sc(float value) => value * 1.5f;
-    private static int S(float value) => (int)MathF.Round(value * 1.5f);
-    private static Vector2 V(float x, float y) => new(x * 1.5f, y * 1.5f);
+    // The overlay shares the HUD's design units and palette, so menus stay aligned with the shell.
+    private static float Sc(float value) => value * HudTheme.Scale;
+    private static int S(float value) => HudTheme.S(value);
+    private static Vector2 V(float x, float y) => HudTheme.V(x, y);
 
     private readonly List<Button> _buttons = new();
     private HostMenuPayload? _menu;
@@ -49,7 +49,7 @@ public partial class ActionMenuOverlay : Control
             Mathf.Clamp(position.Y, Sc(8), Math.Max(Sc(8), Size.Y - height - Sc(8))));
         var panel = PanelAt(clamped, new Vector2(width, height));
         var target = new Label { Text = menu.Target.ToUpperInvariant(), CustomMinimumSize = V(0, 28) };
-        LabelStyle(target, new Color("#57c7ff"));
+        LabelStyle(target, HudTheme.Cyan);
         var content = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, SizeFlagsVertical = Control.SizeFlags.ExpandFill };
         content.AddChild(target);
         var scroll = new ScrollContainer
@@ -64,7 +64,7 @@ public partial class ActionMenuOverlay : Control
         if (menu.Entries.Length == 0)
         {
             var empty = new Label { Text = "NO ACTIONS" };
-            LabelStyle(empty, new Color("#6a6d78"));
+            LabelStyle(empty, HudTheme.Dim);
             entries.AddChild(empty);
         }
         foreach (var entry in menu.Entries) AddEntryButton(entries, entry, ContextText(entry));
@@ -130,7 +130,7 @@ public partial class ActionMenuOverlay : Control
     {
         if (!_radial || _level != 2 || _buttons.Count == 0) return;
         foreach (var button in _buttons)
-            DrawLine(_center, button.Position + button.Size * 0.5f, new Color("#3a3d47"), 2f, true);
+            DrawLine(_center, button.Position + button.Size * 0.5f, HudTheme.LineHi, 2f, true);
     }
 
     private void ShowVerbs()
@@ -139,7 +139,7 @@ public partial class ActionMenuOverlay : Control
         ClearContent();
         var hub = PanelAt(_center - V(86, 36), V(172, 72));
         var title = new Label { Text = _menu?.Target.ToUpperInvariant() ?? "NIKO", HorizontalAlignment = HorizontalAlignment.Center };
-        LabelStyle(title, new Color("#57c7ff"));
+        LabelStyle(title, HudTheme.Cyan);
         hub.AddChild(title);
 
         _buttons.Clear();
@@ -177,11 +177,11 @@ public partial class ActionMenuOverlay : Control
         ClearContent();
         var hub = PanelAt(_center - V(86, 38), V(172, 76));
         var back = new Button { Text = $"< {group.Label.ToUpperInvariant()}" };
-        ButtonStyle(back, new Color("#57c7ff"), false);
+        ButtonStyle(back, HudTheme.Cyan, false);
         back.Pressed += ShowVerbs;
         hub.AddChild(back);
         var focus = new Label { Text = _menu?.Target.ToUpperInvariant() ?? "NIKO", HorizontalAlignment = HorizontalAlignment.Center };
-        LabelStyle(focus, new Color("#6a6d78"));
+        LabelStyle(focus, HudTheme.Dim);
         hub.AddChild(focus);
 
         _buttons.Clear();
@@ -227,7 +227,7 @@ public partial class ActionMenuOverlay : Control
             Disabled = !available,
             MouseFilter = MouseFilterEnum.Stop,
         };
-        ButtonStyle(button, available ? new Color("#d6d8de") : new Color("#3a3d47"), true);
+        ButtonStyle(button, available ? HudTheme.Text : HudTheme.LineHi, true);
         AddChild(button);
         _buttons.Add(button);
         return button;
@@ -243,8 +243,8 @@ public partial class ActionMenuOverlay : Control
             TooltipText = entry.Reason ?? "",
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
         };
-        var tone = entry.Tags.Contains("illegal", StringComparer.Ordinal) ? new Color("#ff5c57")
-            : entry.Tags.Contains("ether", StringComparer.Ordinal) ? new Color("#ff6ac1") : new Color("#d6d8de");
+        var tone = entry.Tags.Contains("illegal", StringComparer.Ordinal) ? HudTheme.Red
+            : entry.Tags.Contains("ether", StringComparer.Ordinal) ? HudTheme.Magenta : HudTheme.Text;
         ButtonStyle(button, tone, false);
         button.Pressed += () => SelectAction(entry);
         column.AddChild(button);
@@ -273,23 +273,7 @@ public partial class ActionMenuOverlay : Control
 
     private PanelContainer PanelAt(Vector2 position, Vector2 size)
     {
-        var style = new StyleBoxFlat
-        {
-            BgColor = new Color("#0c0d10"),
-            BorderColor = new Color("#3a3d47"),
-            BorderWidthLeft = S(2),
-            BorderWidthTop = 1,
-            BorderWidthRight = 1,
-            BorderWidthBottom = 1,
-            ContentMarginLeft = S(10),
-            ContentMarginTop = S(8),
-            ContentMarginRight = S(10),
-            ContentMarginBottom = S(8),
-            CornerRadiusBottomLeft = 0,
-            CornerRadiusBottomRight = 0,
-            CornerRadiusTopLeft = 0,
-            CornerRadiusTopRight = 0,
-        };
+        var style = HudTheme.PanelFrame(modal: true);
         var panel = new PanelContainer
         {
             Position = position,
@@ -305,18 +289,18 @@ public partial class ActionMenuOverlay : Control
     private static void ButtonStyle(Button button, Color color, bool compact)
     {
         button.AddThemeColorOverride("font_color", color);
-        button.AddThemeColorOverride("font_disabled_color", new Color("#6a6d78"));
-        button.AddThemeColorOverride("font_hover_color", new Color("#07080a"));
-        button.AddThemeStyleboxOverride("normal", ButtonBox("#0c0d10", "#3a3d47"));
-        button.AddThemeStyleboxOverride("hover", ButtonBox("#57c7ff", "#57c7ff"));
-        button.AddThemeStyleboxOverride("disabled", ButtonBox("#0c0d10", "#22242b"));
-        button.AddThemeFontSizeOverride("font_size", S(compact ? 10 : 11));
+        button.AddThemeColorOverride("font_disabled_color", HudTheme.Dim);
+        button.AddThemeColorOverride("font_hover_color", HudTheme.Bg);
+        button.AddThemeStyleboxOverride("normal", ButtonBox(HudTheme.Panel, HudTheme.LineHi));
+        button.AddThemeStyleboxOverride("hover", ButtonBox(HudTheme.Cyan, HudTheme.Cyan));
+        button.AddThemeStyleboxOverride("disabled", ButtonBox(HudTheme.Panel, HudTheme.Line));
+        button.AddThemeFontSizeOverride("font_size", S(compact ? 20 : 22));
     }
 
-    private static StyleBoxFlat ButtonBox(string background, string border) => new()
+    private static StyleBoxFlat ButtonBox(Color background, Color border) => new()
     {
-        BgColor = new Color(background),
-        BorderColor = new Color(border),
+        BgColor = background,
+        BorderColor = border,
         BorderWidthLeft = 1,
         BorderWidthTop = 1,
         BorderWidthRight = 1,
@@ -331,11 +315,7 @@ public partial class ActionMenuOverlay : Control
         ContentMarginBottom = S(4),
     };
 
-    private static void LabelStyle(Label label, Color color)
-    {
-        label.AddThemeColorOverride("font_color", color);
-        label.AddThemeFontSizeOverride("font_size", S(11));
-    }
+    private static void LabelStyle(Label label, Color color) => HudTheme.Label(label, color, HudTheme.SmallUnits);
 
     private void Focus(int index)
     {

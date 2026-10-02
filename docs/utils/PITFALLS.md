@@ -343,4 +343,34 @@ the index in `CONTEXT.md` maps paths to sections. Add a new pitfall to the secti
 - **Height is scaled on the render root, not in the meshes.** Meshes are built in metres
   (`x`, `h / 2`, `y`); the root's `Y` scale √(2/3) turns 0.5 m into 16 px. Snap the camera in that
   scaled space, and keep the SubViewport size even so tile corners land on pixel corners.
+- **The HUD scales from the window height, not a constant.** `HudTheme.Scale` is
+  `window height / 1440`, set by `GameHud.Layout`; `HudLayout` holds the design units and every size
+  goes through `HudTheme.S`/`V`/`R`. The old fixed `UiScale = 1.5` drifts as soon as the window
+  changes size, and text set only at build time keeps the scale it was built with.
+- **`Control.Size` is clamped up to the content minimum.** A `PanelContainer` given 64 px renders
+  taller when its children need more: the header grew to 80 until its own frame padding and the
+  clock font were reduced. Size a container to what its content needs, then check the drawn height
+  against the layout.
+- **A `PanelContainer` lays out one child.** Adding a card's note, form and table straight to the
+  panel stacks them over each other; add them to the panel's body container instead
+  (`DevConsole.Card` returns both). The same applies to the HUD's `CreatePanel`.
+- **Positions are in the parent's space.** Applying a frame-absolute rectangle to a control that
+  already sits at the frame's offset doubles it and puts it off-screen. Convert with the parent's
+  origin (`GameHud.Place(control, rect, parent)`), and remember the build panel and compass are
+  viewport-local.
+- **The window clear colour cannot be set at runtime.** `RenderingServer.SetDefaultClearColor` is
+  overridden by the project default every frame, so the page behind the world is a `ColorRect` drawn
+  first in `PixelView`'s canvas layer (`SetBackdrop`), below both the world texture and the HUD.
+- **A control created in code has no size, and `SetAnchorsPreset(FullRect)` on a child of a manually
+  placed control can show a frame late.** A page that must appear the moment it is shown should be a
+  container that sizes its own body, or be placed with an explicit size.
+- **The world is not a child of the HUD.** `PixelView` draws on its own canvas layer, so hiding a HUD
+  view never hides the world: the dev console and the LLM page are siblings of the GAME overlay, each
+  placed over the viewport rectangle.
+- **World input is gated by the viewport, movement is not.** Right-click, the cursor cutaway and the
+  build click are ignored outside `GameHud.ViewportRect`; keyboard movement stays window-wide, so
+  opening the build panel or the console never stops `W`/`A`/`S`/`D`.
+- **`--shots` writes PNGs only in a windowed run.** `--headless` has no renderer, so `check:game`'s
+  headless import cannot replace a capture; use `--shots DIR --shots-size 2560x1440` with an isolated
+  `--database` when the shots are for a design comparison.
 

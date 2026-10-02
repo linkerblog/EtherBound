@@ -11,12 +11,6 @@ public sealed record NewGameRequest(long Seed, string Generator, string OptionsJ
 
 public partial class GeneratorPanel : PanelContainer
 {
-    private static readonly Color TextColor = new("#e8ebf0");
-    private static readonly Color MutedColor = new("#a7b2c0");
-    private static readonly Color AccentColor = new("#57c7ff");
-    // Matches GameHud.UiScale: the panel is designed at 100% and scaled to stay aligned with the HUD.
-    private static int S(float value) => (int)MathF.Round(value * 1.5f);
-    private static Vector2 V(float x, float y) => new(x * 1.5f, y * 1.5f);
     private readonly bool _newGameMode;
     private readonly List<HostGenerator> _generators = new();
     private readonly Dictionary<string, (HostOptionField Field, Control Row, Control Editor)> _editors = new(StringComparer.Ordinal);
@@ -34,8 +28,8 @@ public partial class GeneratorPanel : PanelContainer
     {
         _newGameMode = newGameMode;
         Visible = !newGameMode;
-        CustomMinimumSize = V(440, 0);
-        AddThemeStyleboxOverride("panel", PanelStyle());
+        CustomMinimumSize = HudTheme.V(440, 0);
+        AddThemeStyleboxOverride("panel", HudTheme.PanelFrame(modal: true));
     }
 
     public event Action<NewGameRequest>? Confirmed;
@@ -46,16 +40,15 @@ public partial class GeneratorPanel : PanelContainer
     public override void _Ready()
     {
         var body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
-        body.AddThemeConstantOverride("separation", S(7));
+        body.AddThemeConstantOverride("separation", HudTheme.S(7));
         AddChild(body);
         var title = new Label { Text = _newGameMode ? "NEW WORLD" : "MAP GENERATOR" };
-        StyleLabel(title, AccentColor);
-        title.AddThemeFontSizeOverride("font_size", S(14));
+        HudTheme.Label(title, HudTheme.Cyan, HudTheme.TitleUnits);
         body.AddChild(title);
         body.AddChild(new ColorRect
         {
-            Color = new Color("#25313b"),
-            CustomMinimumSize = V(0, 1),
+            Color = HudTheme.Line,
+            CustomMinimumSize = HudTheme.V(0, 1),
             MouseFilter = MouseFilterEnum.Ignore,
         });
 
@@ -67,10 +60,10 @@ public partial class GeneratorPanel : PanelContainer
         generatorRow.AddChild(_generator);
         body.AddChild(generatorRow);
         _version = new Label { Text = "" };
-        StyleLabel(_version, MutedColor);
+        HudTheme.Label(_version, HudTheme.Dim, HudTheme.SmallUnits);
         body.AddChild(_version);
         _bays = new Label { Text = "" };
-        StyleLabel(_bays, MutedColor);
+        HudTheme.Label(_bays, HudTheme.Dim, HudTheme.SmallUnits);
         body.AddChild(_bays);
 
         if (_newGameMode)
@@ -92,7 +85,7 @@ public partial class GeneratorPanel : PanelContainer
         scroll.AddChild(_fields);
         body.AddChild(scroll);
         _error = new Label { Text = "" };
-        StyleLabel(_error, new Color("#ff5c57"));
+        HudTheme.Label(_error, HudTheme.Red, HudTheme.SmallUnits);
         body.AddChild(_error);
 
         var buttons = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.End };
@@ -105,7 +98,7 @@ public partial class GeneratorPanel : PanelContainer
         };
         if (_newGameMode) buttons.AddChild(cancel);
         var apply = new Button { Text = _newGameMode ? "NEW" : "REGENERATE", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        StyleButton(apply, primary: true);
+        HudTheme.Button(apply, HudTheme.Cyan, selected: true);
         apply.Pressed += Confirm;
         buttons.AddChild(apply);
         body.AddChild(buttons);
@@ -220,7 +213,7 @@ public partial class GeneratorPanel : PanelContainer
             row.Visible = field.Group is null || field.Group == feature;
         var visibleFields = _editors.Values.Count(editor => editor.Row.Visible);
         var height = (_newGameMode ? 205 : 165) + visibleFields * 38;
-        Size = CustomMinimumSize = V(440, Mathf.Clamp(height, S(200), S(520)));
+        Size = CustomMinimumSize = HudTheme.V(440, Mathf.Clamp(height, HudTheme.S(200), HudTheme.S(520)));
     }
 
     private void LoadOptions(string json)
@@ -322,93 +315,27 @@ public partial class GeneratorPanel : PanelContainer
 
     private static Label FieldLabel(string text)
     {
-        var label = new Label { Text = text, CustomMinimumSize = V(112, 0) };
-        StyleLabel(label, MutedColor);
+        var label = new Label { Text = text, CustomMinimumSize = HudTheme.V(112, 0) };
+        HudTheme.Label(label, HudTheme.Dim, HudTheme.SmallUnits);
         return label;
     }
 
-    private static void StyleLabel(Label label, Color color)
-    {
-        label.AddThemeColorOverride("font_color", color);
-        label.AddThemeFontSizeOverride("font_size", S(12));
-    }
-
+    // The panel styles itself through `HudTheme`, so its colours and scale stay aligned with the HUD.
     private static void StyleOptionButton(OptionButton button)
     {
-        StyleField(button);
+        HudTheme.Field(button);
         var popup = button.GetPopup();
-        popup.AddThemeColorOverride("font_color", TextColor);
-        popup.AddThemeColorOverride("font_hover_color", TextColor);
-        popup.AddThemeStyleboxOverride("panel", FieldBox("#0b1016", "#35414c"));
+        popup.AddThemeColorOverride("font_color", HudTheme.Text);
+        popup.AddThemeColorOverride("font_hover_color", HudTheme.Text);
+        popup.AddThemeStyleboxOverride("panel", HudTheme.Box(HudTheme.Panel, HudTheme.LineHi, 1f, 1, HudTheme.S(10), HudTheme.S(4)));
     }
 
     private static void StyleSpinBox(SpinBox spin)
     {
-        StyleField(spin);
-        StyleField(spin.GetLineEdit());
+        HudTheme.Field(spin);
+        HudTheme.Field(spin.GetLineEdit());
     }
 
-    private static void StyleField(Control control)
-    {
-        control.AddThemeColorOverride("font_color", TextColor);
-        control.AddThemeColorOverride("font_hover_color", TextColor);
-        control.AddThemeColorOverride("font_disabled_color", MutedColor);
-        control.AddThemeStyleboxOverride("normal", FieldBox("#10151b", "#303a44"));
-        control.AddThemeStyleboxOverride("hover", FieldBox("#141e26", "#506271"));
-        control.AddThemeStyleboxOverride("focus", FieldBox("#101820", "#57c7ff"));
-        control.AddThemeStyleboxOverride("disabled", FieldBox("#0b1015", "#29313a"));
-        control.AddThemeFontSizeOverride("font_size", S(12));
-    }
-
-    private static void StyleButton(Button button, bool primary = false)
-    {
-        button.AddThemeColorOverride("font_color", primary ? AccentColor : TextColor);
-        button.AddThemeColorOverride("font_hover_color", TextColor);
-        button.AddThemeColorOverride("font_pressed_color", new Color("#071117"));
-        button.AddThemeColorOverride("font_disabled_color", MutedColor);
-        button.AddThemeStyleboxOverride("normal", primary
-            ? FieldBox("#12303c", "#57c7ff")
-            : FieldBox("#10151b", "#303a44"));
-        button.AddThemeStyleboxOverride("hover", FieldBox("#1a2b35", "#70d5ff"));
-        button.AddThemeStyleboxOverride("pressed", FieldBox("#57c7ff", "#a5e6ff"));
-        button.AddThemeStyleboxOverride("focus", FieldBox("#101820", "#57c7ff"));
-        button.AddThemeStyleboxOverride("disabled", FieldBox("#0b1015", "#29313a"));
-        button.AddThemeFontSizeOverride("font_size", S(12));
-    }
-
-    private static StyleBoxFlat FieldBox(string background, string border) => new()
-    {
-        BgColor = new Color(background),
-        BorderColor = new Color(border),
-        BorderWidthLeft = 1,
-        BorderWidthTop = 1,
-        BorderWidthRight = 1,
-        BorderWidthBottom = 1,
-        ContentMarginLeft = S(8),
-        ContentMarginTop = S(4),
-        ContentMarginRight = S(8),
-        ContentMarginBottom = S(4),
-        CornerRadiusBottomLeft = 0,
-        CornerRadiusBottomRight = 0,
-        CornerRadiusTopLeft = 0,
-        CornerRadiusTopRight = 0,
-    };
-
-    private static StyleBoxFlat PanelStyle() => new()
-    {
-        BgColor = new Color("#0b1016"),
-        BorderColor = new Color("#35414c"),
-        BorderWidthLeft = S(2),
-        BorderWidthTop = 1,
-        BorderWidthRight = 1,
-        BorderWidthBottom = 1,
-        ContentMarginLeft = S(12),
-        ContentMarginTop = S(10),
-        ContentMarginRight = S(12),
-        ContentMarginBottom = S(10),
-        CornerRadiusBottomLeft = 0,
-        CornerRadiusBottomRight = 0,
-        CornerRadiusTopLeft = 0,
-        CornerRadiusTopRight = 0,
-    };
+    private static void StyleButton(Button button, bool primary = false) =>
+        HudTheme.Button(button, primary ? HudTheme.Cyan : HudTheme.Text, primary);
 }

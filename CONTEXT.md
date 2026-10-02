@@ -22,10 +22,16 @@ faster, at clock speed 10.
 | sim.minds | `sim/EtherBound.Sim/Minds/` | Decision sources that propose through the action API; today `ExtrasBrain`, the deterministic routine of an Extra. |
 | sim.host | `sim/EtherBound.Host/` | `SimulationHost`: the sim's single writer thread, a bounded command channel and detached, revisioned `WorldFrame`s. It forwards committed player events as immutable host responses. `ActorMotion` and `StepPlayout` are presentation-only interpolation. |
 | game.app | `game/app/`, `game/project.godot`, `game/EtherBound.Game.csproj`, `game/export_presets.cfg` | `SimulationBootstrap` preloads immutable catalogs; `WorldClient` starts `SimulationHost` and sprite decoding before scene setup, maps world materials to sprite sheets, renders batched Extras, dispatches CPU chunk geometry builds, and keeps Godot resources/nodes on the main thread. Includes event presentation, WASD input and `--shots`. |
-| game.render | `game/spike/` | `PixelView` (low-res `SubViewport`, orthographic camera, art-pixel snapping), `ChunkMesher.BuildGeometry` (parallel CPU) / `ToMeshes` (main-thread `ArrayMesh`), `Terrain.gdshader`, furniture voxel meshes, `Cutaway`, `FurnitureLibrary`, `WorldDump`. |
-| game.ui | `game/ui/` | `GameHud` (`GAME`/`DEBUG`/`LLM` tabs, `CLOCK`/`FEED`/`CARRY`/`ACT` panels, input line, `NEW` popover), `ActionMenuOverlay` (right-click list, `V` radial menu), `GeneratorPanel` (`NEW`/`MAP` forms from `GeneratorSpec`), `TrajectoryAnimator`, `CompassOverlay` (iso north/east/south/west and `CAM` marker, to name cutaway faces). |
+| game.render | `game/spike/` | `PixelView` (low-res `SubViewport`, orthographic camera, art-pixel snapping, rendered into the HUD's `GameViewport` rectangle through `SetTargetRect`), `ChunkMesher.BuildGeometry` (parallel CPU) / `ToMeshes` (main-thread `ArrayMesh`), `Terrain.gdshader`, furniture voxel meshes, `Cutaway`, `FurnitureLibrary`, `WorldDump`. |
+| game.ui | `game/ui/` | `GameHud` (the design shell: header, left `MainMenu`, `GameViewport`, status column, footer with `BUILD`, feed and input; ALT+1/2/3 switch `GAME`/`DEBUG`/`LLM`), `HudTheme` (the only place with colours, fonts and styleboxes), `HudLayout` (the 2560×1440 frame arithmetic, asserted by `game.tests/HudLayoutTests.cs`), `BuildPanel` (a filter over the `build` menu entries), `DevConsole` (seed/tick, NPC table, `Regenerate`), `ActionMenuOverlay` (right-click list, `V` radial menu), `GeneratorPanel` (`NEW`/`MAP` forms from `GeneratorSpec`), `TrajectoryAnimator`, `CompassOverlay` (iso north/east/south/west and `CAM` marker, to name cutaway faces). |
 | bitcanvas | `BitCanvas/` (`pixelart.js`, `gamesync.js`, `core.js`, `terrain.js`, `sides.js`, `furnitureData.js`, `furniture.js`, `app.js`) | Standalone seeded texture and furniture generator (classic deferred scripts, HTML/JS, no build); furniture exports to `game/assets/furniture/` via `scripts/export-furniture.mjs`, and "Send to game" targets `game/assets/sprites/`. |
 | tooling | root config: `package.json`, `global.json`, `.gitignore`; `scripts/` | Build and check scripts, pinned .NET SDK, `export-furniture.mjs`, and `publish-game.mjs` for ReadyToRun Windows exports. |
+
+The HUD's design source is the Figma file `EtherBound-Design` (`3YuCVE3naRWrwL8Xhvvzdg`): 2560×1440
+frames `HUD / Base` (11:53), `HUD / Build Open (Walls)` (7:72) / `(Floors)` (7:112) and
+`Debug / Web Page` (8:46). Its colours are the `EtherBound/Colors` tokens of
+`docs/utils/STYLEGUIDE.md` [Sec. 3], wired in `game/ui/HudTheme.cs`; the frame numbers are in
+`game/ui/HudLayout.cs`; captures for the comparison come from `--shots --shots-size 2560x1440`.
 
 ## Data model
 
@@ -236,7 +242,7 @@ npm run bitcanvas                      # open the standalone texture/furniture g
 npm run export:furniture               # BitCanvas/furnitureData.js -> game/assets/furniture/*.json
 dotnet build EtherBound.sln            # sim, host, tests, bench, game
 dotnet run --project sim/EtherBound.Bench -c Release   # 1,000/5,000/10,000-Extra tick benchmark
-"$GODOT_BIN" --path game -- [--seed N] [--generator test|lab] [--database PATH] [--shots DIR] [--trace-walk CSV]
+"$GODOT_BIN" --path game -- [--seed N] [--generator test|lab] [--database PATH] [--shots DIR] [--shots-size WxH] [--trace-walk CSV]
 node scripts/trace-walk.mjs CSV        # walking smoothness from a --trace-walk run (Fix19)
 node scripts/publish-game.mjs [--export DIR] # ReadyToRun assemblies -> existing Windows export
 
@@ -259,7 +265,7 @@ It also warns when a boot doc exceeds its character budget (`CLAUDE.md` 2k, `AGE
 `CONTEXT.md` 24k, `VISION.md` 17k) or a plan in `docs/` exceeds 220 lines. `check:docs` scans the
 living docs (root, `docs/`, `docs/utils/`) and fails on a file-qualified section reference whose
 file or numbered heading does not exist; references into `docs/done/` and ones quoted as inline
-code are skipped. Only `BitCanvas/pixelart.js` currently exceeds 600 lines.
+code are skipped. `BitCanvas/pixelart.js` and `game/app/WorldClient.cs` currently exceed 600 lines.
 
 ## Pitfalls index
 
@@ -275,7 +281,7 @@ the areas you touch.
 | 5 | Renderer, shaders and furniture meshes | `game/spike/`, `game/assets/`, shaders |
 | 6 | BitCanvas | `BitCanvas/`, `scripts/export-furniture.mjs` |
 | 7 | Tests and tooling | `scripts/`, `dotnet test`, export-and-diff checks |
-| 8 | Godot client | `game/`, shaders, camera, light |
+| 8 | Godot client | `game/`, shaders, camera, light, HUD layout |
 
 ## Not yet present
 

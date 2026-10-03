@@ -323,10 +323,10 @@ internal static class Travel
 
     private static ActorRow? ActorAt(ActionContext ctx, int x, int y, int h, object mover)
     {
-        foreach (var actor in ctx.Session.Actors())
+        foreach (var actor in ctx.Session.ActorsOn(x, y))
         {
             if (mover is ActorRow m && actor.Id == m.Id) continue;
-            if ((actor.TileX, actor.TileY, actor.H) == (x, y, h)) return actor;
+            if (actor.H == h) return actor;
         }
         return null;
     }

@@ -198,6 +198,7 @@ public sealed class Database : IDisposable
                 };
                 store.Actors[row.Id] = row;
             }
+        store.InvalidateActorIndex();
         using (var command = Command("SELECT id, kind, loc, x, y, h, cx, cy, container_id, actor_id, slot, quantity, state, integrity, owner FROM object"))
         using (var r = command.ExecuteReader())
             while (r.Read())

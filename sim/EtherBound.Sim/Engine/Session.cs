@@ -17,6 +17,55 @@ public sealed class WorldStore
     /// <summary>Keys of the chunks the database holds; in a streaming world, the modified ones.</summary>
     public HashSet<(int, int)> PersistedChunks { get; } = new();
     public Database? Db { get; set; }
+
+    // Derived from Actors and never saved: which committed actors stand on which tile, so a move reads
+    // its neighbours instead of the whole crowd. Null until first asked for; whatever writes Actors outside
+    // the helpers below (the database load) must call InvalidateActorIndex.
+    private Dictionary<(int, int), List<string>>? _actorTiles;
+
+    public void InvalidateActorIndex() => _actorTiles = null;
+
+    internal IReadOnlyDictionary<(int, int), List<string>> ActorTiles()
+    {
+        if (_actorTiles is not null) return _actorTiles;
+        var tiles = new Dictionary<(int, int), List<string>>();
+        foreach (var row in Actors.Values) AddToTile(tiles, row);
+        return _actorTiles = tiles;
+    }
+
+    internal void StoreActor(ActorRow row)
+    {
+        if (_actorTiles is not null && Actors.TryGetValue(row.Id, out var old)) RemoveFromTile(_actorTiles, old);
+        Actors[row.Id] = row;
+        if (_actorTiles is not null) AddToTile(_actorTiles, row);
+    }
+
+    internal void RemoveActor(string id)
+    {
+        if (_actorTiles is not null && Actors.TryGetValue(id, out var old)) RemoveFromTile(_actorTiles, old);
+        Actors.Remove(id);
+    }
+
+    internal void ClearActors()
+    {
+        Actors.Clear();
+        _actorTiles = null;
+    }
+
+    private static void AddToTile(Dictionary<(int, int), List<string>> tiles, ActorRow row)
+    {
+        var key = (row.TileX, row.TileY);
+        if (!tiles.TryGetValue(key, out var ids)) tiles[key] = ids = new List<string>(2);
+        ids.Add(row.Id);
+    }
+
+    private static void RemoveFromTile(Dictionary<(int, int), List<string>> tiles, ActorRow row)
+    {
+        var key = (row.TileX, row.TileY);
+        if (!tiles.TryGetValue(key, out var ids)) return;
+        ids.Remove(row.Id);
+        if (ids.Count == 0) tiles.Remove(key);
+    }
 }
 
 /// <summary>
@@ -83,6 +132,44 @@ public sealed class Session
         }
         return _actors.Values.Where(a => !_deletedActors.Contains(a.Id)).OrderBy(a => a.Id, StringComparer.Ordinal).ToList();
     }
+
+    /// <summary>
+    /// The actors standing on any tile of the square that covers <paramref name="radius"/> metres around
+    /// (<paramref name="x"/>, <paramref name="y"/>), in id order, as this session sees them: its own moves,
+    /// additions and deletions count. Only these rows are copied, so a session that moves one actor no longer
+    /// copies the crowd. The square is a superset of the circle; callers apply their own test.
+    /// </summary>
+    public IReadOnlyList<ActorRow> ActorsNear(double x, double y, double radius)
+    {
+        int x0 = PyMath.Floor(x - radius), x1 = PyMath.Floor(x + radius);
+        int y0 = PyMath.Floor(y - radius), y1 = PyMath.Floor(y + radius);
+        bool In(ActorRow a) => a.TileX >= x0 && a.TileX <= x1 && a.TileY >= y0 && a.TileY <= y1;
+
+        // A wide square would visit more tiles than there are actors, and a session that already holds
+        // the whole crowd has nothing left to look up.
+        var area = (long)(x1 - x0 + 1) * (y1 - y0 + 1);
+        if (_allActorsLoaded || area > _store.Actors.Count)
+            return Actors().Where(In).ToList();
+
+        var found = new SortedDictionary<string, ActorRow>(StringComparer.Ordinal);
+        if (!_wipe)
+        {
+            var tiles = _store.ActorTiles();
+            for (var tx = x0; tx <= x1; tx++)
+                for (var ty = y0; ty <= y1; ty++)
+                    if (tiles.TryGetValue((tx, ty), out var ids))
+                        foreach (var id in ids)
+                            // The working copy decides: a row this session moved away is not here any more.
+                            if (GetActor(id) is { } row && In(row)) found[id] = row;
+        }
+        // Rows the session moved onto the square or added belong to it even though the store never saw them there.
+        foreach (var row in _actors.Values)
+            if (!_deletedActors.Contains(row.Id) && In(row)) found[row.Id] = row;
+        return found.Values.ToList();
+    }
+
+    /// <summary>The actors standing on one tile, in id order (see <see cref="ActorsNear"/>).</summary>
+    public IReadOnlyList<ActorRow> ActorsOn(int x, int y) => ActorsNear(x + 0.5, y + 0.5, 0);
 
     public void DeleteActor(ActorRow row) => _deletedActors.Add(row.Id);
 
@@ -280,14 +367,14 @@ public sealed class Session
         {
             _store.Objects.Clear();
             _store.Walls.Clear();
-            if (changes.WipeActors) _store.Actors.Clear();
+            if (changes.WipeActors) _store.ClearActors();
         }
         if (changes.WipeActivityWork) _store.ActivityWork.Clear();
         if (changes.Wipe) _store.PersistedChunks.Clear();
         foreach (var chunk in changes.Chunks) _store.PersistedChunks.Add((chunk.Cx, chunk.Cy));
         if (changes.Meta is not null) _store.Meta = changes.Meta.Clone();
-        foreach (var id in changes.DeletedActors) _store.Actors.Remove(id);
-        foreach (var row in changes.InsertedActors.Concat(changes.UpdatedActors)) _store.Actors[row.Id] = row.Clone();
+        foreach (var id in changes.DeletedActors) _store.RemoveActor(id);
+        foreach (var row in changes.InsertedActors.Concat(changes.UpdatedActors)) _store.StoreActor(row.Clone());
         foreach (var id in changes.DeletedObjects) _store.Objects.Remove(id);
         foreach (var row in changes.InsertedObjects.Concat(changes.UpdatedObjects)) _store.Objects[row.Id] = row.Clone();
         foreach (var key in changes.DeletedWalls) _store.Walls.Remove(key);

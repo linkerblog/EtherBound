@@ -47,15 +47,11 @@ Open decisions and loose ends. When one is settled, record the decision where it
 - [ ] **Needs: feed lines and supply.** Seeing another actor eat is perception, not `Dev-011`; shops,
       stock and prices are "Recipes and supply". Extras in a streaming world live on a starting kit.
 
-- [ ] **Crowd tick cost has regressed since the cut-over.** `Bench -- --extras 1000` gives ~3.7 s per tick at
-      the committed `v5.2.0` and today, against 64.9 ms recorded at Dev-025. 100 Extras take 57 ms, 200 take
-      160 ms and 1,000 take 3,700 ms, so it is superlinear: every `move` builds a session whose
-      `Session.Actors()` clones all actor rows. Find the commit between Dev-025 and `v5.2.0` that did it, and
-      avoid the all-actor clone in `MoveOp`/`OthersOn` (a lookup by tile). Not a `Dev-011` regression: measured
-      identical with and without needs.
-- [ ] **Needs: worst-case crowd cost is +12 %.** With every Extra needy and no source (the steady state of the
-      streaming world) a 200-Extra tick costs ~179 ms against ~160 without needs. The scan minute is a `Menu` read plus
-      a 12 m tile scan per Extra; cache which chunks hold drinkable ground, or scan less often, to get under 10 %.
+- [ ] **Needs: worst-case crowd cost is ~1.5x.** After Fix20 a 200-Extra tick costs 34-41 ms (`needs: start`, Release, x10) and
+      53-59 ms with every Extra needy and no source (the steady state of the streaming world), so the worst case is about
+      1.45x, not the 1.10x Fix20 asked for; its p95 is 115-160 ms, over the 100 ms a tick lasts at x10. A scan minute is a
+      `Menu` read (0.43 ms) plus a 12 m tile scan (0.12 ms) per Extra, one in five. Cache which chunks hold drinkable ground,
+      or back off after a scan that found nothing (that changes what an Extra decides, so it needs its own plan).
 - [ ] **Re-run the live Jev bench.** `eat` and `sleep` now appear in Niko's menu (`sleep` before `wait`), changing the
       candidate numbers; `Llm.Bench -- --list` shows every expected label is still a candidate, but accuracy was last
       measured before Dev-011.

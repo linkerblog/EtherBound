@@ -1,5 +1,7 @@
 // EtherBound.Bench measures the sim on the lab map (Dev-025 [Sec. 3.3]): milliseconds per
-// game-minute tick at x10 and per movement step, with 1,000, 5,000 and 10,000 Extras.
+// game-minute tick at x10 and per movement step. The crowd the sim is built for is 200 Extras (Fix20), judged
+// against `TickAvgBudgetMs` and `TickP95BudgetMs`; 1,000 runs beside it as a stress row, and 5,000 and
+// 10,000 only through `--extras`.
 using System.Diagnostics;
 using EtherBound.Sim;
 using EtherBound.Sim.Core;
@@ -10,7 +12,11 @@ using EtherBound.Sim.World.Gen;
 
 const int WarmupTicks = 5;
 const int MeasuredTicks = 100;
-int[] populations = { 1_000, 5_000, 10_000 };
+const int TargetCrowd = 200;
+// Half and all of the 100 ms a tick lasts at x10 (`SimClock.Interval = TimeScale / Speed`).
+const double TickAvgBudgetMs = 50;
+const double TickP95BudgetMs = 100;
+int[] populations = { TargetCrowd, 1_000 };
 bool runBrain = !args.Contains("--without-brain", StringComparer.Ordinal);
 bool traceTicks = args.Contains("--trace", StringComparer.Ordinal);
 // Dev-011: how the crowd's needs are seeded. `--no-needs` leaves the legacy rows (the old baseline), the
@@ -64,7 +70,10 @@ foreach (var count in populations)
     var moveWatch = Stopwatch.StartNew();
     var result = engine.Submit(Ids.Player, GameAction.Move(1, 0), 0.05);
     moveWatch.Stop();
-    Console.WriteLine($"{count,8} {avg,12:F3} {p95,12:F3} {moveWatch.Elapsed.TotalMilliseconds,12:F3}");
+    var verdict = count != TargetCrowd ? "" :
+        avg <= TickAvgBudgetMs && p95 <= TickP95BudgetMs ? $"  PASS (avg <= {TickAvgBudgetMs} ms, p95 <= {TickP95BudgetMs} ms)" :
+        $"  FAIL (avg <= {TickAvgBudgetMs} ms, p95 <= {TickP95BudgetMs} ms)";
+    Console.WriteLine($"{count,8} {avg,12:F3} {p95,12:F3} {moveWatch.Elapsed.TotalMilliseconds,12:F3}{verdict}");
     if (!result.Accepted) Console.WriteLine("  (move step was rejected; the bench spot may be blocked)");
 }
 

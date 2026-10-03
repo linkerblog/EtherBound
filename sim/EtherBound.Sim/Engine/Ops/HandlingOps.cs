@@ -27,7 +27,7 @@ internal static class Handling
         if (!kind.Solid || row.X is null || row.Y is null || row.H is null) return false;
         var top = row.H.Value + kind.Height;
         if (AtCell(ctx, row.X.Value, row.Y.Value, top).Any(other => other.Id != row.Id && other.H == top)) return true;
-        return ctx.Session.Actors().Any(a => (a.TileX, a.TileY, a.H) == (row.X.Value, row.Y.Value, top));
+        return ctx.Session.ActorsOn(row.X.Value, row.Y.Value).Any(a => a.H == top);
     }
 
     public static bool CellsFree(ActionContext ctx, int x, int y, int h, int height)
@@ -38,7 +38,7 @@ internal static class Handling
     }
 
     public static bool ActorOn(ActionContext ctx, int x, int y, int h) =>
-        ctx.Session.Actors().Any(a => (a.TileX, a.TileY, a.H) == (x, y, h));
+        ctx.Session.ActorsOn(x, y).Any(a => a.H == h);
 
     public static void EmitBumps(ActionContext ctx, Location from, Location to, List<SimEvent> events)
     {

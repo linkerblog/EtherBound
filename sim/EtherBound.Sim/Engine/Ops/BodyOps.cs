@@ -9,6 +9,7 @@ namespace EtherBound.Sim.Engine.Ops;
 public sealed class MoveOp : OpHandler
 {
     public const double WalkingSpeed = 4.0;
+    private const double NeighbourMarginM = 2 * Movement.BodyRadiusMetres * 2 + 1.0;
 
     public override string Op => "move";
 
@@ -23,9 +24,13 @@ public sealed class MoveOp : OpHandler
     public override Resolution Resolve(ActionContext ctx, GameAction action)
     {
         var from = ctx.ActorPos;
+        var distance = WalkingSpeed * ctx.DeltaSeconds;
+        // Only a body within the step plus two body diameters of the start can touch the mover, so the
+        // crowd beyond that is never read (a load only shortens the step).
+        var neighbours = ctx.Session.ActorsNear(ctx.Actor.X, ctx.Actor.Y, distance + NeighbourMarginM)
+            .Where(actor => actor.Id != ctx.Actor.Id).ToList();
         var (x, y, h) = Movement.MoveInWorld(ctx.Actor.X, ctx.Actor.Y, ctx.Actor.H, action.Dx, action.Dy,
-            WalkingSpeed * ctx.DeltaSeconds, ctx.Grid, ctx.LoadKg,
-            ctx.Session.Actors().Where(actor => actor.Id != ctx.Actor.Id).ToList());
+            distance, ctx.Grid, ctx.LoadKg, neighbours);
         (ctx.Actor.X, ctx.Actor.Y, ctx.Actor.H) = (x, y, h);
         ctx.Actor.Z = PyMath.FloorDiv(h, 6);
         var to = ctx.ActorPos;
@@ -181,7 +186,7 @@ public sealed class DigOp : OpHandler
         var (groundH, _, removed, exposed) = Layers(ctx, x, y);
         // Whoever stands on the tile goes down with the ground, or the standing rule would leave
         // them floating 0.5 m up and frozen there.
-        var standing = ctx.Session.Actors().Where(a => (a.TileX, a.TileY, a.H) == (x, y, groundH)).ToList();
+        var standing = ctx.Session.ActorsOn(x, y).Where(a => a.H == groundH).ToList();
         var chunk = ctx.Grid.LowerGround(x, y);
         ctx.Session.MarkChunk(chunk.Cx, chunk.Cy);
         var newH = groundH - 1;
@@ -289,7 +294,7 @@ public sealed class BuildOp : OpHandler
         var cells = WallBody(bottom).ToList();
         foreach (var (sx, sy) in sides)
             if (cells.Any(h => ctx.Grid.SolidAt(sx, sy, h))) return "no headroom";
-        if (ctx.Session.Actors().Any(o => o.Id != ctx.Actor.Id && sides.Contains((o.TileX, o.TileY)) &&
+        if (sides.SelectMany(side => ctx.Session.ActorsOn(side.Item1, side.Item2)).Any(o => o.Id != ctx.Actor.Id &&
             cells.Any(h => o.H < h && h <= o.H + Reach.UpH))) return "someone is in the way";
         return null;
     }
@@ -314,7 +319,8 @@ public sealed class BuildOp : OpHandler
         if (bottom < ctx.Actor.H - Reach.DownH) return "out of reach";
         var cells = WallBody(bottom).ToList();
         if (cells.Any(h => ctx.Grid.SolidAt(target.X, target.Y, h))) return "no headroom";
-        if (ctx.Session.Actors().Any(actor =>
+        // A body within the wall's clearance of its tile stands on that tile or one next to it.
+        if (ctx.Session.ActorsNear(target.X + 0.5, target.Y + 0.5, 1.0).Any(actor =>
                 cells.Any(h => actor.H < h && h <= actor.H + Reach.UpH) &&
                 DistanceToInteriorWall(target, actor.X, actor.Y) <= WallRegions.BodyClearance))
             return "someone is in the way";
@@ -354,7 +360,7 @@ public sealed class BuildOp : OpHandler
         if (level is not null && level.FloorH[Chunk.Index(lx, ly)] != ChunkConst.NoFloor) return "already built";
         if (!Reach.InCloseReach(ctx, target.X, target.Y) || !Reach.WithinHeight(ctx, target.H)) return "out of reach";
         if (ctx.Grid.SolidAt(target.X, target.Y, target.H) || ctx.Grid.IsVoid(target.X, target.Y, target.H)) return "no headroom";
-        if (ctx.Session.Actors().Any(o => o.Id != ctx.Actor.Id && (o.TileX, o.TileY) == (target.X, target.Y) &&
+        if (ctx.Session.ActorsOn(target.X, target.Y).Any(o => o.Id != ctx.Actor.Id &&
             o.H < target.H && target.H <= o.H + Reach.UpH)) return "someone is in the way";
         return null;
     }

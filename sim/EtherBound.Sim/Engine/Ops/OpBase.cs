@@ -32,7 +32,7 @@ public sealed class ActionContext
     public TilePos ActorPos => new(Actor.TileX, Actor.TileY, Actor.H);
 
     public List<ActorRow> OthersOn(int x, int y, int h) =>
-        Session.Actors().Where(o => o.Id != Actor.Id && (o.TileX, o.TileY, o.H) == (x, y, h)).ToList();
+        Session.ActorsOn(x, y).Where(o => o.Id != Actor.Id && o.H == h).ToList();
 }
 
 /// <summary>An instant op's outcome: events, an optional line of text and a trajectory.</summary>

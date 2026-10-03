@@ -23,7 +23,7 @@ public static class Menu
     private static (int H, string Name)? Place(WorldGrid grid, MaterialRegistry registry, int x, int y, int z) =>
         Surface(grid, x, y, z) is { } chosen ? (chosen.H, registry.Get(chosen.MaterialId)?.Name ?? "unknown") : null;
 
-    private static List<Target> Candidates(Session session, WorldGrid grid, ActorRow actor, IReadOnlyList<ActorRow> actors,
+    private static List<Target> Candidates(Session session, WorldGrid grid, ActorRow actor,
         int x, int y, int z, bool onOwnTile)
     {
         var candidates = new List<Target>();
@@ -64,7 +64,7 @@ public static class Menu
             if (edges.Add((z, WallSlots.HalfV))) candidates.Add(new EdgeTarget(x, y, z, WallSlots.HalfV));
         }
         var standH = chosen?.H ?? actor.H;
-        candidates.AddRange(actors.Where(o => o.Id != actor.Id && (o.TileX, o.TileY, o.H) == (x, y, standH)).Select(o => new ActorTarget(o.Id)));
+        candidates.AddRange(session.ActorsOn(x, y).Where(o => o.Id != actor.Id && o.H == standH).Select(o => new ActorTarget(o.Id)));
         foreach (var row in tileRows)
             if (grid.Catalog.Get(row.Kind) is { } kind && IsAccessible(kind, row))
                 candidates.AddRange(Children(session, row.Id).Select(child => new ObjectTarget(child.Id)));
@@ -95,7 +95,6 @@ public static class Menu
             offsets.AddRange(Orthogonal.Where(d => Reach.InCloseReach(ctx, tileX + d.Item1, tileY + d.Item2)));
             offsets.AddRange(Diagonal.Where(d => Reach.InCloseReach(ctx, tileX + d.Item1, tileY) || Reach.InCloseReach(ctx, tileX, tileY + d.Item2)));
         }
-        var actors = session.Actors();
         // Each candidate keeps the offset of the tile it came from, so its entries can say where
         // they act without the client resolving object ids to tiles.
         var candidates = new List<(Target Target, int Dx, int Dy)>();
@@ -104,7 +103,7 @@ public static class Menu
             int nx = tileX + dx, ny = tileY + dy;
             var (h, name) = Place(grid, registry, nx, ny, z) ?? (z * 6, "nothing");
             places.Add(new MenuPlace(dx, dy, h, name));
-            candidates.AddRange(Candidates(session, grid, actor, actors, nx, ny, z, (nx, ny) == actorTile).Select(t => (t, dx, dy)));
+            candidates.AddRange(Candidates(session, grid, actor, nx, ny, z, (nx, ny) == actorTile).Select(t => (t, dx, dy)));
         }
         foreach (var (spec, handler) in OpCatalog.Handled())
         {
